@@ -109,3 +109,112 @@
   margin: 0;
   color: #e5e7eb;
 }
+
+/* Settings Layout */
+.pf-section-description {
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+
+.pf-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pf-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+/* Cards */
+.pf-card {
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid #1f2937;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+}
+
+.pf-card-header h2 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.pf-card-header p {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-bottom: 10px;
+}
+
+/* Form fields */
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.pf-field label {
+  font-size: 0.8rem;
+  color: #d1d5db;
+}
+
+.pf-field input,
+.pf-field select {
+  background: #020617;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  padding: 6px 8px;
+  color: #e5e7eb;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.pf-field input:focus,
+.pf-field select:focus {
+  border-color: #0ea5e9;
+}
+
+/* Notes */
+.pf-note {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.pf-note ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* Buttons / actions */
+.pf-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pf-button {
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+}
+
+.pf-button-primary {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #eff6ff;
+}
+
+.pf-button-primary:hover {
+  filter: brightness(1.1);
+}
+
+.pf-status-message {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}

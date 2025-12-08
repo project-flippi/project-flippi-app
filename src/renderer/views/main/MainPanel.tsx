@@ -1,6 +1,7 @@
 // src/renderer/views/MainPanel/MainPanel.tsx
 import React, { useState } from 'react';
 import '../../styles/main.css';
+import SettingsPanel from '../settings/SettingsPanel';
 
 type View = 'recording' | 'videos' | 'schedule' | 'settings';
 
@@ -52,7 +53,7 @@ const MainPanel: React.FC = () => {
         {activeView === 'recording' && <RecordingPlaceholder />}
         {activeView === 'videos' && <VideoManagementPlaceholder />}
         {activeView === 'schedule' && <SchedulingPlaceholder />}
-        {activeView === 'settings' && <SettingsPlaceholder />}
+        {activeView === 'settings' && <SettingsPanel />}
       </main>
     </div>
   );
