@@ -218,3 +218,31 @@
   font-size: 0.8rem;
   color: #9ca3af;
 }
+
+.pf-secret-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pf-secret-input {
+  flex: 1;
+}
+
+.pf-eye-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  background: #020617;
+  color: #9ca3af;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.pf-eye-button:hover {
+  color: #e5e7eb;
+  border-color: #0ea5e9;
+}

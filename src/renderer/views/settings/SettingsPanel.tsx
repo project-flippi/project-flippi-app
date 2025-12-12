@@ -1,29 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import SecretInput from './SecretInput';
+import type {
+  YoutubeSettings,
+  ObsSettings,
+  TextAiSettings,
+  ImageAiSettings,
+  AppSettings,
+} from '../../../main/settings/schema';
 
 type TextAiProvider = 'openai' | 'gemini' | 'claude';
 type ImageAiProvider = 'openai' | 'gemini';
-
-interface YoutubeSettings {
-  clientId: string;
-  projectId: string;
-  clientSecret: string;
-}
-
-interface ObsSettings {
-  host: string;
-  port: string;
-  password: string;
-}
-
-interface TextAiSettings {
-  provider: TextAiProvider;
-  apiKey: string;
-}
-
-interface ImageAiSettings {
-  provider: ImageAiProvider;
-  apiKey: string;
-}
 
 const SettingsPanel: React.FC = () => {
   // --- Local state (later you can hydrate from / persist to disk via Electron) ---
@@ -51,11 +37,44 @@ const SettingsPanel: React.FC = () => {
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const handleSave = () => {
-    // TODO: replace with IPC call to persist settings (e.g. electron-store)
-    console.log('Saving settings:', { youtube, obs, textAi, imageAi });
-    setStatusMessage('Settings saved (placeholder). Persistence not wired yet.');
-    setTimeout(() => setStatusMessage(null), 4000);
+  // Load on mount
+  useEffect(() => {
+    let mounted = true;
+
+    window.flippiSettings
+      .get()
+      .then((settings: AppSettings) => {
+        if (!mounted) return;
+        setYoutube(settings.youtube);
+        setObs(settings.obs);
+        setTextAi(settings.textAi);
+        setImageAi(settings.imageAi);
+      })
+      .catch((err) => {
+        console.error('Failed to load settings', err);
+        setStatusMessage('Failed to load settings');
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      const updated = await window.flippiSettings.update({
+        youtube,
+        obs,
+        textAi,
+        imageAi,
+      });
+      setStatusMessage('Settings saved.');
+      setTimeout(() => setStatusMessage(null), 3000);
+      console.log('Saved settings:', updated);
+    } catch (err) {
+      console.error('Failed to save settings', err);
+      setStatusMessage('Failed to save settings.');
+    }
   };
 
   return (
@@ -94,11 +113,10 @@ const SettingsPanel: React.FC = () => {
           </div>
 
           <div className="pf-field">
-            <label>Client Secret</label>
-            <input
-              type="password"
+            <SecretInput
+              label="Client Secret"
               value={youtube.clientSecret}
-              onChange={(e) => setYoutube({ ...youtube, clientSecret: e.target.value })}
+              onChange={(next) => setYoutube({ ...youtube, clientSecret: next })}
               placeholder="••••••••••••••••"
             />
           </div>
@@ -142,11 +160,10 @@ const SettingsPanel: React.FC = () => {
           </div>
 
           <div className="pf-field">
-            <label>OBS Password</label>
-            <input
-              type="password"
+            <SecretInput
+              label="OBS Password"
               value={obs.password}
-              onChange={(e) => setObs({ ...obs, password: e.target.value })}
+              onChange={(next) => setObs({ ...obs, password: next })}
               placeholder="••••••••••"
             />
           </div>
@@ -174,11 +191,10 @@ const SettingsPanel: React.FC = () => {
           </div>
 
           <div className="pf-field">
-            <label>API Key</label>
-            <input
-              type="password"
+            <SecretInput
+              label="API Key"
               value={textAi.apiKey}
-              onChange={(e) => setTextAi({ ...textAi, apiKey: e.target.value })}
+              onChange={(next) => setTextAi({ ...textAi, apiKey: next })}
               placeholder="sk-... / gemini-... / claude-..."
             />
           </div>
@@ -205,11 +221,10 @@ const SettingsPanel: React.FC = () => {
           </div>
 
           <div className="pf-field">
-            <label>API Key</label>
-            <input
-              type="password"
+            <SecretInput
+              label="API Key"
               value={imageAi.apiKey}
-              onChange={(e) => setImageAi({ ...imageAi, apiKey: e.target.value })}
+              onChange={(next) => setImageAi({ ...imageAi, apiKey: next })}
               placeholder="sk-... / gemini-..."
             />
           </div>

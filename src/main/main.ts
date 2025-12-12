@@ -15,6 +15,9 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
+import { getSettings, updateSettings } from './settings/store';
+import type { AppSettings } from './settings/schema'
+
 class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
@@ -30,6 +33,17 @@ ipcMain.on('ipc-example', async (event, arg) => {
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
 });
+
+ipcMain.handle('settings:get', () => {
+  return getSettings();
+});
+
+ipcMain.handle(
+  'settings:update',
+  (event, partial: Partial<AppSettings>) => {
+    return updateSettings(partial);
+  }
+);
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');

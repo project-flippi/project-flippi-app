@@ -1,6 +1,7 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import type { AppSettings } from './settings/schema';
 
 export type Channels = 'ipc-example';
 
@@ -25,5 +26,11 @@ const electronHandler = {
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);
+
+contextBridge.exposeInMainWorld('flippiSettings', {
+  get: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
+  update: (partial: Partial<AppSettings>): Promise<AppSettings> =>
+    ipcRenderer.invoke('settings:update', partial),
+});
 
 export type ElectronHandler = typeof electronHandler;
