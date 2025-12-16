@@ -246,3 +246,8 @@
   color: #e5e7eb;
   border-color: #0ea5e9;
 }
+
+.pf-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
