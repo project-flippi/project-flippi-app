@@ -16,9 +16,7 @@ const OBSSettingsCard: React.FC<Props> = ({ value, onChange }) => {
         <label>Host</label>
         <input
           value={value.host}
-          onChange={(e) =>
-            onChange({ ...value, host: e.target.value })
-          }
+          onChange={(e) => onChange({ ...value, host: e.target.value })}
         />
       </div>
 
@@ -26,18 +24,14 @@ const OBSSettingsCard: React.FC<Props> = ({ value, onChange }) => {
         <label>Port</label>
         <input
           value={value.port}
-          onChange={(e) =>
-            onChange({ ...value, port: e.target.value })
-          }
+          onChange={(e) => onChange({ ...value, port: e.target.value })}
         />
       </div>
 
       <SecretInput
         label="OBS Password"
         value={value.password}
-        onChange={(next) =>
-          onChange({ ...value, password: next })
-        }
+        onChange={(next) => onChange({ ...value, password: next })}
       />
     </div>
   );

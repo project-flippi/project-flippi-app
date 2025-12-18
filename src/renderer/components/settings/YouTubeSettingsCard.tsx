@@ -16,9 +16,7 @@ const YouTubeSettingsCard: React.FC<Props> = ({ value, onChange }) => {
         <label>Client ID</label>
         <input
           value={value.clientId}
-          onChange={(e) =>
-            onChange({ ...value, clientId: e.target.value })
-          }
+          onChange={(e) => onChange({ ...value, clientId: e.target.value })}
         />
       </div>
 
@@ -26,18 +24,14 @@ const YouTubeSettingsCard: React.FC<Props> = ({ value, onChange }) => {
         <label>Project ID</label>
         <input
           value={value.projectId}
-          onChange={(e) =>
-            onChange({ ...value, projectId: e.target.value })
-          }
+          onChange={(e) => onChange({ ...value, projectId: e.target.value })}
         />
       </div>
 
       <SecretInput
         label="Client Secret"
         value={value.clientSecret}
-        onChange={(next) =>
-          onChange({ ...value, clientSecret: next })
-        }
+        onChange={(next) => onChange({ ...value, clientSecret: next })}
       />
     </div>
   );

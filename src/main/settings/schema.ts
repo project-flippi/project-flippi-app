@@ -9,8 +9,8 @@ export interface YoutubeSettings {
 }
 
 export interface ObsSettings {
-  host: string;   // default "127.0.0.1"
-  port: string;   // default "4444"
+  host: string; // default "127.0.0.1"
+  port: string; // default "4444"
   password: string;
 }
 

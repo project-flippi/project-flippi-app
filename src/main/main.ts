@@ -16,7 +16,7 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
 import { getSettings, updateSettings } from './settings/store';
-import type { AppSettings } from './settings/schema'
+import type { AppSettings } from './settings/schema';
 
 class AppUpdater {
   constructor() {
@@ -38,12 +38,9 @@ ipcMain.handle('settings:get', () => {
   return getSettings();
 });
 
-ipcMain.handle(
-  'settings:update',
-  (event, partial: Partial<AppSettings>) => {
-    return updateSettings(partial);
-  }
-);
+ipcMain.handle('settings:update', (event, partial: Partial<AppSettings>) => {
+  return updateSettings(partial);
+});
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');

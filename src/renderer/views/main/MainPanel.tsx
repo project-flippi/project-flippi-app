@@ -69,9 +69,7 @@ function navButtonClass(active: View, self: View): string {
 const RecordingPlaceholder: React.FC = () => (
   <section className="pf-section">
     <h1>Recording</h1>
-    <p>
-      This is where you&apos;ll:
-    </p>
+    <p>This is where you&apos;ll:</p>
     <ul>
       <li>Create new event folders</li>
       <li>Select the active event</li>
@@ -84,7 +82,8 @@ const VideoManagementPlaceholder: React.FC = () => (
   <section className="pf-section">
     <h1>Video Management</h1>
     <p>
-      Here you&apos;ll browse events, games, clips, sets and compilations, and manage metadata.
+      Here you&apos;ll browse events, games, clips, sets and compilations, and
+      manage metadata.
     </p>
   </section>
 );
@@ -93,7 +92,8 @@ const SchedulingPlaceholder: React.FC = () => (
   <section className="pf-section">
     <h1>Scheduling</h1>
     <p>
-      Configure recurring tasks like data generation, compilation, and YouTube uploads.
+      Configure recurring tasks like data generation, compilation, and YouTube
+      uploads.
     </p>
   </section>
 );
@@ -101,9 +101,7 @@ const SchedulingPlaceholder: React.FC = () => (
 const SettingsPlaceholder: React.FC = () => (
   <section className="pf-section">
     <h1>Settings</h1>
-    <p>
-      Configure YouTube, AI, OBS connection, and startup options here.
-    </p>
+    <p>Configure YouTube, AI, OBS connection, and startup options here.</p>
   </section>
 );
 

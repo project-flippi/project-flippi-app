@@ -91,7 +91,7 @@ export function useSettings() {
         return { ...prev, [key]: value };
       });
     },
-    []
+    [],
   );
 
   const isDirty = useMemo(() => {

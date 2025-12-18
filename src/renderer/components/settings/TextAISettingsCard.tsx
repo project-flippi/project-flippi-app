@@ -32,9 +32,7 @@ const TextAISettingsCard: React.FC<Props> = ({ value, onChange }) => {
       <SecretInput
         label="API Key"
         value={value.apiKey}
-        onChange={(next) =>
-          onChange({ ...value, apiKey: next })
-        }
+        onChange={(next) => onChange({ ...value, apiKey: next })}
       />
     </div>
   );

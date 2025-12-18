@@ -1,11 +1,10 @@
 import React from 'react';
-import { useSettings } from '../../hooks/useSettings'
+import { useSettings } from '../../hooks/useSettings';
 
 import YouTubeSettingsCard from '../../components/settings/YouTubeSettingsCard';
 import OBSSettingsCard from '../../components/settings/OBSSettingsCard';
 import TextAISettingsCard from '../../components/settings/TextAISettingsCard';
 import ImageAISettingsCard from '../../components/settings/ImageAISettingsCard';
-
 
 const SettingsPanel: React.FC = () => {
   const {
@@ -71,9 +70,7 @@ const SettingsPanel: React.FC = () => {
           Reset
         </button>
 
-        {status && (
-          <span className="pf-status-message">{status.message}</span>
-        )}
+        {status && <span className="pf-status-message">{status.message}</span>}
       </div>
     </section>
   );

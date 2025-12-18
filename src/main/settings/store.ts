@@ -1,18 +1,15 @@
 import Store from 'electron-store';
-import {
-  AppSettings,
-  defaultSettings,
-} from './schema';
+import { AppSettings, defaultSettings } from './schema';
 
 const store = new Store<AppSettings>({
-  name: 'settings',      // file will be something like settings.json
+  name: 'settings', // file will be something like settings.json
   defaults: defaultSettings,
 });
 
 // Deep-merge helper for nested objects
 function mergeSettings(
   current: AppSettings,
-  partial: Partial<AppSettings>
+  partial: Partial<AppSettings>,
 ): AppSettings {
   return {
     ...current,
