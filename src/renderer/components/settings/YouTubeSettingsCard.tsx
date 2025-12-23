@@ -1,4 +1,3 @@
-import React from 'react';
 import type { YoutubeSettings } from '../../../main/settings/schema';
 import SecretInput from './SecretInput';
 
@@ -7,34 +6,43 @@ type Props = {
   onChange: (next: YoutubeSettings) => void;
 };
 
-const YouTubeSettingsCard: React.FC<Props> = ({ value, onChange }) => {
+function YouTubeSettingsCard({ value, onChange }: Props) {
   return (
     <div className="pf-card">
       <h2>YouTube API</h2>
 
       <div className="pf-field">
-        <label>Client ID</label>
-        <input
-          value={value.clientId}
-          onChange={(e) => onChange({ ...value, clientId: e.target.value })}
-        />
+        <label htmlFor="youtube-client-id">
+          Client ID
+          <input
+            id="youtube-client-id"
+            value={value.clientId}
+            onChange={(e) => onChange({ ...value, clientId: e.target.value })}
+          />
+        </label>
       </div>
 
       <div className="pf-field">
-        <label>Project ID</label>
-        <input
-          value={value.projectId}
-          onChange={(e) => onChange({ ...value, projectId: e.target.value })}
-        />
+        <label htmlFor="youtube-project-id">
+          Project ID
+          <input
+            id="youtube-project-id"
+            value={value.projectId}
+            onChange={(e) => onChange({ ...value, projectId: e.target.value })}
+          />
+        </label>
       </div>
 
       <SecretInput
-        label="Client Secret"
+        id="youtube-client-secret"
+        label="Youtube Client Secret"
         value={value.clientSecret}
         onChange={(next) => onChange({ ...value, clientSecret: next })}
+        placeholder=""
+        autoComplete="off"
       />
     </div>
   );
-};
+}
 
 export default YouTubeSettingsCard;

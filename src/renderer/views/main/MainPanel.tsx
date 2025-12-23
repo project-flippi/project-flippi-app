@@ -5,7 +5,50 @@ import SettingsPanel from '../settings/SettingsPanel';
 
 type View = 'recording' | 'videos' | 'schedule' | 'settings';
 
-const MainPanel: React.FC = () => {
+function RecordingPlaceholder() {
+  return (
+    <section className="pf-section">
+      <h1>Recording</h1>
+      <p>This is where you&apos;ll:</p>
+      <ul>
+        <li>Create new event folders</li>
+        <li>Select the active event</li>
+        <li>Start the recording stack</li>
+      </ul>
+    </section>
+  );
+}
+
+function VideoManagementPlaceholder() {
+  return (
+    <section className="pf-section">
+      <h1>Video Management</h1>
+      <p>
+        Here you&apos;ll browse events, games, clips, sets and compilations, and
+        manage metadata.
+      </p>
+    </section>
+  );
+}
+
+function SchedulingPlaceholder() {
+  return (
+    <section className="pf-section">
+      <h1>Scheduling</h1>
+      <p>
+        Configure recurring tasks like data generation, compilation, and YouTube
+        uploads.
+      </p>
+    </section>
+  );
+}
+
+function navButtonClass(active: View, self: View): string {
+  const base = 'pf-nav-button';
+  return active === self ? `${base} pf-nav-button--active` : base;
+}
+
+function MainPanel() {
   const [activeView, setActiveView] = useState<View>('recording');
 
   return (
@@ -18,24 +61,28 @@ const MainPanel: React.FC = () => {
 
         <nav className="pf-nav">
           <button
+            type="button"
             className={navButtonClass(activeView, 'recording')}
             onClick={() => setActiveView('recording')}
           >
             Recording
           </button>
           <button
+            type="button"
             className={navButtonClass(activeView, 'videos')}
             onClick={() => setActiveView('videos')}
           >
             Video Management
           </button>
           <button
+            type="button"
             className={navButtonClass(activeView, 'schedule')}
             onClick={() => setActiveView('schedule')}
           >
             Scheduling
           </button>
           <button
+            type="button"
             className={navButtonClass(activeView, 'settings')}
             onClick={() => setActiveView('settings')}
           >
@@ -57,52 +104,6 @@ const MainPanel: React.FC = () => {
       </main>
     </div>
   );
-};
-
-function navButtonClass(active: View, self: View): string {
-  const base = 'pf-nav-button';
-  return active === self ? `${base} pf-nav-button--active` : base;
 }
-
-// --- Placeholder views (we'll flesh these out in later sessions) ---
-
-const RecordingPlaceholder: React.FC = () => (
-  <section className="pf-section">
-    <h1>Recording</h1>
-    <p>This is where you&apos;ll:</p>
-    <ul>
-      <li>Create new event folders</li>
-      <li>Select the active event</li>
-      <li>Start the recording stack</li>
-    </ul>
-  </section>
-);
-
-const VideoManagementPlaceholder: React.FC = () => (
-  <section className="pf-section">
-    <h1>Video Management</h1>
-    <p>
-      Here you&apos;ll browse events, games, clips, sets and compilations, and
-      manage metadata.
-    </p>
-  </section>
-);
-
-const SchedulingPlaceholder: React.FC = () => (
-  <section className="pf-section">
-    <h1>Scheduling</h1>
-    <p>
-      Configure recurring tasks like data generation, compilation, and YouTube
-      uploads.
-    </p>
-  </section>
-);
-
-const SettingsPlaceholder: React.FC = () => (
-  <section className="pf-section">
-    <h1>Settings</h1>
-    <p>Configure YouTube, AI, OBS connection, and startup options here.</p>
-  </section>
-);
 
 export default MainPanel;

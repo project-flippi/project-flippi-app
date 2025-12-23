@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-// If you can import shared types, do it.
-// If module resolution complains, you can duplicate these types in renderer later.
+import log from 'electron-log/renderer';
 import type { AppSettings } from '../../main/settings/schema';
 
 type Status = { kind: 'success' | 'error'; message: string } | null;
@@ -12,7 +10,7 @@ function stableStringify(obj: unknown): string {
   return JSON.stringify(obj);
 }
 
-export function useSettings() {
+export default function useSettings() {
   const [draft, setDraft] = useState<AppSettings | null>(null);
   const [saved, setSaved] = useState<AppSettings | null>(null);
 
@@ -36,7 +34,7 @@ export function useSettings() {
       setDraft(settings);
       setSaved(settings);
     } catch (err) {
-      console.error('Failed to load settings', err);
+      log.info('Failed to load settings', err);
       setStatus({ kind: 'error', message: 'Failed to load settings.' });
       clearStatusLater(4000);
     } finally {
@@ -45,7 +43,7 @@ export function useSettings() {
   }, [clearStatusLater]);
 
   useEffect(() => {
-    void reload();
+    reload().catch(() => {});
     return () => {
       if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
     };
@@ -64,7 +62,7 @@ export function useSettings() {
       setStatus({ kind: 'success', message: 'Settings saved.' });
       clearStatusLater(2500);
     } catch (err) {
-      console.error('Failed to save settings', err);
+      log.info('Failed to save settings', err);
       setStatus({ kind: 'error', message: 'Failed to save settings.' });
       clearStatusLater(4000);
     } finally {

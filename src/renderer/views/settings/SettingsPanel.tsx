@@ -1,12 +1,11 @@
-import React from 'react';
-import { useSettings } from '../../hooks/useSettings';
+import useSettings from '../../hooks/useSettings';
 
 import YouTubeSettingsCard from '../../components/settings/YouTubeSettingsCard';
 import OBSSettingsCard from '../../components/settings/OBSSettingsCard';
 import TextAISettingsCard from '../../components/settings/TextAISettingsCard';
 import ImageAISettingsCard from '../../components/settings/ImageAISettingsCard';
 
-const SettingsPanel: React.FC = () => {
+function SettingsPanel() {
   const {
     draft,
     isLoading,
@@ -55,6 +54,7 @@ const SettingsPanel: React.FC = () => {
 
       <div className="pf-settings-actions">
         <button
+          type="button"
           className="pf-button pf-button-primary"
           onClick={save}
           disabled={!isDirty || isSaving}
@@ -63,6 +63,7 @@ const SettingsPanel: React.FC = () => {
         </button>
 
         <button
+          type="button"
           className="pf-button"
           onClick={reset}
           disabled={!isDirty || isSaving}
@@ -74,6 +75,6 @@ const SettingsPanel: React.FC = () => {
       </div>
     </section>
   );
-};
+}
 
 export default SettingsPanel;
