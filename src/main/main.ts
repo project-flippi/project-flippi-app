@@ -34,13 +34,11 @@ ipcMain.on('ipc-example', async (event, arg) => {
   event.reply('ipc-example', msgTemplate('pong'));
 });
 
-ipcMain.handle('settings:get', () => {
-  return getSettings();
-});
+ipcMain.handle('settings:get', () => getSettings());
 
-ipcMain.handle('settings:update', (event, partial: Partial<AppSettings>) => {
-  return updateSettings(partial);
-});
+ipcMain.handle('settings:update', (event, partial: Partial<AppSettings>) =>
+  updateSettings(partial),
+);
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');

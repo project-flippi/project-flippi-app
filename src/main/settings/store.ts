@@ -1,10 +1,21 @@
-import Store from 'electron-store';
 import { AppSettings, defaultSettings } from './schema';
 
-const store = new Store<AppSettings>({
-  name: 'settings', // file will be something like settings.json
-  defaults: defaultSettings,
-});
+let storePromise: Promise<any> | null = null;
+
+async function getStore() {
+  if (!storePromise) {
+    storePromise = (async () => {
+      const { default: Store } = await import('electron-store');
+
+      return new Store<AppSettings>({
+        name: 'settings',
+        defaults: defaultSettings,
+      });
+    })();
+  }
+
+  return storePromise;
+}
 
 // Deep-merge helper for nested objects
 function mergeSettings(
@@ -34,15 +45,17 @@ function mergeSettings(
   };
 }
 
-export function getSettings(): AppSettings {
-  // store.store is already AppSettings thanks to defaults
+export async function getSettings(): Promise<AppSettings> {
+  const store = await getStore();
   const current = store.store;
-  // Just ensure version & defaults are always present
   return mergeSettings(defaultSettings, current);
 }
 
-export function updateSettings(partial: Partial<AppSettings>): AppSettings {
-  const current = getSettings();
+export async function updateSettings(
+  partial: Partial<AppSettings>,
+): Promise<AppSettings> {
+  const store = await getStore();
+  const current = await getSettings();
   const updated = mergeSettings(current, partial);
   store.store = updated;
   return updated;
