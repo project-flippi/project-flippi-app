@@ -1,23 +1,10 @@
 // src/renderer/views/MainPanel/MainPanel.tsx
 import React, { useState } from 'react';
 import '../../styles/main.css';
-import SettingsPanel from '../settings/SettingsPanel';
+import SettingsPanel from './SettingsPanel';
+import RecordingPanel from './RecordingPanel';
 
 type View = 'recording' | 'videos' | 'schedule' | 'settings';
-
-function RecordingPlaceholder() {
-  return (
-    <section className="pf-section">
-      <h1>Recording</h1>
-      <p>This is where you&apos;ll:</p>
-      <ul>
-        <li>Create new event folders</li>
-        <li>Select the active event</li>
-        <li>Start the recording stack</li>
-      </ul>
-    </section>
-  );
-}
 
 function VideoManagementPlaceholder() {
   return (
@@ -97,7 +84,7 @@ function MainPanel() {
       </aside>
 
       <main className="pf-main">
-        {activeView === 'recording' && <RecordingPlaceholder />}
+        {activeView === 'recording' && <RecordingPanel />}
         {activeView === 'videos' && <VideoManagementPlaceholder />}
         {activeView === 'schedule' && <SchedulingPlaceholder />}
         {activeView === 'settings' && <SettingsPanel />}

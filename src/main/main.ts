@@ -14,6 +14,8 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import listEventFolders from './services/eventService';
+import { createEventFromTemplate } from './services/folderCreation';
 
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
@@ -38,6 +40,17 @@ ipcMain.handle('settings:get', () => getSettings());
 
 ipcMain.handle('settings:update', (event, partial: Partial<AppSettings>) =>
   updateSettings(partial),
+);
+
+ipcMain.handle('events:list', async () => {
+  return listEventFolders();
+});
+
+ipcMain.handle(
+  'events:create',
+  async (_evt, args: { eventTitle: string; venueDesc: string }) => {
+    return createEventFromTemplate(args);
+  },
 );
 
 if (process.env.NODE_ENV === 'production') {

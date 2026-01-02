@@ -6,6 +6,13 @@ declare global {
       get: () => Promise<AppSettings>;
       update: (partial: Partial<AppSettings>) => Promise<AppSettings>;
     };
+    flippiEvents: {
+      list: () => Promise<string[]>;
+      create: (
+        eventTitle: string,
+        venueDesc: string,
+      ) => Promise<{ eventName: string; eventPath: string }>;
+    };
   }
 }
 

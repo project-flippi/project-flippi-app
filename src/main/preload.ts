@@ -33,4 +33,13 @@ contextBridge.exposeInMainWorld('flippiSettings', {
     ipcRenderer.invoke('settings:update', partial),
 });
 
+contextBridge.exposeInMainWorld('flippiEvents', {
+  list: (): Promise<string[]> => ipcRenderer.invoke('events:list'),
+  create: (
+    eventTitle: string,
+    venueDesc: string,
+  ): Promise<{ eventName: string; eventPath: string }> =>
+    ipcRenderer.invoke('events:create', { eventTitle, venueDesc }),
+});
+
 export type ElectronHandler = typeof electronHandler;
