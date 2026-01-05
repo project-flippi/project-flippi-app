@@ -11,6 +11,9 @@ function RecordingPanel() {
   const [eventTitle, setEventTitle] = useState('');
   const [venueDesc, setVenueDesc] = useState('');
 
+  const [stackStatus, setStackStatus] = useState<string>('');
+  const [stackBusy, setStackBusy] = useState(false);
+
   async function refreshEvents(selectIfMissing?: string) {
     const list = await window.flippiEvents.list();
     setEvents(list);
@@ -73,6 +76,25 @@ function RecordingPanel() {
     }
   }
 
+  async function onStartStack() {
+    if (!selectedEvent) {
+      setStackStatus('Select an event first.');
+      return;
+    }
+
+    setStackBusy(true);
+    setStackStatus('Starting stack…');
+
+    try {
+      const res = await window.flippiStack.start(selectedEvent);
+      setStackStatus(res.message);
+    } catch (e: any) {
+      setStackStatus(e?.message ?? String(e));
+    } finally {
+      setStackBusy(false);
+    }
+  }
+
   return (
     <section className="pf-section">
       <h1>Recording</h1>
@@ -104,6 +126,18 @@ function RecordingPanel() {
                   </option>
                 ))}
               </select>
+
+              <button
+                type="button"
+                className="pf-button pf-button-primary"
+                onClick={onStartStack}
+                disabled={stackBusy || busy || !selectedEvent}
+              >
+                {stackBusy ? 'Starting…' : 'Start Recording Stack'}
+              </button>
+
+{stackStatus && <span className="pf-status-message">{stackStatus}</span>}
+
             </div>
             <div className="pf-note">
               Select the active event folder to use for recording.

@@ -13,6 +13,15 @@ declare global {
         venueDesc: string,
       ) => Promise<{ eventName: string; eventPath: string }>;
     };
+    flippiStack: {
+      start: (eventName: string) => Promise<{
+        ok: boolean;
+        eventName: string;
+        recordingFolder: string;
+        obs: { ok: boolean; connected: boolean; message?: string; replayBufferActive?: boolean; recordingFolder?: string };
+        message: string;
+      }>;
+    };
   }
 }
 

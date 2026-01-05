@@ -16,6 +16,7 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import listEventFolders from './services/eventService';
 import { createEventFromTemplate } from './services/folderCreation';
+import { startStack } from './services/stackService';
 
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
@@ -52,6 +53,10 @@ ipcMain.handle(
     return createEventFromTemplate(args);
   },
 );
+
+ipcMain.handle('stack:start', async (_evt, args: { eventName: string }) => {
+  return startStack(args);
+});
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
