@@ -1,22 +1,18 @@
 // src/main/services/stackService.ts
-import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { ensureDir, launchOBS, launchClippi, launchSlippi } from '../utils/externalApps';
-import { waitForObsWebsocket, configureObsForEventRecording, ObsStatus } from './obsService';
+import { ensureDir, launchOBS } from '../utils/externalApps';
+import {
+  waitForObsWebsocket,
+  configureObsForEventRecording,
+  ObsStatus,
+} from './obsService';
 
 function obsExePath(): string {
   // %ProgramFiles%\obs-studio\bin\64bit\obs64.exe
-  const programFiles =
-    process.env.ProgramFiles || 'C:\\Program Files';
+  const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
 
-  return path.join(
-    programFiles,
-    'obs-studio',
-    'bin',
-    '64bit',
-    'obs64.exe',
-  );
+  return path.join(programFiles, 'obs-studio', 'bin', '64bit', 'obs64.exe');
 }
 
 export type StartStackResult = {
@@ -50,7 +46,7 @@ export async function startStack(params: {
 
   // 1) Launch OBS (detached)
   const exePath = obsExePath();
-  await launchOBS(exePath, [], path.dirname(exePath));
+  await launchOBS(exePath, path.dirname(exePath));
 
   // 2) Wait for obs-websocket to be ready
   const ready = await waitForObsWebsocket({
@@ -87,4 +83,3 @@ export async function startStack(params: {
       : `OBS configuration failed: ${obs.message}`,
   };
 }
-

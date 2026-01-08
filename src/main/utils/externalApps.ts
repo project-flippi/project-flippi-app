@@ -7,7 +7,7 @@ export type LaunchOptions = {
   exePath: string;
   args?: string[];
   cwd?: string;
-  env?: NodeJS.ProcessEnv;
+  env?: Record<string, string | undefined>;
   /**
    * If true, the process is launched detached (useful for GUI apps on Windows).
    * Defaults to true.
@@ -86,16 +86,22 @@ export async function launchApp(opts: LaunchOptions): Promise<LaunchResult> {
  */
 export async function launchOBS(
   exePath: string,
-  args: string[] = [],
   cwd?: string,
+  args?: string[],
 ): Promise<LaunchResult> {
-  return launchApp({ exePath, args, cwd });
+  return launchApp({ exePath, args: args ?? [], cwd });
 }
 
-export async function launchClippi(exePath: string, args: string[] = []): Promise<LaunchResult> {
+export async function launchClippi(
+  exePath: string,
+  args: string[] = [],
+): Promise<LaunchResult> {
   return launchApp({ exePath, args });
 }
 
-export async function launchSlippi(exePath: string, args: string[] = []): Promise<LaunchResult> {
+export async function launchSlippi(
+  exePath: string,
+  args: string[] = [],
+): Promise<LaunchResult> {
   return launchApp({ exePath, args });
 }

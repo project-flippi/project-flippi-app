@@ -136,8 +136,9 @@ function RecordingPanel() {
                 {stackBusy ? 'Starting…' : 'Start Recording Stack'}
               </button>
 
-{stackStatus && <span className="pf-status-message">{stackStatus}</span>}
-
+              {stackStatus && (
+                <span className="pf-status-message">{stackStatus}</span>
+              )}
             </div>
             <div className="pf-note">
               Select the active event folder to use for recording.

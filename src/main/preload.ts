@@ -43,7 +43,8 @@ contextBridge.exposeInMainWorld('flippiEvents', {
 });
 
 contextBridge.exposeInMainWorld('flippiStack', {
-  start: (eventName: string) => ipcRenderer.invoke('stack:start', { eventName }),
+  start: (eventName: string) =>
+    ipcRenderer.invoke('stack:start', { eventName }),
 });
 
 export type ElectronHandler = typeof electronHandler;

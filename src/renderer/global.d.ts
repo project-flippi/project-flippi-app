@@ -18,7 +18,13 @@ declare global {
         ok: boolean;
         eventName: string;
         recordingFolder: string;
-        obs: { ok: boolean; connected: boolean; message?: string; replayBufferActive?: boolean; recordingFolder?: string };
+        obs: {
+          ok: boolean;
+          connected: boolean;
+          message?: string;
+          replayBufferActive?: boolean;
+          recordingFolder?: string;
+        };
         message: string;
       }>;
     };

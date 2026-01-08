@@ -29,7 +29,12 @@ type KeysJson = {
 function defaultKeysPath(): string {
   // matches set-rec-path.js default
   // %USERPROFILE%\project-flippi\_keys\OBSconnection.json :contentReference[oaicite:4]{index=4}
-  return path.join(os.homedir(), 'project-flippi', '_keys', 'OBSconnection.json');
+  return path.join(
+    os.homedir(),
+    'project-flippi',
+    '_keys',
+    'OBSconnection.json',
+  );
 }
 
 function normalizeString(v: unknown): string {
@@ -50,7 +55,11 @@ export async function loadObsConnectionSettings(args?: {
     args?.password !== undefined ? (args.password ?? '').toString() : undefined;
 
   // Prefer explicit settings if host/port present
-  if (fromSettingsHost && fromSettingsPort && fromSettingsPassword !== undefined) {
+  if (
+    fromSettingsHost &&
+    fromSettingsPort &&
+    fromSettingsPassword !== undefined
+  ) {
     return {
       host: fromSettingsHost,
       port: fromSettingsPort,
@@ -60,20 +69,25 @@ export async function loadObsConnectionSettings(args?: {
   }
 
   // Fallback to keys json file (same semantics as set-rec-path.js)
-  const keysPath = args?.keysPathOverride || process.env.OBS_KEYS || defaultKeysPath();
+  const keysPath =
+    args?.keysPathOverride || process.env.OBS_KEYS || defaultKeysPath();
 
   let raw: string;
   try {
     raw = await fs.readFile(keysPath, 'utf-8');
   } catch (e: any) {
-    throw new Error(`OBS keys file not found/readable at: ${keysPath} (${e?.message ?? String(e)})`);
+    throw new Error(
+      `OBS keys file not found/readable at: ${keysPath} (${e?.message ?? String(e)})`,
+    );
   }
 
   let cfg: KeysJson;
   try {
     cfg = JSON.parse(raw) as KeysJson;
   } catch (e: any) {
-    throw new Error(`OBS keys file is not valid JSON: ${keysPath} (${e?.message ?? String(e)})`);
+    throw new Error(
+      `OBS keys file is not valid JSON: ${keysPath} (${e?.message ?? String(e)})`,
+    );
   }
 
   const host = normalizeString(cfg.OBS_HOST);
@@ -83,7 +97,8 @@ export async function loadObsConnectionSettings(args?: {
   // mirrors your JS validation :contentReference[oaicite:5]{index=5}
   if (!host) throw new Error('OBS_HOST missing/empty in keys JSON');
   if (!port) throw new Error('OBS_PORT missing/empty in keys JSON');
-  if (cfg.OBS_PASSWORD === undefined) throw new Error('OBS_PASSWORD missing in keys JSON');
+  if (cfg.OBS_PASSWORD === undefined)
+    throw new Error('OBS_PASSWORD missing in keys JSON');
 
   return { host, port, password, source: 'keysFile', keysPath };
 }
@@ -91,7 +106,12 @@ export async function loadObsConnectionSettings(args?: {
 export async function waitForObsWebsocket(params: {
   timeoutMs?: number;
   intervalMs?: number;
-  connection?: { host?: string; port?: string; password?: string; keysPathOverride?: string };
+  connection?: {
+    host?: string;
+    port?: string;
+    password?: string;
+    keysPathOverride?: string;
+  };
 }): Promise<{ ok: boolean; message?: string }> {
   const timeoutMs = params.timeoutMs ?? 15_000;
   const intervalMs = params.intervalMs ?? 500;
@@ -111,10 +131,17 @@ export async function waitForObsWebsocket(params: {
       obs.disconnect();
       return { ok: true };
     } catch {
-      try { obs.disconnect(); } catch {}
-      return new Promise((resolve) =>
-        setTimeout(() => resolve(attempt()), intervalMs),
-      );
+      try {
+        obs.disconnect();
+      } catch {
+        // ignore disconnect failures (OBS may already be gone)
+      }
+
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(attempt());
+        }, intervalMs);
+      });
     }
   };
 
@@ -124,7 +151,12 @@ export async function waitForObsWebsocket(params: {
 export async function configureObsForEventRecording(params: {
   recordingFolder: string;
   // Optionally pass settings; otherwise we load from keys file / env.
-  connection?: { host?: string; port?: string; password?: string; keysPathOverride?: string };
+  connection?: {
+    host?: string;
+    port?: string;
+    password?: string;
+    keysPathOverride?: string;
+  };
 }): Promise<ObsStatus> {
   const obs = new OBSWebSocket();
 
@@ -141,20 +173,23 @@ export async function configureObsForEventRecording(params: {
     await obs.connect({ address, password: conn.password });
 
     // Set recording folder (compat-safe)
-    await obs.send('SetRecordingFolder', { 'rec-folder': params.recordingFolder }); // :contentReference[oaicite:6]{index=6}
+    await obs.send('SetRecordingFolder', {
+      'rec-folder': params.recordingFolder,
+    }); // :contentReference[oaicite:6]{index=6}
     const got = await obs.send('GetRecordingFolder'); // :contentReference[oaicite:7]{index=7}
-    const folder = (got as any)['rec-folder']?.toString?.() ?? params.recordingFolder;
+    const folder =
+      (got as any)['rec-folder']?.toString?.() ?? params.recordingFolder;
 
     // Ensure Replay Buffer running
     let replayActive: boolean | undefined;
     try {
       const r = await obs.send('GetReplayBufferStatus'); // :contentReference[oaicite:8]{index=8}
-      replayActive = Boolean((r as any)['isReplayBufferActive']);
+      replayActive = Boolean((r as any).isReplayBufferActive);
       if (!replayActive) {
         await obs.send('StartReplayBuffer'); // :contentReference[oaicite:9]{index=9}
         replayActive = true;
       }
-    } catch (e: any) {
+    } catch {
       // mirrors your JS behavior: don’t fail hard if replay buffer is disabled :contentReference[oaicite:10]{index=10}
       replayActive = undefined;
     }
