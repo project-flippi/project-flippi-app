@@ -1,15 +1,12 @@
 // src/main/services/obsService.ts
-import fs from 'fs/promises';
-import path from 'path';
-import os from 'os';
+import { getSettings } from '../settings/store';
 import OBSWebSocket from 'obs-websocket-js';
 
 export type ObsConnectionSettings = {
   host: string;
   port: string;
   password: string; // allow empty string
-  source: 'settings' | 'keysFile';
-  keysPath?: string;
+  source: 'settings';
 };
 
 export type ObsStatus = {
@@ -20,98 +17,38 @@ export type ObsStatus = {
   message?: string;
 };
 
-type KeysJson = {
-  OBS_HOST?: unknown;
-  OBS_PORT?: unknown;
-  OBS_PASSWORD?: unknown;
-};
-
-function defaultKeysPath(): string {
-  // matches set-rec-path.js default
-  // %USERPROFILE%\project-flippi\_keys\OBSconnection.json :contentReference[oaicite:4]{index=4}
-  return path.join(
-    os.homedir(),
-    'project-flippi',
-    '_keys',
-    'OBSconnection.json',
-  );
-}
-
 function normalizeString(v: unknown): string {
   return (v ?? '').toString().trim();
 }
 
-export async function loadObsConnectionSettings(args?: {
-  // Pass these if you already have them in electron-store settings.
-  // If not provided, we fall back to keys file.
-  host?: string;
-  port?: string;
-  password?: string;
-  keysPathOverride?: string;
-}): Promise<ObsConnectionSettings> {
-  const fromSettingsHost = normalizeString(args?.host);
-  const fromSettingsPort = normalizeString(args?.port);
-  const fromSettingsPassword =
-    args?.password !== undefined ? (args.password ?? '').toString() : undefined;
+export async function loadObsConnectionSettings(): Promise<ObsConnectionSettings> {
+  const settings = await getSettings();
 
-  // Prefer explicit settings if host/port present
-  if (
-    fromSettingsHost &&
-    fromSettingsPort &&
-    fromSettingsPassword !== undefined
-  ) {
-    return {
-      host: fromSettingsHost,
-      port: fromSettingsPort,
-      password: fromSettingsPassword,
-      source: 'settings',
-    };
+  // Adjust these field names if your schema uses different ones.
+  const host = normalizeString(settings?.obs?.host);
+  const port = normalizeString(settings?.obs?.port);
+
+  // Password is allowed to be empty string, but must exist as a value (not undefined/null)
+  const rawPassword = settings?.obs?.password;
+  const passwordDefined = rawPassword !== undefined && rawPassword !== null;
+  const password = passwordDefined ? rawPassword.toString() : '';
+
+  if (!host) {
+    throw new Error('OBS settings missing: host (Settings → OBS).');
+  }
+  if (!port) {
+    throw new Error('OBS settings missing: port (Settings → OBS).');
+  }
+  if (!passwordDefined) {
+    throw new Error('OBS settings missing: password (Settings → OBS).');
   }
 
-  // Fallback to keys json file (same semantics as set-rec-path.js)
-  const keysPath =
-    args?.keysPathOverride || process.env.OBS_KEYS || defaultKeysPath();
-
-  let raw: string;
-  try {
-    raw = await fs.readFile(keysPath, 'utf-8');
-  } catch (e: any) {
-    throw new Error(
-      `OBS keys file not found/readable at: ${keysPath} (${e?.message ?? String(e)})`,
-    );
-  }
-
-  let cfg: KeysJson;
-  try {
-    cfg = JSON.parse(raw) as KeysJson;
-  } catch (e: any) {
-    throw new Error(
-      `OBS keys file is not valid JSON: ${keysPath} (${e?.message ?? String(e)})`,
-    );
-  }
-
-  const host = normalizeString(cfg.OBS_HOST);
-  const port = normalizeString(cfg.OBS_PORT);
-  const password = (cfg.OBS_PASSWORD ?? '').toString(); // allow empty string
-
-  // mirrors your JS validation :contentReference[oaicite:5]{index=5}
-  if (!host) throw new Error('OBS_HOST missing/empty in keys JSON');
-  if (!port) throw new Error('OBS_PORT missing/empty in keys JSON');
-  if (cfg.OBS_PASSWORD === undefined)
-    throw new Error('OBS_PASSWORD missing in keys JSON');
-
-  return { host, port, password, source: 'keysFile', keysPath };
+  return { host, port, password, source: 'settings' };
 }
 
 export async function waitForObsWebsocket(params: {
   timeoutMs?: number;
   intervalMs?: number;
-  connection?: {
-    host?: string;
-    port?: string;
-    password?: string;
-    keysPathOverride?: string;
-  };
 }): Promise<{ ok: boolean; message?: string }> {
   const timeoutMs = params.timeoutMs ?? 15_000;
   const intervalMs = params.intervalMs ?? 500;
@@ -125,7 +62,7 @@ export async function waitForObsWebsocket(params: {
 
     const obs = new OBSWebSocket();
     try {
-      const conn = await loadObsConnectionSettings(params.connection);
+      const conn = await loadObsConnectionSettings();
       const address = `${conn.host}:${conn.port}`;
       await obs.connect({ address, password: conn.password });
       obs.disconnect();
@@ -150,19 +87,12 @@ export async function waitForObsWebsocket(params: {
 
 export async function configureObsForEventRecording(params: {
   recordingFolder: string;
-  // Optionally pass settings; otherwise we load from keys file / env.
-  connection?: {
-    host?: string;
-    port?: string;
-    password?: string;
-    keysPathOverride?: string;
-  };
 }): Promise<ObsStatus> {
   const obs = new OBSWebSocket();
 
   let conn: ObsConnectionSettings;
   try {
-    conn = await loadObsConnectionSettings(params.connection);
+    conn = await loadObsConnectionSettings();
   } catch (e: any) {
     return { ok: false, connected: false, message: e?.message ?? String(e) };
   }
