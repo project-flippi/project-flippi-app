@@ -1,6 +1,6 @@
 // src/main/services/obsService.ts
-import { getSettings } from '../settings/store';
 import OBSWebSocket from 'obs-websocket-js';
+import { getSettings } from '../settings/store';
 
 export type ObsConnectionSettings = {
   host: string;
