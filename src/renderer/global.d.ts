@@ -1,4 +1,5 @@
 import type { AppSettings } from '../main/settings/schema';
+import type { ServiceStatus } from '../common/statusTypes';
 
 declare global {
   interface Window {
@@ -12,6 +13,10 @@ declare global {
         eventTitle: string,
         venueDesc: string,
       ) => Promise<{ eventName: string; eventPath: string }>;
+    };
+    flippiStatus: {
+      get: () => Promise<ServiceStatus>;
+      onChanged: (cb: (status: ServiceStatus) => void) => () => void;
     };
     flippiStack: {
       start: (eventName: string) => Promise<{

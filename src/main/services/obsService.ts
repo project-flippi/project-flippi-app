@@ -1,4 +1,3 @@
-// src/main/services/obsService.ts
 import OBSWebSocket from 'obs-websocket-js';
 import { getSettings } from '../settings/store';
 

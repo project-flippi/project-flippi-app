@@ -21,6 +21,18 @@ import { startStack } from './services/stackService';
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
 
+import { getStatus, subscribeStatus } from './services/statusStore';
+
+function broadcastStatus() {
+  const status = getStatus();
+  BrowserWindow.getAllWindows().forEach((win) => {
+    // Guard: only send if webContents exists and isn't destroyed
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send('status:changed', status);
+    }
+  });
+}
+
 class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
@@ -57,6 +69,10 @@ ipcMain.handle(
 ipcMain.handle('stack:start', async (_evt, args: { eventName: string }) => {
   return startStack(args);
 });
+
+ipcMain.handle('status:get', async () => {
+  return getStatus();
+ });
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -118,6 +134,7 @@ const createWindow = async () => {
       mainWindow.minimize();
     } else {
       mainWindow.show();
+      broadcastStatus();
     }
   });
 
@@ -162,3 +179,8 @@ app
     });
   })
   .catch(console.log);
+
+// Subscribe once (keep unsubscribe if you ever need cleanup)
+subscribeStatus(() => {
+  broadcastStatus();
+});

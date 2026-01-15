@@ -47,4 +47,13 @@ contextBridge.exposeInMainWorld('flippiStack', {
     ipcRenderer.invoke('stack:start', { eventName }),
 });
 
+contextBridge.exposeInMainWorld('flippiStatus', {
+  get: () => ipcRenderer.invoke('status:get'),
+  onChanged: (callback: (status: any) => void) => {
+    const handler = (_event: unknown, status: any) => callback(status);
+    ipcRenderer.on('status:changed', handler);
+    return () => ipcRenderer.removeListener('status:changed', handler);
+  },
+});
+
 export type ElectronHandler = typeof electronHandler;
