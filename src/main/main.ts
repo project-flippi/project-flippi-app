@@ -21,7 +21,8 @@ import { startStack } from './services/stackService';
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
 
-import { getStatus, subscribeStatus } from './services/statusStore';
+import { isObsRunning } from './utils/externalApps';
+import { getStatus, subscribeStatus, patchStatus } from './services/statusStore';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -31,6 +32,47 @@ function broadcastStatus() {
       win.webContents.send('status:changed', status);
     }
   });
+}
+
+function startObsProcessPolling(): void {
+  const intervalMs = 3000;
+
+  let running = false;
+  let inFlight = false;
+
+  const tick = async () => {
+    if (inFlight) return;
+    inFlight = true;
+
+    try {
+      const isRunningNow = await isObsRunning();
+      const prev = getStatus().obs.processRunning;
+
+      if (isRunningNow !== prev) {
+        patchStatus({
+          obs: {
+            processRunning: isRunningNow,
+            // Do NOT change websocket state here; Step 3 owns that.
+          },
+        });
+      }
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  // Run once immediately so UI updates fast
+  void tick();
+
+  const timer = setInterval(() => {
+    void tick();
+  }, intervalMs);
+
+  // Don’t keep the process alive solely for this timer
+  timer.unref?.();
+
+  // Optional: if you want cleanup
+  process.on('exit', () => clearInterval(timer));
 }
 
 class AppUpdater {
@@ -172,6 +214,7 @@ app
   .whenReady()
   .then(() => {
     createWindow();
+    startObsProcessPolling();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

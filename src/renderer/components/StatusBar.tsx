@@ -34,20 +34,32 @@ export default function StatusBar() {
     status.obs.processRunning && status.obs.websocket === 'connected';
 
   const obsState =
-    obsOk
-      ? 'green'
-      : status.obs.websocket === 'connecting'
-        ? 'yellow'
-        : status.obs.websocket === 'auth_failed' ||
-            status.obs.websocket === 'error'
-          ? 'red'
-          : 'gray';
+    !status.obs.processRunning
+      ? 'gray'
+      : status.obs.websocket === 'connected'
+        ? 'green'
+        : status.obs.websocket === 'connecting'
+          ? 'yellow'
+          : status.obs.websocket === 'auth_failed' || status.obs.websocket === 'error'
+            ? 'red'
+            : 'yellow'; // running but not connected yet
 
-  const obsText = obsOk
-    ? 'Connected'
-    : !status.obs.processRunning
-      ? 'Not running'
-      : status.obs.websocket.replace('_', ' ');
+  let obsText: string;
+
+  if (!status.obs.processRunning) {
+    obsText = 'Not running';
+  } else if (status.obs.websocket === 'connected') {
+    obsText = 'Connected';
+  } else if (status.obs.websocket === 'connecting') {
+    obsText = 'Connecting…';
+  } else if (status.obs.websocket === 'auth_failed') {
+    obsText = 'Auth failed';
+  } else if (status.obs.websocket === 'error') {
+    obsText = 'Connection error';
+  } else {
+    // websocket === 'unknown' or 'disconnected'
+    obsText = 'Running (awaiting connection)';
+  }
 
   return (
     <div

@@ -1,7 +1,8 @@
 // src/main/utils/externalApps.ts
 import fs from 'fs/promises';
 import path from 'path';
-import { spawn, type ChildProcess } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
+import { promisify } from 'util';
 
 export type LaunchOptions = {
   exePath: string;
@@ -105,3 +106,33 @@ export async function launchSlippi(
 ): Promise<LaunchResult> {
   return launchApp({ exePath, args });
 }
+
+const execFileAsync = promisify(execFile);
+
+export async function isObsRunning(): Promise<boolean> {
+  // Windows-only implementation for now
+  if (process.platform !== 'win32') {
+    return false;
+  }
+
+  try {
+    // CSV output makes parsing consistent.
+    // tasklist returns a header; /NH removes the header row.
+    const { stdout } = await execFileAsync('tasklist', [
+      '/FI',
+      'IMAGENAME eq obs64.exe',
+      '/FO',
+      'CSV',
+      '/NH',
+    ]);
+
+    // If not running, output is typically like:
+    // "INFO: No tasks are running which match the specified criteria."
+    // If running, first column includes "obs64.exe"
+    return stdout.toLowerCase().includes('obs64.exe');
+  } catch {
+    // If tasklist fails for any reason, assume not running rather than crash the app.
+    return false;
+  }
+}
+
