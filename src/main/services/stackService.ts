@@ -1,12 +1,12 @@
 // src/main/services/stackService.ts
 import path from 'path';
 import os from 'os';
-import { ensureDir, launchOBS } from '../utils/externalApps';
+import { ensureDir, launchOBS, isObsRunning } from '../utils/externalApps';
 import {
-  waitForObsWebsocket,
   configureObsForEventRecording,
   ObsStatus,
 } from './obsService';
+import { obsConnectionManager } from './obsConnectionManager';
 
 function obsExePath(): string {
   // %ProgramFiles%\obs-studio\bin\64bit\obs64.exe
@@ -44,42 +44,35 @@ export async function startStack(params: {
   // Ensure Event/<name>/videos exists
   await ensureDir(recordingFolder);
 
-  // 1) Launch OBS (detached)
-  const exePath = obsExePath();
-  await launchOBS(exePath, path.dirname(exePath));
+  // Only launch OBS if not already running
+  const running = await isObsRunning();
 
-  // 2) Wait for obs-websocket to be ready
-  const ready = await waitForObsWebsocket({
-    timeoutMs: 20_000,
-    intervalMs: 500,
-  });
-
-  if (!ready.ok) {
-    return {
-      ok: false,
-      eventName: params.eventName,
-      recordingFolder,
-      obs: {
-        ok: false,
-        connected: false,
-        message: ready.message,
-      },
-      message: `OBS did not become ready: ${ready.message}`,
-    };
+  let launchedObs = false;
+  if (!running) {
+    const exePath = obsExePath();
+    await launchOBS(exePath, path.dirname(exePath));
+    launchedObs = true;
   }
 
-  // 3) Configure OBS (recording path + replay buffer)
-  const obs = await configureObsForEventRecording({
-    recordingFolder,
+  // If we launched OBS, give it more time to boot and start websocket
+  const connectTimeoutMs = launchedObs ? 30_000 : 10_000;
+
+  // Persistent manager handles connect + configure (no disconnect)
+  const cfg = await obsConnectionManager.configureForEvent(recordingFolder, {
+    connectTimeoutMs,
   });
 
   return {
-    ok: obs.ok,
+    ok: cfg.ok,
     eventName: params.eventName,
     recordingFolder,
-    obs,
-    message: obs.ok
+    obs: {
+      ok: cfg.ok,
+      connected: cfg.ok,
+      message: cfg.message,
+    },
+    message: cfg.ok
       ? `Recording stack started for ${params.eventName}`
-      : `OBS configuration failed: ${obs.message}`,
+      : `OBS setup failed: ${cfg.message ?? 'Unknown error'}`,
   };
 }

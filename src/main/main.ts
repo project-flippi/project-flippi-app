@@ -24,6 +24,8 @@ import type { AppSettings } from './settings/schema';
 import { isObsRunning } from './utils/externalApps';
 import { getStatus, subscribeStatus, patchStatus } from './services/statusStore';
 
+import { obsConnectionManager } from './services/obsConnectionManager';
+
 function broadcastStatus() {
   const status = getStatus();
   BrowserWindow.getAllWindows().forEach((win) => {
@@ -93,9 +95,16 @@ ipcMain.on('ipc-example', async (event, arg) => {
 
 ipcMain.handle('settings:get', () => getSettings());
 
-ipcMain.handle('settings:update', (event, partial: Partial<AppSettings>) =>
-  updateSettings(partial),
-);
+ipcMain.handle('settings:update', async (event, partial: Partial<AppSettings>) => {
+  const updated = updateSettings(partial);
+
+  // If OBS settings were changed, force the websocket manager to reset
+  if (partial.obs) {
+    obsConnectionManager.invalidateConnection();
+  }
+
+  return updated;
+});
 
 ipcMain.handle('events:list', async () => {
   return listEventFolders();

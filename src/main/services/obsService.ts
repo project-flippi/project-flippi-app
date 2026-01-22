@@ -45,45 +45,6 @@ export async function loadObsConnectionSettings(): Promise<ObsConnectionSettings
   return { host, port, password, source: 'settings' };
 }
 
-export async function waitForObsWebsocket(params: {
-  timeoutMs?: number;
-  intervalMs?: number;
-}): Promise<{ ok: boolean; message?: string }> {
-  const timeoutMs = params.timeoutMs ?? 15_000;
-  const intervalMs = params.intervalMs ?? 500;
-
-  const started = Date.now();
-  // Use Promise-based polling (no loops)
-  const attempt = async (): Promise<{ ok: boolean; message?: string }> => {
-    if (Date.now() - started > timeoutMs) {
-      return { ok: false, message: 'Timed out waiting for OBS websocket.' };
-    }
-
-    const obs = new OBSWebSocket();
-    try {
-      const conn = await loadObsConnectionSettings();
-      const address = `${conn.host}:${conn.port}`;
-      await obs.connect({ address, password: conn.password });
-      obs.disconnect();
-      return { ok: true };
-    } catch {
-      try {
-        obs.disconnect();
-      } catch {
-        // ignore disconnect failures (OBS may already be gone)
-      }
-
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(attempt());
-        }, intervalMs);
-      });
-    }
-  };
-
-  return attempt();
-}
-
 export async function configureObsForEventRecording(params: {
   recordingFolder: string;
 }): Promise<ObsStatus> {
