@@ -1,4 +1,7 @@
-import { defaultServiceStatus, type ServiceStatus } from '../../common/statusTypes';
+import {
+  defaultServiceStatus,
+  type ServiceStatus,
+} from '../../common/statusTypes';
 
 type Listener = (status: ServiceStatus) => void;
 
@@ -23,6 +26,10 @@ export function patchStatus(partial: Partial<ServiceStatus>): void {
       ...current.obs,
       ...(partial.obs ?? {}),
       lastUpdatedAt: Date.now(),
+    },
+    stack: {
+      ...current.stack,
+      ...(partial.stack ?? {}),
     },
   };
 

@@ -16,13 +16,17 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import listEventFolders from './services/eventService';
 import { createEventFromTemplate } from './services/folderCreation';
-import { startStack } from './services/stackService';
+import { startStack, stopStack, switchEvent } from './services/stackService';
 
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
 
 import { isObsRunning } from './utils/externalApps';
-import { getStatus, subscribeStatus, patchStatus } from './services/statusStore';
+import {
+  getStatus,
+  subscribeStatus,
+  patchStatus,
+} from './services/statusStore';
 
 import { obsConnectionManager } from './services/obsConnectionManager';
 
@@ -39,7 +43,6 @@ function broadcastStatus() {
 function startObsProcessPolling(): void {
   const intervalMs = 3000;
 
-  let running = false;
   let inFlight = false;
 
   const tick = async () => {
@@ -48,7 +51,8 @@ function startObsProcessPolling(): void {
 
     try {
       const isRunningNow = await isObsRunning();
-      const prev = getStatus().obs.processRunning;
+      const status = getStatus();
+      const prev = status.obs.processRunning;
 
       if (isRunningNow !== prev) {
         patchStatus({
@@ -57,6 +61,17 @@ function startObsProcessPolling(): void {
             // Do NOT change websocket state here; Step 3 owns that.
           },
         });
+
+        // If OBS stopped unexpectedly while stack was running, reset stack state
+        if (!isRunningNow && status.stack.running) {
+          patchStatus({
+            stack: {
+              running: false,
+              currentEventName: null,
+              startedAt: null,
+            },
+          });
+        }
       }
     } finally {
       inFlight = false;
@@ -70,7 +85,7 @@ function startObsProcessPolling(): void {
     void tick();
   }, intervalMs);
 
-  // Don’t keep the process alive solely for this timer
+  // Don't keep the process alive solely for this timer
   timer.unref?.();
 
   // Optional: if you want cleanup
@@ -95,16 +110,19 @@ ipcMain.on('ipc-example', async (event, arg) => {
 
 ipcMain.handle('settings:get', () => getSettings());
 
-ipcMain.handle('settings:update', async (event, partial: Partial<AppSettings>) => {
-  const updated = updateSettings(partial);
+ipcMain.handle(
+  'settings:update',
+  async (event, partial: Partial<AppSettings>) => {
+    const updated = updateSettings(partial);
 
-  // If OBS settings were changed, force the websocket manager to reset
-  if (partial.obs) {
-    obsConnectionManager.invalidateConnection();
-  }
+    // If OBS settings were changed, force the websocket manager to reset
+    if (partial.obs) {
+      obsConnectionManager.invalidateConnection();
+    }
 
-  return updated;
-});
+    return updated;
+  },
+);
 
 ipcMain.handle('events:list', async () => {
   return listEventFolders();
@@ -121,9 +139,17 @@ ipcMain.handle('stack:start', async (_evt, args: { eventName: string }) => {
   return startStack(args);
 });
 
+ipcMain.handle('stack:stop', async () => {
+  return stopStack();
+});
+
+ipcMain.handle('stack:switch', async (_evt, args: { eventName: string }) => {
+  return switchEvent(args);
+});
+
 ipcMain.handle('status:get', async () => {
   return getStatus();
- });
+});
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');

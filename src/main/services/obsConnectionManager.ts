@@ -288,6 +288,75 @@ class ObsConnectionManager {
       return { ok: false, message: msg };
     }
   }
+
+  /**
+   * Stop the replay buffer if it's active.
+   */
+  public async stopReplayBuffer(): Promise<{ ok: boolean; message?: string }> {
+    if (!this.connectionReady) {
+      return { ok: false, message: 'Not connected to OBS' };
+    }
+
+    const obs = this.ensureObsInstance();
+
+    try {
+      const r = await obs.send('GetReplayBufferStatus');
+      const active = Boolean((r as any).isReplayBufferActive);
+      if (active) {
+        await obs.send('StopReplayBuffer');
+      }
+      return { ok: true, message: 'Replay buffer stopped' };
+    } catch (err: unknown) {
+      const msg = formatUnknownError(err);
+      return { ok: false, message: `Failed to stop replay buffer: ${msg}` };
+    }
+  }
+
+  /**
+   * Stop recording if it's active.
+   */
+  public async stopRecording(): Promise<{ ok: boolean; message?: string }> {
+    if (!this.connectionReady) {
+      return { ok: false, message: 'Not connected to OBS' };
+    }
+
+    const obs = this.ensureObsInstance();
+
+    try {
+      const r = await obs.send('GetRecordingStatus');
+      const recording = Boolean((r as any).isRecording);
+      if (recording) {
+        await obs.send('StopRecording');
+      }
+      return { ok: true, message: 'Recording stopped' };
+    } catch (err: unknown) {
+      const msg = formatUnknownError(err);
+      return { ok: false, message: `Failed to stop recording: ${msg}` };
+    }
+  }
+
+  /**
+   * Start the replay buffer.
+   */
+  public async startReplayBuffer(): Promise<{ ok: boolean; message?: string }> {
+    if (!this.connectionReady) {
+      return { ok: false, message: 'Not connected to OBS' };
+    }
+
+    const obs = this.ensureObsInstance();
+
+    try {
+      const r = await obs.send('GetReplayBufferStatus');
+      const active = Boolean((r as any).isReplayBufferActive);
+      if (!active) {
+        await obs.send('StartReplayBuffer');
+      }
+      return { ok: true, message: 'Replay buffer started' };
+    } catch (err: unknown) {
+      const msg = formatUnknownError(err);
+      return { ok: false, message: `Failed to start replay buffer: ${msg}` };
+    }
+  }
 }
 
 export const obsConnectionManager = new ObsConnectionManager();

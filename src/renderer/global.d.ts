@@ -32,6 +32,16 @@ declare global {
         };
         message: string;
       }>;
+      stop: () => Promise<{
+        ok: boolean;
+        message: string;
+        warnings?: string[];
+      }>;
+      switch: (eventName: string) => Promise<{
+        ok: boolean;
+        eventName: string;
+        message: string;
+      }>;
     };
   }
 }

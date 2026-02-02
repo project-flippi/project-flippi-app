@@ -1,4 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useServiceStatus } from '../../hooks/useServiceStatus';
+
+function getButtonLabel(busy: boolean, running: boolean): string {
+  if (busy) {
+    return running ? 'Stopping…' : 'Starting…';
+  }
+  return running ? 'End Recording Stack' : 'Start Recording Stack';
+}
 
 function RecordingPanel() {
   const [events, setEvents] = useState<string[]>([]);
@@ -14,6 +22,10 @@ function RecordingPanel() {
   const [stackStatus, setStackStatus] = useState<string>('');
   const [stackBusy, setStackBusy] = useState(false);
 
+  // Get persistent stack state from main process
+  const { stack } = useServiceStatus();
+  const { running: stackRunning, currentEventName } = stack;
+
   async function refreshEvents(selectIfMissing?: string) {
     const list = await window.flippiEvents.list();
     setEvents(list);
@@ -28,6 +40,13 @@ function RecordingPanel() {
   useEffect(() => {
     refreshEvents().catch((e) => setError(e?.message ?? String(e)));
   }, []);
+
+  // Sync selectedEvent with currentEventName when stack is running
+  useEffect(() => {
+    if (stackRunning && currentEventName && events.includes(currentEventName)) {
+      setSelectedEvent(currentEventName);
+    }
+  }, [stackRunning, currentEventName, events]);
 
   const hasEvents = events.length > 0;
 
@@ -95,6 +114,42 @@ function RecordingPanel() {
     }
   }
 
+  async function onStopStack() {
+    setStackBusy(true);
+    setStackStatus('Stopping stack…');
+
+    try {
+      const res = await window.flippiStack.stop();
+      setStackStatus(res.message);
+      if (res.warnings && res.warnings.length > 0) {
+        setStackStatus(`${res.message} (${res.warnings.join(', ')})`);
+      }
+    } catch (e: any) {
+      setStackStatus(e?.message ?? String(e));
+    } finally {
+      setStackBusy(false);
+    }
+  }
+
+  async function onEventChange(newEvent: string) {
+    setSelectedEvent(newEvent);
+
+    // If stack is running, switch to the new event
+    if (stackRunning && newEvent !== currentEventName) {
+      setStackBusy(true);
+      setStackStatus('Switching event…');
+
+      try {
+        const res = await window.flippiStack.switch(newEvent);
+        setStackStatus(res.message);
+      } catch (e: any) {
+        setStackStatus(e?.message ?? String(e));
+      } finally {
+        setStackBusy(false);
+      }
+    }
+  }
+
   return (
     <section className="pf-section">
       <h1>Recording</h1>
@@ -116,8 +171,8 @@ function RecordingPanel() {
               <select
                 id="active-event-select"
                 value={selectedEvent}
-                onChange={(e) => setSelectedEvent(e.target.value)}
-                disabled={!hasEvents || busy}
+                onChange={(e) => onEventChange(e.target.value)}
+                disabled={!hasEvents || busy || stackBusy}
                 style={{ minWidth: 260 }}
               >
                 {events.map((name) => (
@@ -129,11 +184,11 @@ function RecordingPanel() {
 
               <button
                 type="button"
-                className="pf-button pf-button-primary"
-                onClick={onStartStack}
+                className={`pf-button ${stackRunning ? 'pf-button-danger' : 'pf-button-primary'}`}
+                onClick={stackRunning ? onStopStack : onStartStack}
                 disabled={stackBusy || busy || !selectedEvent}
               >
-                {stackBusy ? 'Starting…' : 'Start Recording Stack'}
+                {getButtonLabel(stackBusy, stackRunning)}
               </button>
 
               {stackStatus && (

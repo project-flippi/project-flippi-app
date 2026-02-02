@@ -13,8 +13,15 @@ export type ObsServiceStatus = {
   lastUpdatedAt: number; // epoch ms
 };
 
+export type StackState = {
+  running: boolean;
+  currentEventName: string | null;
+  startedAt: number | null;
+};
+
 export type ServiceStatus = {
   obs: ObsServiceStatus;
+  stack: StackState;
 
   // Future-proofing (Step 1 can leave these out or set to minimal types later)
   // clippi?: ...
@@ -28,5 +35,10 @@ export const defaultServiceStatus: ServiceStatus = {
     websocket: 'unknown',
     lastError: undefined,
     lastUpdatedAt: Date.now(),
+  },
+  stack: {
+    running: false,
+    currentEventName: null,
+    startedAt: null,
   },
 };

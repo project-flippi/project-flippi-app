@@ -136,3 +136,24 @@ export async function isObsRunning(): Promise<boolean> {
   }
 }
 
+export async function killOBS(): Promise<{ killed: boolean; message: string }> {
+  // Windows-only implementation for now
+  if (process.platform !== 'win32') {
+    return { killed: false, message: 'killOBS only supported on Windows' };
+  }
+
+  try {
+    // Check if OBS is running first
+    const running = await isObsRunning();
+    if (!running) {
+      return { killed: false, message: 'OBS is not running' };
+    }
+
+    // Use taskkill to terminate obs64.exe
+    await execFileAsync('taskkill', ['/IM', 'obs64.exe', '/F']);
+    return { killed: true, message: 'OBS terminated successfully' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { killed: false, message: `Failed to kill OBS: ${msg}` };
+  }
+}

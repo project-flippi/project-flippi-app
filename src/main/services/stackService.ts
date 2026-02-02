@@ -1,12 +1,15 @@
 // src/main/services/stackService.ts
 import path from 'path';
 import os from 'os';
-import { ensureDir, launchOBS, isObsRunning } from '../utils/externalApps';
 import {
-  configureObsForEventRecording,
-  ObsStatus,
-} from './obsService';
+  ensureDir,
+  launchOBS,
+  isObsRunning,
+  killOBS,
+} from '../utils/externalApps';
+import { ObsStatus } from './obsService';
 import { obsConnectionManager } from './obsConnectionManager';
+import { patchStatus, getStatus } from './statusStore';
 
 function obsExePath(): string {
   // %ProgramFiles%\obs-studio\bin\64bit\obs64.exe
@@ -62,6 +65,17 @@ export async function startStack(params: {
     connectTimeoutMs,
   });
 
+  // Update stack state on success
+  if (cfg.ok) {
+    patchStatus({
+      stack: {
+        running: true,
+        currentEventName: params.eventName,
+        startedAt: Date.now(),
+      },
+    });
+  }
+
   return {
     ok: cfg.ok,
     eventName: params.eventName,
@@ -74,5 +88,118 @@ export async function startStack(params: {
     message: cfg.ok
       ? `Recording stack started for ${params.eventName}`
       : `OBS setup failed: ${cfg.message ?? 'Unknown error'}`,
+  };
+}
+
+export type StopStackResult = {
+  ok: boolean;
+  message: string;
+  warnings?: string[];
+};
+
+export async function stopStack(): Promise<StopStackResult> {
+  const warnings: string[] = [];
+
+  // Stop replay buffer (best-effort)
+  const replayRes = await obsConnectionManager.stopReplayBuffer();
+  if (!replayRes.ok && replayRes.message !== 'Not connected to OBS') {
+    warnings.push(replayRes.message ?? 'Failed to stop replay buffer');
+  }
+
+  // Stop recording (best-effort)
+  const recordRes = await obsConnectionManager.stopRecording();
+  if (!recordRes.ok && recordRes.message !== 'Not connected to OBS') {
+    warnings.push(recordRes.message ?? 'Failed to stop recording');
+  }
+
+  // Kill OBS process
+  const killRes = await killOBS();
+  if (!killRes.killed && killRes.message !== 'OBS is not running') {
+    warnings.push(killRes.message);
+  }
+
+  // Reset stack state
+  patchStatus({
+    stack: {
+      running: false,
+      currentEventName: null,
+      startedAt: null,
+    },
+  });
+
+  return {
+    ok: true,
+    message: 'Recording stack stopped',
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
+}
+
+export type SwitchEventResult = {
+  ok: boolean;
+  eventName: string;
+  message: string;
+};
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+export async function switchEvent(params: {
+  eventName: string;
+}): Promise<SwitchEventResult> {
+  const status = getStatus();
+
+  // If stack is not running, just start it
+  if (!status.stack.running) {
+    const result = await startStack(params);
+    return {
+      ok: result.ok,
+      eventName: params.eventName,
+      message: result.message,
+    };
+  }
+
+  // Stack is running - gracefully switch events
+  const recordingFolder = eventVideosDir(params.eventName);
+  await ensureDir(recordingFolder);
+
+  // Stop replay buffer and recording
+  await obsConnectionManager.stopReplayBuffer();
+  await obsConnectionManager.stopRecording();
+
+  // Give OBS time to fully stop the replay buffer before we change folder and restart
+  await delay(500);
+
+  // Update recording folder (don't rely on configureForEvent to start replay buffer
+  // since it may still see the buffer as "active" during shutdown)
+  const cfg = await obsConnectionManager.configureForEvent(recordingFolder, {
+    connectTimeoutMs: 10_000,
+  });
+
+  if (!cfg.ok) {
+    return {
+      ok: false,
+      eventName: params.eventName,
+      message: `Failed to switch event: ${cfg.message ?? 'Unknown error'}`,
+    };
+  }
+
+  // Explicitly start replay buffer to ensure it's running with new folder
+  await obsConnectionManager.startReplayBuffer();
+
+  patchStatus({
+    stack: {
+      running: true,
+      currentEventName: params.eventName,
+      startedAt: Date.now(),
+    },
+  });
+
+  return {
+    ok: true,
+    eventName: params.eventName,
+    message: `Switched to event: ${params.eventName}`,
   };
 }
