@@ -1,11 +1,15 @@
 // src/main/services/stackService.ts
 import path from 'path';
 import os from 'os';
+import { shell } from 'electron';
+import log from 'electron-log';
 import {
   ensureDir,
   launchOBS,
   isObsRunning,
+  isClippiRunning,
   killOBS,
+  killClippi,
 } from '../utils/externalApps';
 import { ObsStatus } from './obsService';
 import { obsConnectionManager } from './obsConnectionManager';
@@ -16,6 +20,19 @@ function obsExePath(): string {
   const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
 
   return path.join(programFiles, 'obs-studio', 'bin', '64bit', 'obs64.exe');
+}
+
+function clippiExePath(): string {
+  // %LOCALAPPDATA%\Programs\project-clippi\Project Clippi.exe
+  const localAppData =
+    process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+
+  return path.join(
+    localAppData,
+    'Programs',
+    'project-clippi',
+    'Project Clippi.exe',
+  );
 }
 
 export type StartStackResult = {
@@ -48,13 +65,25 @@ export async function startStack(params: {
   await ensureDir(recordingFolder);
 
   // Only launch OBS if not already running
-  const running = await isObsRunning();
+  const obsRunning = await isObsRunning();
 
   let launchedObs = false;
-  if (!running) {
+  if (!obsRunning) {
     const exePath = obsExePath();
     await launchOBS(exePath, path.dirname(exePath));
     launchedObs = true;
+  }
+
+  // Only launch Project Clippi if not already running.
+  // Uses shell.openPath (OS-level ShellExecute) instead of child_process.spawn
+  // so that Clippi gets a clean environment, free from the parent Electron runtime.
+  const clippiRunning = await isClippiRunning();
+  if (!clippiRunning) {
+    const clippiPath = clippiExePath();
+    const openErr = await shell.openPath(clippiPath);
+    if (openErr) {
+      log.error('[stack] Failed to launch Project Clippi:', openErr);
+    }
   }
 
   // If we launched OBS, give it more time to boot and start websocket
@@ -116,6 +145,15 @@ export async function stopStack(): Promise<StopStackResult> {
   const killRes = await killOBS();
   if (!killRes.killed && killRes.message !== 'OBS is not running') {
     warnings.push(killRes.message);
+  }
+
+  // Kill Project Clippi process
+  const killClippiRes = await killClippi();
+  if (
+    !killClippiRes.killed &&
+    killClippiRes.message !== 'Project Clippi is not running'
+  ) {
+    warnings.push(killClippiRes.message);
   }
 
   // Reset stack state

@@ -48,6 +48,24 @@ async function assertExeExists(exePath: string): Promise<void> {
   }
 }
 
+// Env vars that should not leak to child Electron apps.
+// ELECTRON_RUN_AS_NODE makes Electron behave as plain Node (no GUI).
+const ELECTRON_ENV_VARS = [
+  'ELECTRON_RUN_AS_NODE',
+  'ELECTRON_NO_ATTACH_CONSOLE',
+  'ELECTRON_FORCE_IS_PACKAGED',
+];
+
+function cleanEnv(
+  extra?: Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  const merged = { ...process.env, ...(extra ?? {}) };
+  for (const key of ELECTRON_ENV_VARS) {
+    delete merged[key];
+  }
+  return merged;
+}
+
 /**
  * Launch an external application (OBS / Clippi / Slippi / etc).
  */
@@ -65,7 +83,7 @@ export async function launchApp(opts: LaunchOptions): Promise<LaunchResult> {
 
   const child: ChildProcess = spawn(exePath, args, {
     cwd,
-    env: { ...process.env, ...(env ?? {}) },
+    env: cleanEnv(env),
     detached,
     stdio: ignoreStdio ? 'ignore' : 'pipe',
     windowsHide: false,
@@ -108,6 +126,48 @@ export async function launchSlippi(
 }
 
 const execFileAsync = promisify(execFile);
+
+export async function isClippiRunning(): Promise<boolean> {
+  if (process.platform !== 'win32') {
+    return false;
+  }
+
+  try {
+    const { stdout } = await execFileAsync('tasklist', [
+      '/FI',
+      'IMAGENAME eq Project Clippi.exe',
+      '/FO',
+      'CSV',
+      '/NH',
+    ]);
+
+    return stdout.toLowerCase().includes('project clippi.exe');
+  } catch {
+    return false;
+  }
+}
+
+export async function killClippi(): Promise<{
+  killed: boolean;
+  message: string;
+}> {
+  if (process.platform !== 'win32') {
+    return { killed: false, message: 'killClippi only supported on Windows' };
+  }
+
+  try {
+    const running = await isClippiRunning();
+    if (!running) {
+      return { killed: false, message: 'Project Clippi is not running' };
+    }
+
+    await execFileAsync('taskkill', ['/IM', 'Project Clippi.exe', '/F']);
+    return { killed: true, message: 'Project Clippi terminated successfully' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { killed: false, message: `Failed to kill Project Clippi: ${msg}` };
+  }
+}
 
 export async function isObsRunning(): Promise<boolean> {
   // Windows-only implementation for now
