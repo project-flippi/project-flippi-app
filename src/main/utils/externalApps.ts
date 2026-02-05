@@ -50,10 +50,13 @@ async function assertExeExists(exePath: string): Promise<void> {
 
 // Env vars that should not leak to child Electron apps.
 // ELECTRON_RUN_AS_NODE makes Electron behave as plain Node (no GUI).
+// NODE_OPTIONS with e.g. "-r ts-node/register" crashes packaged apps that lack ts-node.
 const ELECTRON_ENV_VARS = [
   'ELECTRON_RUN_AS_NODE',
   'ELECTRON_NO_ATTACH_CONSOLE',
   'ELECTRON_FORCE_IS_PACKAGED',
+  'NODE_OPTIONS',
+  'NODE_PATH',
 ];
 
 function cleanEnv(

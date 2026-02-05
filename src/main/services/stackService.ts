@@ -1,11 +1,11 @@
 // src/main/services/stackService.ts
 import path from 'path';
 import os from 'os';
-import { shell } from 'electron';
 import log from 'electron-log';
 import {
   ensureDir,
   launchOBS,
+  launchClippi,
   isObsRunning,
   isClippiRunning,
   killOBS,
@@ -75,14 +75,15 @@ export async function startStack(params: {
   }
 
   // Only launch Project Clippi if not already running.
-  // Uses shell.openPath (OS-level ShellExecute) instead of child_process.spawn
-  // so that Clippi gets a clean environment, free from the parent Electron runtime.
+  // Uses launchClippi (spawn with cleanEnv) to strip dev-only env vars
+  // like NODE_OPTIONS that would crash a packaged Electron app.
   const clippiRunning = await isClippiRunning();
   if (!clippiRunning) {
-    const clippiPath = clippiExePath();
-    const openErr = await shell.openPath(clippiPath);
-    if (openErr) {
-      log.error('[stack] Failed to launch Project Clippi:', openErr);
+    try {
+      const clippiPath = clippiExePath();
+      await launchClippi(clippiPath);
+    } catch (err) {
+      log.error('[stack] Failed to launch Project Clippi:', err);
     }
   }
 
