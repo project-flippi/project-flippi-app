@@ -28,10 +28,15 @@ export type ClippiServiceStatus = {
   lastUpdatedAt: number; // epoch ms
 };
 
+export type SlippiServiceStatus = {
+  processRunning: boolean;
+};
+
 export type ServiceStatus = {
   obs: ObsServiceStatus;
   stack: StackState;
   clippi: ClippiServiceStatus;
+  slippi: SlippiServiceStatus;
 };
 
 export const defaultServiceStatus: ServiceStatus = {
@@ -53,5 +58,8 @@ export const defaultServiceStatus: ServiceStatus = {
     activeFilePath: null,
     lastError: undefined,
     lastUpdatedAt: Date.now(),
+  },
+  slippi: {
+    processRunning: false,
   },
 };

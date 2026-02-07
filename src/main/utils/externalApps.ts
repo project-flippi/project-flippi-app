@@ -172,6 +172,48 @@ export async function killClippi(): Promise<{
   }
 }
 
+export async function isSlippiRunning(): Promise<boolean> {
+  if (process.platform !== 'win32') {
+    return false;
+  }
+
+  try {
+    const { stdout } = await execFileAsync('tasklist', [
+      '/FI',
+      'IMAGENAME eq Slippi Launcher.exe',
+      '/FO',
+      'CSV',
+      '/NH',
+    ]);
+
+    return stdout.toLowerCase().includes('slippi launcher.exe');
+  } catch {
+    return false;
+  }
+}
+
+export async function killSlippi(): Promise<{
+  killed: boolean;
+  message: string;
+}> {
+  if (process.platform !== 'win32') {
+    return { killed: false, message: 'killSlippi only supported on Windows' };
+  }
+
+  try {
+    const running = await isSlippiRunning();
+    if (!running) {
+      return { killed: false, message: 'Slippi Launcher is not running' };
+    }
+
+    await execFileAsync('taskkill', ['/IM', 'Slippi Launcher.exe', '/F']);
+    return { killed: true, message: 'Slippi Launcher terminated successfully' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { killed: false, message: `Failed to kill Slippi Launcher: ${msg}` };
+  }
+}
+
 export async function isObsRunning(): Promise<boolean> {
   // Windows-only implementation for now
   if (process.platform !== 'win32') {

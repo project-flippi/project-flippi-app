@@ -21,12 +21,17 @@ import {
   stopStack,
   switchEvent,
   relaunchClippi,
+  relaunchSlippi,
 } from './services/stackService';
 
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
 
-import { isObsRunning, isClippiRunning } from './utils/externalApps';
+import {
+  isObsRunning,
+  isClippiRunning,
+  isSlippiRunning,
+} from './utils/externalApps';
 import {
   getStatus,
   subscribeStatus,
@@ -136,6 +141,45 @@ function startClippiProcessPolling(): void {
   process.on('exit', () => clearInterval(timer));
 }
 
+function startSlippiProcessPolling(): void {
+  const intervalMs = 3000;
+
+  let inFlight = false;
+
+  const tick = async () => {
+    if (inFlight) return;
+    inFlight = true;
+
+    try {
+      const isRunningNow = await isSlippiRunning();
+      const status = getStatus();
+      const prev = status.slippi.processRunning;
+
+      if (isRunningNow !== prev) {
+        patchStatus({
+          slippi: {
+            processRunning: isRunningNow,
+          },
+        });
+      }
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  // Run once immediately so UI updates fast
+  tick().catch(() => {});
+
+  const timer = setInterval(() => {
+    tick().catch(() => {});
+  }, intervalMs);
+
+  // Don't keep the process alive solely for this timer
+  timer.unref?.();
+
+  process.on('exit', () => clearInterval(timer));
+}
+
 class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
@@ -193,6 +237,10 @@ ipcMain.handle('stack:switch', async (_evt, args: { eventName: string }) => {
 
 ipcMain.handle('stack:relaunchClippi', async () => {
   return relaunchClippi();
+});
+
+ipcMain.handle('stack:relaunchSlippi', async () => {
+  return relaunchSlippi();
 });
 
 ipcMain.handle('status:get', async () => {
@@ -299,6 +347,7 @@ app
     createWindow();
     startObsProcessPolling();
     startClippiProcessPolling();
+    startSlippiProcessPolling();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

@@ -6,10 +6,13 @@ import {
   ensureDir,
   launchOBS,
   launchClippi,
+  launchSlippi,
   isObsRunning,
   isClippiRunning,
+  isSlippiRunning,
   killOBS,
   killClippi,
+  killSlippi,
 } from '../utils/externalApps';
 import { ObsStatus } from './obsService';
 import obsConnectionManager from './obsConnectionManager';
@@ -33,6 +36,19 @@ function clippiExePath(): string {
     'Programs',
     'project-clippi',
     'Project Clippi.exe',
+  );
+}
+
+function slippiExePath(): string {
+  // %LOCALAPPDATA%\Programs\Slippi Launcher\Slippi Launcher.exe
+  const localAppData =
+    process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+
+  return path.join(
+    localAppData,
+    'Programs',
+    'Slippi Launcher',
+    'Slippi Launcher.exe',
   );
 }
 
@@ -85,6 +101,17 @@ export async function startStack(params: {
       await launchClippi(clippiPath);
     } catch (err) {
       log.error('[stack] Failed to launch Project Clippi:', err);
+    }
+  }
+
+  // Only launch Slippi Launcher if not already running.
+  const slippiRunning = await isSlippiRunning();
+  if (!slippiRunning) {
+    try {
+      const slippiPath = slippiExePath();
+      await launchSlippi(slippiPath);
+    } catch (err) {
+      log.error('[stack] Failed to launch Slippi Launcher:', err);
     }
   }
 
@@ -164,6 +191,15 @@ export async function stopStack(): Promise<StopStackResult> {
     warnings.push(killClippiRes.message);
   }
 
+  // Kill Slippi Launcher process
+  const killSlippiRes = await killSlippi();
+  if (
+    !killSlippiRes.killed &&
+    killSlippiRes.message !== 'Slippi Launcher is not running'
+  ) {
+    warnings.push(killSlippiRes.message);
+  }
+
   // Reset stack state
   patchStatus({
     stack: {
@@ -214,6 +250,33 @@ export async function relaunchClippi(): Promise<RelaunchClippiResult> {
   }
 
   return { ok: true, message: 'Project Clippi relaunched' };
+}
+
+export type RelaunchSlippiResult = { ok: boolean; message: string };
+
+export async function relaunchSlippi(): Promise<RelaunchSlippiResult> {
+  const status = getStatus();
+
+  if (!status.stack.running) {
+    return { ok: false, message: 'Stack is not running' };
+  }
+
+  const alreadyRunning = await isSlippiRunning();
+  if (alreadyRunning) {
+    return { ok: true, message: 'Slippi Launcher is already running' };
+  }
+
+  try {
+    await launchSlippi(slippiExePath());
+  } catch (err) {
+    log.error('[stack] Failed to relaunch Slippi Launcher:', err);
+    return {
+      ok: false,
+      message: `Failed to launch Slippi: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  return { ok: true, message: 'Slippi Launcher relaunched' };
 }
 
 export type SwitchEventResult = {

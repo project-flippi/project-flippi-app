@@ -23,11 +23,13 @@ function RecordingPanel() {
   const [stackBusy, setStackBusy] = useState(false);
 
   const [relaunchBusy, setRelaunchBusy] = useState(false);
+  const [relaunchSlippiBusy, setRelaunchSlippiBusy] = useState(false);
 
   // Get persistent stack state from main process
-  const { stack, clippi } = useServiceStatus();
+  const { stack, clippi, slippi } = useServiceStatus();
   const { running: stackRunning, currentEventName } = stack;
   const showClippiWarning = stackRunning && !clippi.processRunning;
+  const showSlippiWarning = stackRunning && !slippi.processRunning;
 
   async function refreshEvents(selectIfMissing?: string) {
     const list = await window.flippiEvents.list();
@@ -214,8 +216,8 @@ function RecordingPanel() {
                 }}
               >
                 <span style={{ flex: 1 }}>
-                  Project Clippi is not running — combo data and replays are not being
-                  captured.
+                  Project Clippi is not running — combo data and replays are not
+                  being captured.
                 </span>
                 <button
                   type="button"
@@ -237,6 +239,45 @@ function RecordingPanel() {
                   }}
                 >
                   {relaunchBusy ? 'Relaunching…' : 'Relaunch Clippi'}
+                </button>
+              </div>
+            )}
+            {showSlippiWarning && (
+              <div
+                style={{
+                  borderLeft: '4px solid #e5a000',
+                  background: '#fef9ec',
+                  padding: '8px 12px',
+                  marginTop: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  borderRadius: 4,
+                  color: '#7a5d00',
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ flex: 1 }}>Slippi Launcher is not running.</span>
+                <button
+                  type="button"
+                  className="pf-button pf-button-primary"
+                  style={{ whiteSpace: 'nowrap', fontSize: 13 }}
+                  disabled={relaunchSlippiBusy}
+                  onClick={async () => {
+                    setRelaunchSlippiBusy(true);
+                    try {
+                      const res = await window.flippiStack.relaunchSlippi();
+                      if (!res.ok) {
+                        setStackStatus(res.message);
+                      }
+                    } catch (e: any) {
+                      setStackStatus(e?.message ?? String(e));
+                    } finally {
+                      setRelaunchSlippiBusy(false);
+                    }
+                  }}
+                >
+                  {relaunchSlippiBusy ? 'Relaunching…' : 'Relaunch Slippi'}
                 </button>
               </div>
             )}
