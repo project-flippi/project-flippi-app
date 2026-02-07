@@ -16,7 +16,12 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import listEventFolders from './services/eventService';
 import { createEventFromTemplate } from './services/folderCreation';
-import { startStack, stopStack, switchEvent } from './services/stackService';
+import {
+  startStack,
+  stopStack,
+  switchEvent,
+  relaunchClippi,
+} from './services/stackService';
 
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
@@ -184,6 +189,10 @@ ipcMain.handle('stack:stop', async () => {
 
 ipcMain.handle('stack:switch', async (_evt, args: { eventName: string }) => {
   return switchEvent(args);
+});
+
+ipcMain.handle('stack:relaunchClippi', async () => {
+  return relaunchClippi();
 });
 
 ipcMain.handle('status:get', async () => {

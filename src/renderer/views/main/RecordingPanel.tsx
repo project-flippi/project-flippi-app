@@ -22,9 +22,12 @@ function RecordingPanel() {
   const [stackStatus, setStackStatus] = useState<string>('');
   const [stackBusy, setStackBusy] = useState(false);
 
+  const [relaunchBusy, setRelaunchBusy] = useState(false);
+
   // Get persistent stack state from main process
-  const { stack } = useServiceStatus();
+  const { stack, clippi } = useServiceStatus();
   const { running: stackRunning, currentEventName } = stack;
+  const showClippiWarning = stackRunning && !clippi.processRunning;
 
   async function refreshEvents(selectIfMissing?: string) {
     const list = await window.flippiEvents.list();
@@ -195,6 +198,48 @@ function RecordingPanel() {
                 <span className="pf-status-message">{stackStatus}</span>
               )}
             </div>
+            {showClippiWarning && (
+              <div
+                style={{
+                  borderLeft: '4px solid #e5a000',
+                  background: '#fef9ec',
+                  padding: '8px 12px',
+                  marginTop: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  borderRadius: 4,
+                  color: '#7a5d00',
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ flex: 1 }}>
+                  Project Clippi is not running — combo data and replays are not being
+                  captured.
+                </span>
+                <button
+                  type="button"
+                  className="pf-button pf-button-primary"
+                  style={{ whiteSpace: 'nowrap', fontSize: 13 }}
+                  disabled={relaunchBusy}
+                  onClick={async () => {
+                    setRelaunchBusy(true);
+                    try {
+                      const res = await window.flippiStack.relaunchClippi();
+                      if (!res.ok) {
+                        setStackStatus(res.message);
+                      }
+                    } catch (e: any) {
+                      setStackStatus(e?.message ?? String(e));
+                    } finally {
+                      setRelaunchBusy(false);
+                    }
+                  }}
+                >
+                  {relaunchBusy ? 'Relaunching…' : 'Relaunch Clippi'}
+                </button>
+              </div>
+            )}
             <div className="pf-note">
               Select the active event folder to use for recording.
             </div>

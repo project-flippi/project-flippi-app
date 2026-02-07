@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('flippiStack', {
   stop: () => ipcRenderer.invoke('stack:stop'),
   switch: (eventName: string) =>
     ipcRenderer.invoke('stack:switch', { eventName }),
+  relaunchClippi: () => ipcRenderer.invoke('stack:relaunchClippi'),
 });
 
 contextBridge.exposeInMainWorld('flippiStatus', {

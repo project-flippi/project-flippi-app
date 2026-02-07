@@ -180,6 +180,42 @@ export async function stopStack(): Promise<StopStackResult> {
   };
 }
 
+export type RelaunchClippiResult = { ok: boolean; message: string };
+
+export async function relaunchClippi(): Promise<RelaunchClippiResult> {
+  const status = getStatus();
+
+  if (!status.stack.running) {
+    return { ok: false, message: 'Stack is not running' };
+  }
+
+  const alreadyRunning = await isClippiRunning();
+  if (alreadyRunning) {
+    return { ok: true, message: 'Project Clippi is already running' };
+  }
+
+  try {
+    await launchClippi(clippiExePath());
+  } catch (err) {
+    log.error('[stack] Failed to relaunch Project Clippi:', err);
+    return {
+      ok: false,
+      message: `Failed to launch Clippi: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  // Re-sync combo data for the current event
+  const { currentEventName } = status.stack;
+  if (currentEventName) {
+    const clippiSync = await syncClippiComboData(currentEventName);
+    if (!clippiSync.ok) {
+      log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
+    }
+  }
+
+  return { ok: true, message: 'Project Clippi relaunched' };
+}
+
 export type SwitchEventResult = {
   ok: boolean;
   eventName: string;
