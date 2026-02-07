@@ -21,7 +21,7 @@ import { startStack, stopStack, switchEvent } from './services/stackService';
 import { getSettings, updateSettings } from './settings/store';
 import type { AppSettings } from './settings/schema';
 
-import { isObsRunning } from './utils/externalApps';
+import { isObsRunning, isClippiRunning } from './utils/externalApps';
 import {
   getStatus,
   subscribeStatus,
@@ -89,6 +89,45 @@ function startObsProcessPolling(): void {
   timer.unref?.();
 
   // Optional: if you want cleanup
+  process.on('exit', () => clearInterval(timer));
+}
+
+function startClippiProcessPolling(): void {
+  const intervalMs = 3000;
+
+  let inFlight = false;
+
+  const tick = async () => {
+    if (inFlight) return;
+    inFlight = true;
+
+    try {
+      const isRunningNow = await isClippiRunning();
+      const status = getStatus();
+      const prev = status.clippi.processRunning;
+
+      if (isRunningNow !== prev) {
+        patchStatus({
+          clippi: {
+            processRunning: isRunningNow,
+          },
+        });
+      }
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  // Run once immediately so UI updates fast
+  tick().catch(() => {});
+
+  const timer = setInterval(() => {
+    tick().catch(() => {});
+  }, intervalMs);
+
+  // Don't keep the process alive solely for this timer
+  timer.unref?.();
+
   process.on('exit', () => clearInterval(timer));
 }
 
@@ -250,6 +289,7 @@ app
   .then(() => {
     createWindow();
     startObsProcessPolling();
+    startClippiProcessPolling();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

@@ -20,6 +20,7 @@ export type StackState = {
 };
 
 export type ClippiServiceStatus = {
+  processRunning: boolean; // whether Project Clippi process is detected
   comboDataLinked: boolean; // symlink exists and is valid
   activeEventName: string | null; // which event the symlink points to
   activeFilePath: string | null; // full path to _ActiveClippiComboData/combodata.jsonl
@@ -46,6 +47,7 @@ export const defaultServiceStatus: ServiceStatus = {
     startedAt: null,
   },
   clippi: {
+    processRunning: false,
     comboDataLinked: false,
     activeEventName: null,
     activeFilePath: null,

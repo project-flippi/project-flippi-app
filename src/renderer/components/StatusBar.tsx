@@ -93,6 +93,12 @@ export default function StatusBar() {
           </span>
         )}
       </div>
+
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <StatusLight state={status.clippi.processRunning ? 'green' : 'gray'} />
+        <strong style={{ marginRight: 8 }}>Clippi</strong>
+        <span>{status.clippi.processRunning ? 'Running' : 'Not running'}</span>
+      </div>
     </div>
   );
 }
