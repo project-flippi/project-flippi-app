@@ -19,14 +19,18 @@ export type StackState = {
   startedAt: number | null;
 };
 
+export type ClippiServiceStatus = {
+  comboDataLinked: boolean; // symlink exists and is valid
+  activeEventName: string | null; // which event the symlink points to
+  activeFilePath: string | null; // full path to _ActiveClippiComboData/combodata.jsonl
+  lastError?: string;
+  lastUpdatedAt: number; // epoch ms
+};
+
 export type ServiceStatus = {
   obs: ObsServiceStatus;
   stack: StackState;
-
-  // Future-proofing (Step 1 can leave these out or set to minimal types later)
-  // clippi?: ...
-  // slippi?: ...
-  // youtube?: ...
+  clippi: ClippiServiceStatus;
 };
 
 export const defaultServiceStatus: ServiceStatus = {
@@ -40,5 +44,12 @@ export const defaultServiceStatus: ServiceStatus = {
     running: false,
     currentEventName: null,
     startedAt: null,
+  },
+  clippi: {
+    comboDataLinked: false,
+    activeEventName: null,
+    activeFilePath: null,
+    lastError: undefined,
+    lastUpdatedAt: Date.now(),
   },
 };

@@ -31,6 +31,10 @@ export function patchStatus(partial: Partial<ServiceStatus>): void {
       ...current.stack,
       ...(partial.stack ?? {}),
     },
+    clippi: {
+      ...current.clippi,
+      ...(partial.clippi ?? {}),
+    },
   };
 
   setStatus(next);

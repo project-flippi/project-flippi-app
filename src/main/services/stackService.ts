@@ -14,6 +14,7 @@ import {
 import { ObsStatus } from './obsService';
 import obsConnectionManager from './obsConnectionManager';
 import { patchStatus, getStatus } from './statusStore';
+import { syncClippiComboData } from './clippiIntegration';
 
 function obsExePath(): string {
   // %ProgramFiles%\obs-studio\bin\64bit\obs64.exe
@@ -104,6 +105,12 @@ export async function startStack(params: {
         startedAt: Date.now(),
       },
     });
+
+    // Sync Clippi combodata symlink (non-fatal)
+    const clippiSync = await syncClippiComboData(params.eventName);
+    if (!clippiSync.ok) {
+      log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
+    }
   }
 
   return {
@@ -235,6 +242,12 @@ export async function switchEvent(params: {
       startedAt: Date.now(),
     },
   });
+
+  // Sync Clippi combodata symlink (non-fatal)
+  const clippiSync = await syncClippiComboData(params.eventName);
+  if (!clippiSync.ok) {
+    log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
+  }
 
   return {
     ok: true,
