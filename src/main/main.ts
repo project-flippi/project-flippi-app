@@ -28,7 +28,7 @@ import {
   patchStatus,
 } from './services/statusStore';
 
-import { obsConnectionManager } from './services/obsConnectionManager';
+import obsConnectionManager from './services/obsConnectionManager';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -79,10 +79,10 @@ function startObsProcessPolling(): void {
   };
 
   // Run once immediately so UI updates fast
-  void tick();
+  tick().catch(() => {});
 
   const timer = setInterval(() => {
-    void tick();
+    tick().catch(() => {});
   }, intervalMs);
 
   // Don't keep the process alive solely for this timer

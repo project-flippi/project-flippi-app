@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useServiceStatus } from '../../hooks/useServiceStatus';
+import useServiceStatus from '../../hooks/useServiceStatus';
 
 function getButtonLabel(busy: boolean, running: boolean): string {
   if (busy) {

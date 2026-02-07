@@ -63,9 +63,9 @@ function cleanEnv(
   extra?: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
   const merged = { ...process.env, ...(extra ?? {}) };
-  for (const key of ELECTRON_ENV_VARS) {
+  ELECTRON_ENV_VARS.forEach((key) => {
     delete merged[key];
-  }
+  });
   return merged;
 }
 

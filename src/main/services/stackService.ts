@@ -12,7 +12,7 @@ import {
   killClippi,
 } from '../utils/externalApps';
 import { ObsStatus } from './obsService';
-import { obsConnectionManager } from './obsConnectionManager';
+import obsConnectionManager from './obsConnectionManager';
 import { patchStatus, getStatus } from './statusStore';
 
 function obsExePath(): string {

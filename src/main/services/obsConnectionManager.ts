@@ -48,19 +48,19 @@ function formatUnknownError(err: unknown): string {
   if (err && typeof err === 'object') {
     // Try common shapes without assuming too much
     const anyErr = err as Record<string, unknown>;
-    const msg =
-      typeof anyErr.message === 'string'
-        ? anyErr.message
-        : typeof anyErr.error === 'string'
-          ? anyErr.error
-          : undefined;
+    let msg: string | undefined;
+    if (typeof anyErr.message === 'string') {
+      msg = anyErr.message;
+    } else if (typeof anyErr.error === 'string') {
+      msg = anyErr.error;
+    }
 
-    const code =
-      typeof anyErr.code === 'string'
-        ? anyErr.code
-        : typeof anyErr.code === 'number'
-          ? String(anyErr.code)
-          : undefined;
+    let code: string | undefined;
+    if (typeof anyErr.code === 'string') {
+      code = anyErr.code;
+    } else if (typeof anyErr.code === 'number') {
+      code = String(anyErr.code);
+    }
 
     if (msg && code) return `${msg} (${code})`;
     if (msg) return msg;
@@ -92,6 +92,7 @@ class ObsConnectionManager {
   private obs: OBSWebSocket | null = null;
 
   private connectPromise: Promise<EnsureConnectedResult> | null = null;
+
   private authFailed = false;
 
   private connectionReady = false;
@@ -198,8 +199,10 @@ class ObsConnectionManager {
     const startedAt = Date.now();
     let lastErrMsg: string | undefined;
 
+    // eslint-disable-next-line no-await-in-loop
     while (Date.now() - startedAt < timeoutMs) {
       try {
+        // eslint-disable-next-line no-await-in-loop
         await obs.connect({ address, password: conn.password });
 
         this.connectionReady = true;
@@ -227,6 +230,7 @@ class ObsConnectionManager {
         this.connectionReady = false;
         setObsWebsocketState('connecting', undefined);
 
+        // eslint-disable-next-line no-await-in-loop
         await delay(intervalMs);
       }
     }
@@ -359,4 +363,5 @@ class ObsConnectionManager {
   }
 }
 
-export const obsConnectionManager = new ObsConnectionManager();
+const obsConnectionManager = new ObsConnectionManager();
+export default obsConnectionManager;

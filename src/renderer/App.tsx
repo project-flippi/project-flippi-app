@@ -3,10 +3,12 @@ import MainPanel from './views/main/MainPanel';
 import StatusBar from './components/StatusBar';
 
 function App() {
-  return <>
-    <MainPanel />
-    <StatusBar />
-  </>
+  return (
+    <>
+      <MainPanel />
+      <StatusBar />
+    </>
+  );
 }
 
 export default App;

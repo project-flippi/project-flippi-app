@@ -1,15 +1,19 @@
 import React from 'react';
-import { useServiceStatus } from '../hooks/useServiceStatus';
+import useServiceStatus from '../hooks/useServiceStatus';
 
-function StatusLight({ state }: { state: 'green' | 'yellow' | 'red' | 'gray' }) {
-  const color =
-    state === 'green'
-      ? '#2ecc71'
-      : state === 'yellow'
-        ? '#f1c40f'
-        : state === 'red'
-          ? '#e74c3c'
-          : '#7f8c8d';
+const colorMap: Record<'green' | 'yellow' | 'red' | 'gray', string> = {
+  green: '#2ecc71',
+  yellow: '#f1c40f',
+  red: '#e74c3c',
+  gray: '#7f8c8d',
+};
+
+function StatusLight({
+  state,
+}: {
+  state: 'green' | 'yellow' | 'red' | 'gray';
+}) {
+  const color = colorMap[state];
 
   return (
     <span
@@ -27,22 +31,20 @@ function StatusLight({ state }: { state: 'green' | 'yellow' | 'red' | 'gray' }) 
   );
 }
 
+function getObsState(
+  processRunning: boolean,
+  websocket: string,
+): 'green' | 'yellow' | 'red' | 'gray' {
+  if (!processRunning) return 'gray';
+  if (websocket === 'connected') return 'green';
+  if (websocket === 'auth_failed' || websocket === 'error') return 'red';
+  return 'yellow'; // connecting or running but not connected yet
+}
+
 export default function StatusBar() {
   const status = useServiceStatus();
 
-  const obsOk =
-    status.obs.processRunning && status.obs.websocket === 'connected';
-
-  const obsState =
-    !status.obs.processRunning
-      ? 'gray'
-      : status.obs.websocket === 'connected'
-        ? 'green'
-        : status.obs.websocket === 'connecting'
-          ? 'yellow'
-          : status.obs.websocket === 'auth_failed' || status.obs.websocket === 'error'
-            ? 'red'
-            : 'yellow'; // running but not connected yet
+  const obsState = getObsState(status.obs.processRunning, status.obs.websocket);
 
   let obsText: string;
 
