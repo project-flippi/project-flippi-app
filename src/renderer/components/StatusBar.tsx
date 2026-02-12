@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ClippiServiceStatus } from '../../common/statusTypes';
 import useServiceStatus from '../hooks/useServiceStatus';
 
 const colorMap: Record<'green' | 'yellow' | 'red' | 'gray', string> = {
@@ -39,6 +40,29 @@ function getObsState(
   if (websocket === 'connected') return 'green';
   if (websocket === 'auth_failed' || websocket === 'error') return 'red';
   return 'yellow'; // connecting or running but not connected yet
+}
+
+function getClippiState(
+  clippi: ClippiServiceStatus,
+): 'green' | 'yellow' | 'gray' {
+  if (!clippi.processRunning) return 'gray';
+  if (clippi.obsConnected === true && clippi.slippiConnected === true)
+    return 'green';
+  if (clippi.obsConnected === null && clippi.slippiConnected === null)
+    return 'yellow'; // still loading / no file yet
+  // At least one is explicitly false
+  return 'yellow';
+}
+
+function getClippiText(clippi: ClippiServiceStatus): string {
+  if (!clippi.processRunning) return 'Not running';
+  if (clippi.obsConnected === null && clippi.slippiConnected === null)
+    return 'Running (checking connections\u2026)';
+  const missing: string[] = [];
+  if (clippi.obsConnected === false) missing.push('OBS');
+  if (clippi.slippiConnected === false) missing.push('Slippi');
+  if (missing.length > 0) return `Missing: ${missing.join(', ')}`;
+  return 'Fully connected';
 }
 
 export default function StatusBar() {
@@ -95,9 +119,9 @@ export default function StatusBar() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <StatusLight state={status.clippi.processRunning ? 'green' : 'gray'} />
+        <StatusLight state={getClippiState(status.clippi)} />
         <strong style={{ marginRight: 8 }}>Clippi</strong>
-        <span>{status.clippi.processRunning ? 'Running' : 'Not running'}</span>
+        <span>{getClippiText(status.clippi)}</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>

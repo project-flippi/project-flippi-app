@@ -9,6 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
+import fs from 'fs';
 import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
@@ -102,6 +103,39 @@ function startObsProcessPolling(): void {
   process.on('exit', () => clearInterval(timer));
 }
 
+function getClippiStatusFilePath(): string {
+  const appData = process.env.APPDATA;
+  if (!appData) return '';
+  return path.join(appData, 'Project Clippi', 'connection-status.json');
+}
+
+function readClippiConnectionStatus(): {
+  obsConnected: boolean;
+  slippiConnected: boolean;
+  updatedAt: number;
+} | null {
+  const filePath = getClippiStatusFilePath();
+  if (!filePath) return null;
+  try {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(raw);
+    if (
+      typeof data.obsConnected === 'boolean' &&
+      typeof data.slippiConnected === 'boolean' &&
+      typeof data.updatedAt === 'number'
+    ) {
+      return {
+        obsConnected: data.obsConnected,
+        slippiConnected: data.slippiConnected,
+        updatedAt: data.updatedAt,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function startClippiProcessPolling(): void {
   const intervalMs = 3000;
 
@@ -112,14 +146,44 @@ function startClippiProcessPolling(): void {
     inFlight = true;
 
     try {
-      const isRunningNow = await isClippiRunning();
+      // In dev mode, Clippi runs under node/electron so tasklist won't find
+      // "Project Clippi.exe". Fall back to checking if the status file was
+      // updated recently (within 30s) as a proxy for "Clippi is alive".
+      let isRunningNow = await isClippiRunning();
+      if (!isRunningNow && process.env.NODE_ENV === 'development') {
+        const connStatus = readClippiConnectionStatus();
+        if (connStatus && Date.now() - connStatus.updatedAt < 30_000) {
+          isRunningNow = true;
+        }
+      }
       const status = getStatus();
-      const prev = status.clippi.processRunning;
+      const prev = status.clippi;
 
-      if (isRunningNow !== prev) {
+      // Read connection status file
+      let obsConnected: boolean | null = null;
+      let slippiConnected: boolean | null = null;
+
+      if (isRunningNow) {
+        const connStatus = readClippiConnectionStatus();
+        if (connStatus) {
+          obsConnected = connStatus.obsConnected;
+          slippiConnected = connStatus.slippiConnected;
+        }
+        // If no file or invalid, leave as null (unknown)
+      }
+      // If not running, both stay null
+
+      const changed =
+        isRunningNow !== prev.processRunning ||
+        obsConnected !== prev.obsConnected ||
+        slippiConnected !== prev.slippiConnected;
+
+      if (changed) {
         patchStatus({
           clippi: {
             processRunning: isRunningNow,
+            obsConnected,
+            slippiConnected,
           },
         });
       }

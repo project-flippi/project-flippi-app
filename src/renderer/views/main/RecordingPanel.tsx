@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import useServiceStatus from '../../hooks/useServiceStatus';
 
+function getClippiConnectionWarning(
+  obsConnected: boolean | null,
+  slippiConnected: boolean | null,
+): string {
+  if (obsConnected === false && slippiConnected === false) {
+    return 'not connected to OBS or Slippi';
+  }
+  if (obsConnected === false) return 'not connected to OBS';
+  return 'not connected to Slippi';
+}
+
 function getButtonLabel(busy: boolean, running: boolean): string {
   if (busy) {
     return running ? 'Stopping…' : 'Starting…';
@@ -29,6 +40,10 @@ function RecordingPanel() {
   const { stack, clippi, slippi } = useServiceStatus();
   const { running: stackRunning, currentEventName } = stack;
   const showClippiWarning = stackRunning && !clippi.processRunning;
+  const showClippiConnectionWarning =
+    stackRunning &&
+    clippi.processRunning &&
+    (clippi.obsConnected === false || clippi.slippiConnected === false);
   const showSlippiWarning = stackRunning && !slippi.processRunning;
 
   async function refreshEvents(selectIfMissing?: string) {
@@ -240,6 +255,31 @@ function RecordingPanel() {
                 >
                   {relaunchBusy ? 'Relaunching…' : 'Relaunch Clippi'}
                 </button>
+              </div>
+            )}
+            {showClippiConnectionWarning && (
+              <div
+                style={{
+                  borderLeft: '4px solid #e5a000',
+                  background: '#fef9ec',
+                  padding: '8px 12px',
+                  marginTop: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  borderRadius: 4,
+                  color: '#7a5d00',
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ flex: 1 }}>
+                  Clippi is running but{' '}
+                  {getClippiConnectionWarning(
+                    clippi.obsConnected,
+                    clippi.slippiConnected,
+                  )}
+                  {' \u2014 combo data and replays may not be captured.'}
+                </span>
               </div>
             )}
             {showSlippiWarning && (
