@@ -18,6 +18,10 @@ import { ObsStatus } from './obsService';
 import obsConnectionManager from './obsConnectionManager';
 import { patchStatus, getStatus } from './statusStore';
 import { syncClippiComboData } from './clippiIntegration';
+import {
+  startPolling as startGameCapturePolling,
+  stopPolling as stopGameCapturePolling,
+} from './gameCaptureService';
 
 function obsExePath(): string {
   // %ProgramFiles%\obs-studio\bin\64bit\obs64.exe
@@ -138,6 +142,9 @@ export async function startStack(params: {
     if (!clippiSync.ok) {
       log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
     }
+
+    // Start game capture detection polling
+    startGameCapturePolling();
   }
 
   return {
@@ -199,6 +206,9 @@ export async function stopStack(): Promise<StopStackResult> {
   ) {
     warnings.push(killSlippiRes.message);
   }
+
+  // Stop game capture detection polling
+  stopGameCapturePolling();
 
   // Reset stack state
   patchStatus({

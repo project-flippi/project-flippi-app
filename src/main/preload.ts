@@ -52,6 +52,11 @@ contextBridge.exposeInMainWorld('flippiStack', {
   relaunchSlippi: () => ipcRenderer.invoke('stack:relaunchSlippi'),
 });
 
+contextBridge.exposeInMainWorld('flippiObs', {
+  getSources: (): Promise<{ name: string; type: string; typeId: string }[]> =>
+    ipcRenderer.invoke('obs:getSources'),
+});
+
 contextBridge.exposeInMainWorld('flippiStatus', {
   get: () => ipcRenderer.invoke('status:get'),
   onChanged: (callback: (status: any) => void) => {

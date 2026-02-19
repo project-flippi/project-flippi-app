@@ -23,7 +23,7 @@ npm test               # Run Jest tests
 
 The app follows Electron's multi-process architecture with three layers:
 
-- **Main process** (`src/main/main.ts`) — App lifecycle, window creation, IPC handlers, OBS process polling (3s interval), status broadcasting to all windows, auto-updater
+- **Main process** (`src/main/main.ts`) — App lifecycle, window creation, IPC handlers, process polling (3s interval for OBS/Clippi/Slippi), status broadcasting to all windows, auto-updater
 - **Preload script** (`src/main/preload.ts`) — Bridges main↔renderer via `contextBridge`. Exposes namespaced APIs: `window.flippiSettings`, `window.flippiEvents`, `window.flippiStack`, `window.flippiStatus`
 - **Renderer process** (`src/renderer/`) — React UI, communicates with main exclusively through the preload IPC bridge
 
@@ -35,6 +35,15 @@ All in `src/main/services/`:
 - **obsConnectionManager** — Singleton persistent OBS WebSocket connection (`obs-websocket-js`). Handles retry logic, auth failure detection, and connection invalidation on settings change. Core methods: `ensureConnected`, `configureForEvent`, `startReplayBuffer`, `stopReplayBuffer`, `stopRecording`.
 - **stackService** — Orchestrates the recording stack: launches OBS, connects via WebSocket, configures recording folder, manages replay buffer. Entry points: `startStack(eventName)`, `stopStack()`, `switchEvent(eventName)`.
 - **folderCreation** — Creates event folders from template structure.
+
+### Cross-Process Communication (Clippi)
+
+Flippi monitors Project Clippi's OBS and Slippi connection status via a shared file:
+
+- **Clippi writes** `%APPDATA%/Project Clippi/connection-status.json` (`{ obsConnected: bool, slippiConnected: bool, updatedAt: number }`) whenever its Redux store connection state changes. Uses atomic writes (`.tmp` + rename).
+- **Flippi reads** this file every 3s in `startClippiProcessPolling()` (`src/main/main.ts`). If the process is running and the file is valid, connection values are patched into `statusStore`. If the process is not running, values are set to `null`.
+- In dev mode, since Clippi runs under `node.exe`/`electron.exe` (not `Project Clippi.exe`), Flippi falls back to treating Clippi as running if the status file was updated within the last 30 seconds.
+- `ClippiServiceStatus.obsConnected` / `slippiConnected` use three states: `true` (connected), `false` (explicitly disconnected), `null` (unknown/no data).
 
 ### Data Flow Patterns
 
@@ -52,7 +61,7 @@ All in `src/main/services/`:
 
 ### Shared Types
 
-`src/common/statusTypes.ts` — `ServiceStatus`, `ObsServiceStatus`, `StackState` types shared between main and renderer processes.
+`src/common/statusTypes.ts` — `ServiceStatus`, `ObsServiceStatus`, `ClippiServiceStatus`, `StackState` types shared between main and renderer processes.
 
 ### Settings Schema
 
@@ -64,4 +73,4 @@ Webpack configs live in `.erb/configs/` with separate configurations for main, r
 
 ## Platform Notes
 
-Windows-first (OBS process detection uses `tasklist`/`taskkill`). External process spawning in `src/main/utils/externalApps.ts` has cross-platform launch support but Windows-specific process management.
+Windows-first (OBS/Clippi/Slippi process detection uses `tasklist`/`taskkill`). External process spawning in `src/main/utils/externalApps.ts` has cross-platform launch support but Windows-specific process management. Clippi connection status file path uses `process.env.APPDATA` (Windows-specific).

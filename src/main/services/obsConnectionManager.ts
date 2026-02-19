@@ -340,6 +340,45 @@ class ObsConnectionManager {
   }
 
   /**
+   * Generic pass-through to obs.send(). Throws if not connected.
+   */
+  public async sendRequest(
+    requestType: string,
+    params?: Record<string, unknown>,
+  ): Promise<unknown> {
+    if (!this.connectionReady) {
+      throw new Error('Not connected to OBS');
+    }
+
+    const obs = this.ensureObsInstance();
+    return obs.send(requestType as any, params as any);
+  }
+
+  /**
+   * Get all OBS sources. Returns { name, type, typeId }[].
+   */
+  public async getSourcesList(): Promise<
+    { name: string; type: string; typeId: string }[]
+  > {
+    const result = (await this.sendRequest('GetSourcesList')) as any;
+    const sources: { name: string; type: string; typeId: string }[] = [];
+
+    if (Array.isArray(result?.sources)) {
+      result.sources.forEach((s: any) => {
+        if (typeof s.name === 'string') {
+          sources.push({
+            name: s.name,
+            type: s.type ?? '',
+            typeId: s.typeId ?? '',
+          });
+        }
+      });
+    }
+
+    return sources;
+  }
+
+  /**
    * Start the replay buffer.
    */
   public async startReplayBuffer(): Promise<{ ok: boolean; message?: string }> {

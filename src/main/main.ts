@@ -40,6 +40,7 @@ import {
 } from './services/statusStore';
 
 import obsConnectionManager from './services/obsConnectionManager';
+import { initGameCaptureMonitoring } from './services/gameCaptureService';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -311,6 +312,14 @@ ipcMain.handle('status:get', async () => {
   return getStatus();
 });
 
+ipcMain.handle('obs:getSources', async () => {
+  try {
+    return await obsConnectionManager.getSourcesList();
+  } catch {
+    return [];
+  }
+});
+
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
   sourceMapSupport.install();
@@ -412,6 +421,7 @@ app
     startObsProcessPolling();
     startClippiProcessPolling();
     startSlippiProcessPolling();
+    initGameCaptureMonitoring();
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

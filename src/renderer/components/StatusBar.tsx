@@ -1,5 +1,8 @@
 import React from 'react';
-import type { ClippiServiceStatus } from '../../common/statusTypes';
+import type {
+  ClippiServiceStatus,
+  GameCaptureState,
+} from '../../common/statusTypes';
 import useServiceStatus from '../hooks/useServiceStatus';
 
 const colorMap: Record<'green' | 'yellow' | 'red' | 'gray', string> = {
@@ -35,10 +38,15 @@ function StatusLight({
 function getObsState(
   processRunning: boolean,
   websocket: string,
+  gameCapture: GameCaptureState,
 ): 'green' | 'yellow' | 'red' | 'gray' {
   if (!processRunning) return 'gray';
-  if (websocket === 'connected') return 'green';
   if (websocket === 'auth_failed' || websocket === 'error') return 'red';
+  if (websocket === 'connected') {
+    if (gameCapture === 'monitoring' || gameCapture === 'inactive')
+      return 'yellow';
+    return 'green';
+  }
   return 'yellow'; // connecting or running but not connected yet
 }
 
@@ -68,7 +76,11 @@ function getClippiText(clippi: ClippiServiceStatus): string {
 export default function StatusBar() {
   const status = useServiceStatus();
 
-  const obsState = getObsState(status.obs.processRunning, status.obs.websocket);
+  const obsState = getObsState(
+    status.obs.processRunning,
+    status.obs.websocket,
+    status.obs.gameCapture,
+  );
 
   let obsText: string;
 
@@ -85,6 +97,13 @@ export default function StatusBar() {
   } else {
     // websocket === 'unknown' or 'disconnected'
     obsText = 'Running (awaiting connection)';
+  }
+
+  let gameCaptureText: string | null = null;
+  if (status.obs.gameCapture === 'monitoring') {
+    gameCaptureText = 'Awaiting game capture';
+  } else if (status.obs.gameCapture === 'inactive') {
+    gameCaptureText = 'Game capture lost';
   }
 
   return (
@@ -110,6 +129,12 @@ export default function StatusBar() {
         <StatusLight state={obsState} />
         <strong style={{ marginRight: 8 }}>OBS</strong>
         <span>{obsText}</span>
+
+        {gameCaptureText && (
+          <span style={{ marginLeft: 8, color: colorMap.yellow, fontSize: 12 }}>
+            — {gameCaptureText}
+          </span>
+        )}
 
         {status.obs.lastError && (
           <span className="pf-status-message" style={{ marginLeft: 12 }}>

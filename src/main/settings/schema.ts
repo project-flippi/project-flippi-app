@@ -12,6 +12,7 @@ export interface ObsSettings {
   host: string; // default "127.0.0.1"
   port: string; // default "4444"
   password: string;
+  gameCaptureSource: string; // OBS source name to monitor for game capture
 }
 
 export interface TextAiSettings {
@@ -44,6 +45,7 @@ export const defaultSettings: AppSettings = {
     host: '127.0.0.1',
     port: '4444',
     password: '',
+    gameCaptureSource: '',
   },
   textAi: {
     provider: 'openai',

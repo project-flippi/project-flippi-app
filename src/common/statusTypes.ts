@@ -6,9 +6,16 @@ export type ConnectionState =
   | 'auth_failed'
   | 'error';
 
+export type GameCaptureState =
+  | 'unconfigured' // no source name set
+  | 'monitoring' // polling, capture not yet detected
+  | 'active' // capture confirmed (non-black pixels found)
+  | 'inactive'; // was active but OBS/Slippi went down
+
 export type ObsServiceStatus = {
   processRunning: boolean; // Step 1 can keep false by default
   websocket: ConnectionState; // Step 1 can keep 'unknown' by default
+  gameCapture: GameCaptureState;
   lastError?: string;
   lastUpdatedAt: number; // epoch ms
 };
@@ -45,6 +52,7 @@ export const defaultServiceStatus: ServiceStatus = {
   obs: {
     processRunning: false,
     websocket: 'unknown',
+    gameCapture: 'unconfigured',
     lastError: undefined,
     lastUpdatedAt: Date.now(),
   },

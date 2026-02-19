@@ -42,6 +42,13 @@ declare global {
         eventName: string;
         message: string;
       }>;
+      relaunchClippi: () => Promise<{ ok: boolean; message: string }>;
+      relaunchSlippi: () => Promise<{ ok: boolean; message: string }>;
+    };
+    flippiObs: {
+      getSources: () => Promise<
+        { name: string; type: string; typeId: string }[]
+      >;
     };
   }
 }
