@@ -18,6 +18,7 @@ import { ObsStatus } from './obsService';
 import obsConnectionManager from './obsConnectionManager';
 import { patchStatus, getStatus } from './statusStore';
 import { syncClippiComboData } from './clippiIntegration';
+import { getSettings } from '../settings/store';
 import {
   startPolling as startGameCapturePolling,
   stopPolling as stopGameCapturePolling,
@@ -122,9 +123,14 @@ export async function startStack(params: {
   // If we launched OBS, give it more time to boot and start websocket
   const connectTimeoutMs = launchedObs ? 30_000 : 10_000;
 
+  const { obs: obsSettings } = await getSettings();
+
   // Persistent manager handles connect + configure (no disconnect)
   const cfg = await obsConnectionManager.configureForEvent(recordingFolder, {
     connectTimeoutMs,
+    enableReplayBuffer: obsSettings.enableReplayBuffer,
+    startRecording: obsSettings.startRecording,
+    startStreaming: obsSettings.startStreaming,
   });
 
   // Update stack state on success
@@ -181,6 +187,12 @@ export async function stopStack(): Promise<StopStackResult> {
   const recordRes = await obsConnectionManager.stopRecording();
   if (!recordRes.ok && recordRes.message !== 'Not connected to OBS') {
     warnings.push(recordRes.message ?? 'Failed to stop recording');
+  }
+
+  // Stop streaming (best-effort)
+  const streamRes = await obsConnectionManager.stopStreaming();
+  if (!streamRes.ok && streamRes.message !== 'Not connected to OBS') {
+    warnings.push(streamRes.message ?? 'Failed to stop streaming');
   }
 
   // Kill OBS process
@@ -320,6 +332,8 @@ export async function switchEvent(params: {
   const recordingFolder = eventVideosDir(params.eventName);
   await ensureDir(recordingFolder);
 
+  const { obs: obsSettings } = await getSettings();
+
   // Stop replay buffer and recording
   await obsConnectionManager.stopReplayBuffer();
   await obsConnectionManager.stopRecording();
@@ -327,10 +341,12 @@ export async function switchEvent(params: {
   // Give OBS time to fully stop the replay buffer before we change folder and restart
   await delay(500);
 
-  // Update recording folder (don't rely on configureForEvent to start replay buffer
-  // since it may still see the buffer as "active" during shutdown)
+  // Reconfigure folder and restart features per settings
   const cfg = await obsConnectionManager.configureForEvent(recordingFolder, {
     connectTimeoutMs: 10_000,
+    enableReplayBuffer: obsSettings.enableReplayBuffer,
+    startRecording: obsSettings.startRecording,
+    startStreaming: false, // don't restart streaming on event switch
   });
 
   if (!cfg.ok) {
@@ -340,9 +356,6 @@ export async function switchEvent(params: {
       message: `Failed to switch event: ${cfg.message ?? 'Unknown error'}`,
     };
   }
-
-  // Explicitly start replay buffer to ensure it's running with new folder
-  await obsConnectionManager.startReplayBuffer();
 
   patchStatus({
     stack: {

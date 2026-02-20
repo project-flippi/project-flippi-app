@@ -13,6 +13,9 @@ export interface ObsSettings {
   port: string; // default "4444"
   password: string;
   gameCaptureSource: string; // OBS source name to monitor for game capture
+  enableReplayBuffer: boolean; // start replay buffer when stack starts
+  startRecording: boolean; // start recording when stack starts
+  startStreaming: boolean; // start streaming when stack starts
 }
 
 export interface TextAiSettings {
@@ -46,6 +49,9 @@ export const defaultSettings: AppSettings = {
     port: '4444',
     password: '',
     gameCaptureSource: '',
+    enableReplayBuffer: true,
+    startRecording: false,
+    startStreaming: false,
   },
   textAi: {
     provider: 'openai',

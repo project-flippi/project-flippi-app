@@ -16,6 +16,9 @@ export type ObsServiceStatus = {
   processRunning: boolean; // Step 1 can keep false by default
   websocket: ConnectionState; // Step 1 can keep 'unknown' by default
   gameCapture: GameCaptureState;
+  replayBufferActive: boolean; // live OBS replay buffer state
+  recording: boolean; // live OBS recording state
+  streaming: boolean; // live OBS streaming state
   lastError?: string;
   lastUpdatedAt: number; // epoch ms
 };
@@ -53,6 +56,9 @@ export const defaultServiceStatus: ServiceStatus = {
     processRunning: false,
     websocket: 'unknown',
     gameCapture: 'unconfigured',
+    replayBufferActive: false,
+    recording: false,
+    streaming: false,
     lastError: undefined,
     lastUpdatedAt: Date.now(),
   },

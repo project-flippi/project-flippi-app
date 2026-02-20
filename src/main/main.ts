@@ -104,6 +104,42 @@ function startObsProcessPolling(): void {
   process.on('exit', () => clearInterval(timer));
 }
 
+function startObsFeaturePolling(): void {
+  const intervalMs = 3000;
+
+  let inFlight = false;
+
+  const tick = async () => {
+    if (inFlight) return;
+    inFlight = true;
+
+    try {
+      const featureStatus = await obsConnectionManager.getFeatureStatus();
+      if (!featureStatus) return;
+
+      const current = getStatus().obs;
+      if (
+        current.replayBufferActive !== featureStatus.replayBufferActive ||
+        current.recording !== featureStatus.recording ||
+        current.streaming !== featureStatus.streaming
+      ) {
+        patchStatus({ obs: featureStatus });
+      }
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  tick().catch(() => {});
+
+  const timer = setInterval(() => {
+    tick().catch(() => {});
+  }, intervalMs);
+
+  timer.unref?.();
+  process.on('exit', () => clearInterval(timer));
+}
+
 function getClippiStatusFilePath(): string {
   const appData = process.env.APPDATA;
   if (!appData) return '';
@@ -268,8 +304,15 @@ ipcMain.handle(
   async (event, partial: Partial<AppSettings>) => {
     const updated = updateSettings(partial);
 
-    // If OBS settings were changed, force the websocket manager to reset
-    if (partial.obs) {
+    // If OBS connection settings changed, force the websocket manager to reset.
+    // Only invalidate for host/port/password — not for action toggles like
+    // enableReplayBuffer, startRecording, startStreaming.
+    if (
+      partial.obs &&
+      ('host' in partial.obs ||
+        'port' in partial.obs ||
+        'password' in partial.obs)
+    ) {
       obsConnectionManager.invalidateConnection();
     }
 
@@ -319,6 +362,43 @@ ipcMain.handle('obs:getSources', async () => {
     return [];
   }
 });
+
+ipcMain.handle(
+  'obs:setFeature',
+  async (
+    _evt,
+    args: {
+      feature: 'replayBuffer' | 'recording' | 'streaming';
+      enabled: boolean;
+    },
+  ) => {
+    let result: { ok: boolean; message?: string };
+
+    if (args.feature === 'replayBuffer') {
+      result = await (args.enabled
+        ? obsConnectionManager.startReplayBuffer()
+        : obsConnectionManager.stopReplayBuffer());
+    } else if (args.feature === 'recording') {
+      result = await (args.enabled
+        ? obsConnectionManager.startRecording()
+        : obsConnectionManager.stopRecording());
+    } else if (args.feature === 'streaming') {
+      result = await (args.enabled
+        ? obsConnectionManager.startStreaming()
+        : obsConnectionManager.stopStreaming());
+    } else {
+      return { ok: false, message: 'Unknown feature' };
+    }
+
+    // Immediately refresh live OBS feature status so the UI updates fast
+    const featureStatus = await obsConnectionManager.getFeatureStatus();
+    if (featureStatus) {
+      patchStatus({ obs: featureStatus });
+    }
+
+    return result;
+  },
+);
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -419,6 +499,7 @@ app
   .then(() => {
     createWindow();
     startObsProcessPolling();
+    startObsFeaturePolling();
     startClippiProcessPolling();
     startSlippiProcessPolling();
     initGameCaptureMonitoring();

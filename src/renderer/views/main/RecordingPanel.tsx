@@ -36,6 +36,13 @@ function RecordingPanel() {
   const [relaunchBusy, setRelaunchBusy] = useState(false);
   const [relaunchSlippiBusy, setRelaunchSlippiBusy] = useState(false);
 
+  // OBS action options
+  const [obsOptions, setObsOptions] = useState({
+    enableReplayBuffer: true,
+    startRecording: false,
+    startStreaming: false,
+  });
+
   // Game capture source selector state
   const [obsSources, setObsSources] = useState<
     { name: string; type: string; typeId: string }[]
@@ -69,12 +76,17 @@ function RecordingPanel() {
     }
   }
 
-  // Load saved source setting on mount and when OBS connects
+  // Load saved settings on mount
   useEffect(() => {
     window.flippiSettings
       .get()
       .then((s) => {
         setSelectedSource(s.obs.gameCaptureSource || '');
+        setObsOptions({
+          enableReplayBuffer: s.obs.enableReplayBuffer ?? true,
+          startRecording: s.obs.startRecording ?? false,
+          startStreaming: s.obs.startStreaming ?? false,
+        });
         return undefined;
       })
       .catch(() => {});
@@ -91,6 +103,29 @@ function RecordingPanel() {
   async function onSourceChange(value: string) {
     setSelectedSource(value);
     await window.flippiSettings.update({ obs: { gameCaptureSource: value } });
+  }
+
+  async function onObsOptionChange(
+    option: 'enableReplayBuffer' | 'startRecording' | 'startStreaming',
+    value: boolean,
+  ) {
+    // Always persist the setting
+    setObsOptions((cur) => ({ ...cur, [option]: value }));
+    await window.flippiSettings.update({ obs: { [option]: value } });
+
+    // If the stack is running, send the command to OBS.
+    // The live OBS status polling drives the checkbox state, so no
+    // manual revert is needed — the next status update will correct it.
+    if (stackRunning) {
+      const featureMap = {
+        enableReplayBuffer: 'replayBuffer',
+        startRecording: 'recording',
+        startStreaming: 'streaming',
+      } as const;
+      await window.flippiObs
+        .setFeature(featureMap[option], value)
+        .catch(() => {});
+    }
   }
 
   async function refreshEvents(selectIfMissing?: string) {
@@ -435,6 +470,91 @@ function RecordingPanel() {
               Select the OBS source to monitor for game capture detection.
             </div>
           </label>
+        </div>
+
+        <div className="pf-field" style={{ marginTop: 12 }}>
+          <span>OBS Actions</span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              marginTop: 4,
+            }}
+          >
+            <label
+              htmlFor="obs-opt-replay-buffer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontWeight: 'normal',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                id="obs-opt-replay-buffer"
+                type="checkbox"
+                checked={
+                  stackRunning
+                    ? obs.replayBufferActive
+                    : obsOptions.enableReplayBuffer
+                }
+                onChange={(e) =>
+                  onObsOptionChange('enableReplayBuffer', e.target.checked)
+                }
+              />
+              Enable Replay Buffer
+            </label>
+            <label
+              htmlFor="obs-opt-recording"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontWeight: 'normal',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                id="obs-opt-recording"
+                type="checkbox"
+                checked={
+                  stackRunning ? obs.recording : obsOptions.startRecording
+                }
+                onChange={(e) =>
+                  onObsOptionChange('startRecording', e.target.checked)
+                }
+              />
+              Start Recording
+            </label>
+            <label
+              htmlFor="obs-opt-streaming"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontWeight: 'normal',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                id="obs-opt-streaming"
+                type="checkbox"
+                checked={
+                  stackRunning ? obs.streaming : obsOptions.startStreaming
+                }
+                onChange={(e) =>
+                  onObsOptionChange('startStreaming', e.target.checked)
+                }
+              />
+              Start Streaming
+            </label>
+          </div>
+          <div className="pf-note" style={{ marginTop: 4 }}>
+            Choose what OBS does when the recording stack starts. Changes apply
+            immediately if the stack is already running.
+          </div>
         </div>
 
         {showCreate && (

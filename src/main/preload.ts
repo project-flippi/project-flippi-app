@@ -55,6 +55,11 @@ contextBridge.exposeInMainWorld('flippiStack', {
 contextBridge.exposeInMainWorld('flippiObs', {
   getSources: (): Promise<{ name: string; type: string; typeId: string }[]> =>
     ipcRenderer.invoke('obs:getSources'),
+  setFeature: (
+    feature: 'replayBuffer' | 'recording' | 'streaming',
+    enabled: boolean,
+  ): Promise<{ ok: boolean; message?: string }> =>
+    ipcRenderer.invoke('obs:setFeature', { feature, enabled }),
 });
 
 contextBridge.exposeInMainWorld('flippiStatus', {
