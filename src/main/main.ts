@@ -183,16 +183,7 @@ function startClippiProcessPolling(): void {
     inFlight = true;
 
     try {
-      // In dev mode, Clippi runs under node/electron so tasklist won't find
-      // "Project Clippi.exe". Fall back to checking if the status file was
-      // updated recently (within 30s) as a proxy for "Clippi is alive".
-      let isRunningNow = await isClippiRunning();
-      if (!isRunningNow && process.env.NODE_ENV === 'development') {
-        const connStatus = readClippiConnectionStatus();
-        if (connStatus && Date.now() - connStatus.updatedAt < 30_000) {
-          isRunningNow = true;
-        }
-      }
+      const isRunningNow = await isClippiRunning();
       const status = getStatus();
       const prev = status.clippi;
 
