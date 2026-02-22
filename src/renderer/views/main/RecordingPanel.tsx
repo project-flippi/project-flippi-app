@@ -48,7 +48,6 @@ function RecordingPanel() {
     { name: string; type: string; typeId: string }[]
   >([]);
   const [selectedSource, setSelectedSource] = useState<string>('');
-  const [sourcesLoading, setSourcesLoading] = useState(false);
 
   // Get persistent stack state from main process
   const { stack, clippi, slippi, obs } = useServiceStatus();
@@ -64,16 +63,20 @@ function RecordingPanel() {
     (obs.gameCapture === 'monitoring' || obs.gameCapture === 'inactive');
   const obsConnectedNow = obs.websocket === 'connected';
 
-  async function fetchObsSources() {
-    setSourcesLoading(true);
+  async function fetchObsSources(retries = 3) {
     try {
       const sources = await window.flippiObs.getSources();
+      if (sources.length === 0 && retries > 0) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 1000);
+        });
+        return fetchObsSources(retries - 1);
+      }
       setObsSources(sources);
     } catch {
       setObsSources([]);
-    } finally {
-      setSourcesLoading(false);
     }
+    return undefined;
   }
 
   // Load saved settings on mount
@@ -98,12 +101,25 @@ function RecordingPanel() {
     } else {
       setObsSources([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obsConnectedNow]);
 
   async function onSourceChange(value: string) {
     setSelectedSource(value);
     await window.flippiSettings.update({ obs: { gameCaptureSource: value } });
   }
+
+  // Auto-reset selected source if it no longer exists in OBS
+  useEffect(() => {
+    if (
+      obsSources.length > 0 &&
+      selectedSource &&
+      !obsSources.some((s) => s.name === selectedSource)
+    ) {
+      onSourceChange('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obsSources]);
 
   async function onObsOptionChange(
     option: 'enableReplayBuffer' | 'startRecording' | 'startStreaming',
@@ -421,7 +437,7 @@ function RecordingPanel() {
                 <span style={{ flex: 1 }}>
                   {obs.gameCapture === 'inactive'
                     ? 'Game capture signal lost — check Slippi Dolphin and OBS.'
-                    : 'Awaiting game capture — make sure Slippi Dolphin is running.'}
+                    : 'Awaiting game capture — ensure game capture source is correct and restart Slippi Dolphin.'}
                 </span>
               </div>
             )}
@@ -436,30 +452,20 @@ function RecordingPanel() {
             Game Capture Source
             <div className="pf-settings-actions">
               {obsConnectedNow ? (
-                <>
-                  <select
-                    id="game-capture-source-select"
-                    value={selectedSource}
-                    onChange={(e) => onSourceChange(e.target.value)}
-                    disabled={sourcesLoading}
-                    style={{ minWidth: 260 }}
-                  >
-                    <option value="">None (disabled)</option>
-                    {obsSources.map((s) => (
-                      <option key={s.name} value={s.name}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="pf-button"
-                    onClick={fetchObsSources}
-                    disabled={sourcesLoading}
-                  >
-                    {sourcesLoading ? 'Loading…' : 'Refresh'}
-                  </button>
-                </>
+                <select
+                  id="game-capture-source-select"
+                  value={selectedSource}
+                  onChange={(e) => onSourceChange(e.target.value)}
+                  onMouseDown={() => fetchObsSources()}
+                  style={{ minWidth: 260 }}
+                >
+                  <option value="">None (disabled)</option>
+                  {obsSources.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <span className="pf-status-message">
                   Connect to OBS to see available sources
