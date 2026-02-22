@@ -42,6 +42,7 @@ export type ClippiServiceStatus = {
 
 export type SlippiServiceStatus = {
   processRunning: boolean;
+  dolphinRunning: boolean;
 };
 
 export type ServiceStatus = {
@@ -79,5 +80,6 @@ export const defaultServiceStatus: ServiceStatus = {
   },
   slippi: {
     processRunning: false,
+    dolphinRunning: false,
   },
 };

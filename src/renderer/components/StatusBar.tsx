@@ -2,6 +2,7 @@ import React from 'react';
 import type {
   ClippiServiceStatus,
   GameCaptureState,
+  SlippiServiceStatus,
 } from '../../common/statusTypes';
 import useServiceStatus from '../hooks/useServiceStatus';
 
@@ -71,6 +72,20 @@ function getClippiText(clippi: ClippiServiceStatus): string {
   if (clippi.slippiConnected === false) missing.push('Slippi');
   if (missing.length > 0) return `Missing: ${missing.join(', ')}`;
   return 'Fully connected';
+}
+
+function getSlippiState(
+  slippi: SlippiServiceStatus,
+): 'green' | 'yellow' | 'gray' {
+  if (!slippi.processRunning) return 'gray';
+  if (slippi.dolphinRunning) return 'green';
+  return 'yellow';
+}
+
+function getSlippiText(slippi: SlippiServiceStatus): string {
+  if (!slippi.processRunning) return 'Not running';
+  if (slippi.dolphinRunning) return 'Running (Dolphin active)';
+  return 'Running (Dolphin inactive)';
 }
 
 export default function StatusBar() {
@@ -150,9 +165,9 @@ export default function StatusBar() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <StatusLight state={status.slippi.processRunning ? 'green' : 'gray'} />
+        <StatusLight state={getSlippiState(status.slippi)} />
         <strong style={{ marginRight: 8 }}>Slippi</strong>
-        <span>{status.slippi.processRunning ? 'Running' : 'Not running'}</span>
+        <span>{getSlippiText(status.slippi)}</span>
       </div>
     </div>
   );

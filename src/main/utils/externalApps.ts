@@ -214,6 +214,26 @@ export async function killSlippi(): Promise<{
   }
 }
 
+export async function isSlippiDolphinRunning(): Promise<boolean> {
+  if (process.platform !== 'win32') {
+    return false;
+  }
+
+  try {
+    const { stdout } = await execFileAsync('tasklist', [
+      '/FI',
+      'IMAGENAME eq Slippi Dolphin.exe',
+      '/FO',
+      'CSV',
+      '/NH',
+    ]);
+
+    return stdout.toLowerCase().includes('slippi dolphin.exe');
+  } catch {
+    return false;
+  }
+}
+
 export async function isObsRunning(): Promise<boolean> {
   // Windows-only implementation for now
   if (process.platform !== 'win32') {

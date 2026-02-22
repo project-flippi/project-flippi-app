@@ -32,6 +32,7 @@ import {
   isObsRunning,
   isClippiRunning,
   isSlippiRunning,
+  isSlippiDolphinRunning,
 } from './utils/externalApps';
 import {
   getStatus,
@@ -243,14 +244,19 @@ function startSlippiProcessPolling(): void {
     inFlight = true;
 
     try {
-      const isRunningNow = await isSlippiRunning();
+      const [isRunningNow, isDolphinRunningNow] = await Promise.all([
+        isSlippiRunning(),
+        isSlippiDolphinRunning(),
+      ]);
       const status = getStatus();
-      const prev = status.slippi.processRunning;
+      const prevRunning = status.slippi.processRunning;
+      const prevDolphin = status.slippi.dolphinRunning;
 
-      if (isRunningNow !== prev) {
+      if (isRunningNow !== prevRunning || isDolphinRunningNow !== prevDolphin) {
         patchStatus({
           slippi: {
             processRunning: isRunningNow,
+            dolphinRunning: isDolphinRunningNow,
           },
         });
       }
