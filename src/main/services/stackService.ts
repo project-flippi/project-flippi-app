@@ -17,7 +17,7 @@ import {
 import { ObsStatus } from './obsService';
 import obsConnectionManager from './obsConnectionManager';
 import { patchStatus, getStatus } from './statusStore';
-import { syncClippiComboData } from './clippiIntegration';
+import { syncClippiComboData, clearFlippiConfig } from './clippiIntegration';
 import { getSettings } from '../settings/store';
 import {
   startPolling as startGameCapturePolling,
@@ -143,7 +143,7 @@ export async function startStack(params: {
       },
     });
 
-    // Sync Clippi combodata symlink (non-fatal)
+    // Sync Clippi combodata config (non-fatal)
     const clippiSync = await syncClippiComboData(params.eventName);
     if (!clippiSync.ok) {
       log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
@@ -221,6 +221,9 @@ export async function stopStack(): Promise<StopStackResult> {
 
   // Stop game capture detection polling
   stopGameCapturePolling();
+
+  // Clear flippi-config.json so Clippi stops writing combo data
+  await clearFlippiConfig();
 
   // Reset stack state
   patchStatus({

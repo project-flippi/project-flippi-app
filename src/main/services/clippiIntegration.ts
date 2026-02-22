@@ -11,16 +11,9 @@ import { patchStatus } from './statusStore';
 
 export type SyncResult = {
   ok: boolean;
-  activeFile: string;
-  targetFile: string;
+  configFile: string;
+  comboDataPath: string;
   message: string;
-};
-
-export type ClippiSyncInfo = {
-  linked: boolean;
-  targetPath: string | null;
-  activeFilePath: string;
-  error?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -31,12 +24,8 @@ function repoRootDir(): string {
   return path.join(os.homedir(), 'project-flippi');
 }
 
-function activeComboDir(): string {
-  return path.join(repoRootDir(), '_ActiveClippiComboData');
-}
-
-function activeComboFile(): string {
-  return path.join(activeComboDir(), 'combodata.jsonl');
+function flippiConfigFile(): string {
+  return path.join(repoRootDir(), 'flippi-config.json');
 }
 
 function eventComboFile(eventName: string): string {
@@ -67,20 +56,18 @@ async function pathExists(p: string): Promise<boolean> {
 // ---------------------------------------------------------------------------
 
 /**
- * Point the active Clippi symlink at the given event's combodata.jsonl.
+ * Write flippi-config.json with the combo data path for the given event.
  *
  * 1. Validate event folder exists
  * 2. Create combodata.jsonl if missing
- * 3. Ensure _ActiveClippiComboData/ directory exists
- * 4. Remove existing file/symlink at active path
- * 5. Create symbolic link (type 'file' for Windows)
- * 6. Update status store
+ * 3. Write flippi-config.json with the full path (atomic: .tmp + rename)
+ * 4. Update status store
  */
 export async function syncClippiComboData(
   eventName: string,
 ): Promise<SyncResult> {
-  const targetFile = eventComboFile(eventName);
-  const activeFile = activeComboFile();
+  const comboDataPath = eventComboFile(eventName);
+  const configFile = flippiConfigFile();
   const eventDir = path.join(repoRootDir(), 'Event', eventName);
 
   // 1. Validate event folder exists
@@ -89,59 +76,50 @@ export async function syncClippiComboData(
     log.error(`[clippi] ${msg}`);
     patchStatus({
       clippi: {
-        comboDataLinked: false,
+        comboDataConfigWritten: false,
         activeEventName: null,
-        activeFilePath: null,
         lastError: msg,
         lastUpdatedAt: Date.now(),
       },
     });
-    return { ok: false, activeFile, targetFile, message: msg };
+    return { ok: false, configFile, comboDataPath, message: msg };
   }
 
   // 2. Create combodata.jsonl if it doesn't exist
-  const dataDir = path.dirname(targetFile);
+  const dataDir = path.dirname(comboDataPath);
   await fs.mkdir(dataDir, { recursive: true });
-  if (!(await pathExists(targetFile))) {
-    await fs.writeFile(targetFile, '', 'utf-8');
-    log.info(`[clippi] Created empty combodata.jsonl at ${targetFile}`);
+  if (!(await pathExists(comboDataPath))) {
+    await fs.writeFile(comboDataPath, '', 'utf-8');
+    log.info(`[clippi] Created empty combodata.jsonl at ${comboDataPath}`);
   }
 
-  // 3. Ensure _ActiveClippiComboData/ directory exists
-  await fs.mkdir(activeComboDir(), { recursive: true });
-
-  // 4. Remove existing file/symlink at activeFile
-  if (await pathExists(activeFile)) {
-    await fs.unlink(activeFile);
-  }
-
-  // 5. Create symbolic link (type 'file' for Windows)
+  // 3. Write flippi-config.json (atomic: write .tmp then rename)
+  const configData = JSON.stringify({ comboDataPath }, null, 2);
+  const tmpFile = `${configFile}.tmp`;
   try {
-    await fs.symlink(targetFile, activeFile, 'file');
-  } catch (symErr: unknown) {
-    const errMsg =
-      symErr instanceof Error ? symErr.message : 'Unknown symlink error';
-    const msg = `Failed to create symlink: ${errMsg}`;
+    await fs.writeFile(tmpFile, configData, 'utf-8');
+    await fs.rename(tmpFile, configFile);
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : 'Unknown write error';
+    const msg = `Failed to write flippi-config.json: ${errMsg}`;
     log.error(`[clippi] ${msg}`);
     patchStatus({
       clippi: {
-        comboDataLinked: false,
+        comboDataConfigWritten: false,
         activeEventName: null,
-        activeFilePath: null,
         lastError: msg,
         lastUpdatedAt: Date.now(),
       },
     });
-    return { ok: false, activeFile, targetFile, message: msg };
+    return { ok: false, configFile, comboDataPath, message: msg };
   }
 
-  // 6. Update status store
-  log.info(`[clippi] Symlink created: ${activeFile} -> ${targetFile}`);
+  // 4. Update status store
+  log.info(`[clippi] Config written: ${configFile} -> ${comboDataPath}`);
   patchStatus({
     clippi: {
-      comboDataLinked: true,
+      comboDataConfigWritten: true,
       activeEventName: eventName,
-      activeFilePath: activeFile,
       lastError: undefined,
       lastUpdatedAt: Date.now(),
     },
@@ -149,44 +127,29 @@ export async function syncClippiComboData(
 
   return {
     ok: true,
-    activeFile,
-    targetFile,
-    message: `Clippi combodata linked to event: ${eventName}`,
+    configFile,
+    comboDataPath,
+    message: `Clippi combodata config set for event: ${eventName}`,
   };
 }
 
 /**
- * Return current symlink status (exists, target path, broken link, etc.)
+ * Clear flippi-config.json when the stack stops so Clippi stops writing.
  */
-export async function getClippiSyncStatus(): Promise<ClippiSyncInfo> {
-  const activeFile = activeComboFile();
-
+export async function clearFlippiConfig(): Promise<void> {
+  const configFile = flippiConfigFile();
   try {
-    const target = await fs.readlink(activeFile);
-    // Verify the target still exists
-    const targetExists = await pathExists(target);
-    return {
-      linked: targetExists,
-      targetPath: target,
-      activeFilePath: activeFile,
-      error: targetExists ? undefined : 'Symlink target no longer exists',
-    };
+    await fs.unlink(configFile);
+    log.info(`[clippi] Cleared flippi-config.json`);
   } catch {
-    // readlink fails if the file doesn't exist or isn't a symlink
-    const exists = await pathExists(activeFile);
-    if (exists) {
-      // File exists but is not a symlink (regular file)
-      return {
-        linked: false,
-        targetPath: null,
-        activeFilePath: activeFile,
-        error: 'Active file exists but is not a symlink',
-      };
-    }
-    return {
-      linked: false,
-      targetPath: null,
-      activeFilePath: activeFile,
-    };
+    // File may not exist — that's fine
   }
+  patchStatus({
+    clippi: {
+      comboDataConfigWritten: false,
+      activeEventName: null,
+      lastError: undefined,
+      lastUpdatedAt: Date.now(),
+    },
+  });
 }

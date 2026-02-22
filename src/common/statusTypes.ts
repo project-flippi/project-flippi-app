@@ -33,9 +33,8 @@ export type ClippiServiceStatus = {
   processRunning: boolean; // whether Project Clippi process is detected
   obsConnected: boolean | null; // null = unknown (no file / process not running)
   slippiConnected: boolean | null; // null = unknown
-  comboDataLinked: boolean; // symlink exists and is valid
-  activeEventName: string | null; // which event the symlink points to
-  activeFilePath: string | null; // full path to _ActiveClippiComboData/combodata.jsonl
+  comboDataConfigWritten: boolean; // flippi-config.json written with combo data path
+  activeEventName: string | null; // which event the config points to
   lastError?: string;
   lastUpdatedAt: number; // epoch ms
 };
@@ -72,9 +71,8 @@ export const defaultServiceStatus: ServiceStatus = {
     processRunning: false,
     obsConnected: null,
     slippiConnected: null,
-    comboDataLinked: false,
+    comboDataConfigWritten: false,
     activeEventName: null,
-    activeFilePath: null,
     lastError: undefined,
     lastUpdatedAt: Date.now(),
   },
