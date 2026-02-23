@@ -5,6 +5,9 @@ import type {
   SlippiServiceStatus,
 } from '../../common/statusTypes';
 import useServiceStatus from '../hooks/useServiceStatus';
+import { ReactComponent as ObsLogo } from '../styles/images/obs-logo.svg';
+import { ReactComponent as ClippiLogo } from '../styles/images/clippi-logo.svg';
+import { ReactComponent as SlippiLogo } from '../styles/images/slippi-logo.svg';
 
 const colorMap: Record<'green' | 'yellow' | 'red' | 'gray', string> = {
   green: '#2ecc71',
@@ -142,7 +145,7 @@ export default function StatusBar() {
     >
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <StatusLight state={obsState} />
-        <strong style={{ marginRight: 8 }}>OBS</strong>
+        <span title="OBS"><ObsLogo style={{ height: 18, width: 'auto', marginRight: 8 }} /></span>
         <span>{obsText}</span>
 
         {gameCaptureText && (
@@ -160,13 +163,13 @@ export default function StatusBar() {
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <StatusLight state={getClippiState(status.clippi)} />
-        <strong style={{ marginRight: 8 }}>Clippi</strong>
+        <span title="Clippi"><ClippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} /></span>
         <span>{getClippiText(status.clippi)}</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <StatusLight state={getSlippiState(status.slippi)} />
-        <strong style={{ marginRight: 8 }}>Slippi</strong>
+        <span title="Slippi"><SlippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} /></span>
         <span>{getSlippiText(status.slippi)}</span>
       </div>
     </div>

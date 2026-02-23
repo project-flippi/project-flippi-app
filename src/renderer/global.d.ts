@@ -1,6 +1,14 @@
 import type { AppSettings } from '../main/settings/schema';
 import type { ServiceStatus } from '../common/statusTypes';
 
+declare module '*.svg' {
+  import type { FC, SVGProps } from 'react';
+
+  export const ReactComponent: FC<SVGProps<SVGSVGElement>>;
+  const src: string;
+  export default src;
+}
+
 declare global {
   interface Window {
     flippiSettings: {
