@@ -51,6 +51,13 @@ export type ServiceStatus = {
   slippi: SlippiServiceStatus;
 };
 
+export type PartialServiceStatus = {
+  obs?: Partial<ObsServiceStatus>;
+  stack?: Partial<StackState>;
+  clippi?: Partial<ClippiServiceStatus>;
+  slippi?: Partial<SlippiServiceStatus>;
+};
+
 export const defaultServiceStatus: ServiceStatus = {
   obs: {
     processRunning: false,

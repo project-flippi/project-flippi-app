@@ -145,7 +145,9 @@ export default function StatusBar() {
     >
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <StatusLight state={obsState} />
-        <span title="OBS"><ObsLogo style={{ height: 18, width: 'auto', marginRight: 8 }} /></span>
+        <span title="OBS">
+          <ObsLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
+        </span>
         <span>{obsText}</span>
 
         {gameCaptureText && (
@@ -163,13 +165,17 @@ export default function StatusBar() {
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <StatusLight state={getClippiState(status.clippi)} />
-        <span title="Clippi"><ClippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} /></span>
+        <span title="Clippi">
+          <ClippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
+        </span>
         <span>{getClippiText(status.clippi)}</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <StatusLight state={getSlippiState(status.slippi)} />
-        <span title="Slippi"><SlippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} /></span>
+        <span title="Slippi">
+          <SlippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
+        </span>
         <span>{getSlippiText(status.slippi)}</span>
       </div>
     </div>

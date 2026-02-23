@@ -1,19 +1,23 @@
-import type { AppSettings } from '../main/settings/schema';
+import type {
+  AppSettings,
+  ObsSettings,
+  YoutubeSettings,
+  TextAiSettings,
+  ImageAiSettings,
+} from '../main/settings/schema';
 import type { ServiceStatus } from '../common/statusTypes';
-
-declare module '*.svg' {
-  import type { FC, SVGProps } from 'react';
-
-  export const ReactComponent: FC<SVGProps<SVGSVGElement>>;
-  const src: string;
-  export default src;
-}
 
 declare global {
   interface Window {
     flippiSettings: {
       get: () => Promise<AppSettings>;
-      update: (partial: Partial<AppSettings>) => Promise<AppSettings>;
+      update: (partial: {
+        version?: 1;
+        youtube?: Partial<YoutubeSettings>;
+        obs?: Partial<ObsSettings>;
+        textAi?: Partial<TextAiSettings>;
+        imageAi?: Partial<ImageAiSettings>;
+      }) => Promise<AppSettings>;
     };
     flippiEvents: {
       list: () => Promise<string[]>;
@@ -57,6 +61,10 @@ declare global {
       getSources: () => Promise<
         { name: string; type: string; typeId: string }[]
       >;
+      setFeature: (
+        feature: 'replayBuffer' | 'recording' | 'streaming',
+        enabled: boolean,
+      ) => Promise<{ ok: boolean; message?: string }>;
     };
   }
 }

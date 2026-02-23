@@ -102,7 +102,6 @@ class ObsConnectionManager {
       this.obs = new OBSWebSocket();
 
       try {
-        // @ts-expect-error - event name depends on obs-websocket-js version
         this.obs.on('ConnectionClosed', () => {
           this.connectionReady = false;
           if (!this.authFailed) setObsWebsocketState('disconnected');
@@ -112,7 +111,6 @@ class ObsConnectionManager {
       }
 
       try {
-        // @ts-expect-error - event name depends on obs-websocket-js version
         this.obs.on('ConnectionOpened', () => {
           this.connectionReady = true;
           setObsWebsocketState('connected');
@@ -311,7 +309,7 @@ class ObsConnectionManager {
           const r = await obs.send('GetStreamingStatus');
           const streaming = Boolean((r as any).streaming);
           if (!streaming) {
-            await obs.send('StartStreaming');
+            await obs.send('StartStreaming', {});
           }
         } catch {
           // ignore
@@ -476,7 +474,7 @@ class ObsConnectionManager {
         return { ok: true, message: 'Already streaming' };
       }
 
-      await obs.send('StartStreaming');
+      await obs.send('StartStreaming', {});
 
       // OBS accepts the command but may fail asynchronously (e.g. bad
       // stream key, unreachable server). Wait briefly then verify.

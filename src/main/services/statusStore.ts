@@ -1,5 +1,6 @@
 import {
   defaultServiceStatus,
+  type PartialServiceStatus,
   type ServiceStatus,
 } from '../../common/statusTypes';
 
@@ -17,7 +18,7 @@ export function setStatus(next: ServiceStatus): void {
   listeners.forEach((fn) => fn(current));
 }
 
-export function patchStatus(partial: Partial<ServiceStatus>): void {
+export function patchStatus(partial: PartialServiceStatus): void {
   // Merge with care — nested objects need nested merges
   const next: ServiceStatus = {
     ...current,
