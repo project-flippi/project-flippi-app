@@ -142,9 +142,15 @@ function startObsFeaturePolling(): void {
 }
 
 function getClippiStatusFilePath(): string {
-  const appData = process.env.APPDATA;
-  if (!appData) return '';
-  return path.join(appData, 'Project Clippi', 'connection-status.json');
+  try {
+    return path.join(
+      app.getPath('appData'),
+      'Project Clippi',
+      'connection-status.json',
+    );
+  } catch {
+    return '';
+  }
 }
 
 function readClippiConnectionStatus(): {
