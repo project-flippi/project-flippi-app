@@ -25,36 +25,61 @@ import {
 } from './gameCaptureService';
 
 function obsExePath(): string {
-  // %ProgramFiles%\obs-studio\bin\64bit\obs64.exe
-  const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
-
-  return path.join(programFiles, 'obs-studio', 'bin', '64bit', 'obs64.exe');
+  switch (process.platform) {
+    case 'darwin':
+      return '/Applications/OBS.app/Contents/MacOS/obs';
+    case 'linux':
+      return '/usr/bin/obs';
+    default: {
+      // Windows: %ProgramFiles%\obs-studio\bin\64bit\obs64.exe
+      const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+      return path.join(programFiles, 'obs-studio', 'bin', '64bit', 'obs64.exe');
+    }
+  }
 }
 
 function clippiExePath(): string {
-  // %LOCALAPPDATA%\Programs\project-clippi\Project Clippi.exe
-  const localAppData =
-    process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-
-  return path.join(
-    localAppData,
-    'Programs',
-    'project-clippi',
-    'Project Clippi.exe',
-  );
+  switch (process.platform) {
+    case 'darwin':
+      return '/Applications/Project Clippi.app/Contents/MacOS/Project Clippi';
+    case 'linux':
+      return path.join(os.homedir(), 'Applications', 'Project Clippi.AppImage');
+    default: {
+      // Windows: %LOCALAPPDATA%\Programs\project-clippi\Project Clippi.exe
+      const localAppData =
+        process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      return path.join(
+        localAppData,
+        'Programs',
+        'project-clippi',
+        'Project Clippi.exe',
+      );
+    }
+  }
 }
 
 function slippiExePath(): string {
-  // %LOCALAPPDATA%\Programs\Slippi Launcher\Slippi Launcher.exe
-  const localAppData =
-    process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-
-  return path.join(
-    localAppData,
-    'Programs',
-    'Slippi Launcher',
-    'Slippi Launcher.exe',
-  );
+  switch (process.platform) {
+    case 'darwin':
+      return '/Applications/Slippi Launcher.app/Contents/MacOS/Slippi Launcher';
+    case 'linux':
+      return path.join(
+        os.homedir(),
+        'Applications',
+        'Slippi Launcher.AppImage',
+      );
+    default: {
+      // Windows: %LOCALAPPDATA%\Programs\Slippi Launcher\Slippi Launcher.exe
+      const localAppData =
+        process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      return path.join(
+        localAppData,
+        'Programs',
+        'Slippi Launcher',
+        'Slippi Launcher.exe',
+      );
+    }
+  }
 }
 
 export type StartStackResult = {
