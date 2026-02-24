@@ -130,155 +130,99 @@ export async function launchSlippi(
 
 const execFileAsync = promisify(execFile);
 
-export async function isClippiRunning(): Promise<boolean> {
-  if (process.platform !== 'win32') {
-    return false;
-  }
-
+/**
+ * Cross-platform process detection.
+ * - Windows: uses `tasklist /FI "IMAGENAME eq <name>"` and checks stdout.
+ * - macOS/Linux: uses `pgrep -fi <pattern>` which returns exit code 0 if found.
+ */
+async function isProcessRunning(
+  windowsName: string,
+  unixPattern: string,
+): Promise<boolean> {
   try {
-    const { stdout } = await execFileAsync('tasklist', [
-      '/FI',
-      'IMAGENAME eq Project Clippi.exe',
-      '/FO',
-      'CSV',
-      '/NH',
-    ]);
-
-    return stdout.toLowerCase().includes('project clippi.exe');
+    if (process.platform === 'win32') {
+      const { stdout } = await execFileAsync('tasklist', [
+        '/FI',
+        `IMAGENAME eq ${windowsName}`,
+        '/FO',
+        'CSV',
+        '/NH',
+      ]);
+      return stdout.toLowerCase().includes(windowsName.toLowerCase());
+    }
+    // macOS/Linux: pgrep exits 0 if at least one match, 1 if none
+    await execFileAsync('pgrep', ['-fi', unixPattern]);
+    return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * Cross-platform process termination.
+ * - Windows: uses `taskkill /IM <name> /F`.
+ * - macOS/Linux: uses `pkill -fi <pattern>`.
+ */
+async function killProcess(
+  windowsName: string,
+  unixPattern: string,
+  label: string,
+): Promise<{ killed: boolean; message: string }> {
+  try {
+    const running = await isProcessRunning(windowsName, unixPattern);
+    if (!running) {
+      return { killed: false, message: `${label} is not running` };
+    }
+
+    if (process.platform === 'win32') {
+      await execFileAsync('taskkill', ['/IM', windowsName, '/F']);
+    } else {
+      await execFileAsync('pkill', ['-fi', unixPattern]);
+    }
+    return { killed: true, message: `${label} terminated successfully` };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { killed: false, message: `Failed to kill ${label}: ${msg}` };
+  }
+}
+
+export async function isClippiRunning(): Promise<boolean> {
+  return isProcessRunning('Project Clippi.exe', 'project.clippi');
 }
 
 export async function killClippi(): Promise<{
   killed: boolean;
   message: string;
 }> {
-  if (process.platform !== 'win32') {
-    return { killed: false, message: 'killClippi only supported on Windows' };
-  }
-
-  try {
-    const running = await isClippiRunning();
-    if (!running) {
-      return { killed: false, message: 'Project Clippi is not running' };
-    }
-
-    await execFileAsync('taskkill', ['/IM', 'Project Clippi.exe', '/F']);
-    return { killed: true, message: 'Project Clippi terminated successfully' };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { killed: false, message: `Failed to kill Project Clippi: ${msg}` };
-  }
+  return killProcess('Project Clippi.exe', 'project.clippi', 'Project Clippi');
 }
 
 export async function isSlippiRunning(): Promise<boolean> {
-  if (process.platform !== 'win32') {
-    return false;
-  }
-
-  try {
-    const { stdout } = await execFileAsync('tasklist', [
-      '/FI',
-      'IMAGENAME eq Slippi Launcher.exe',
-      '/FO',
-      'CSV',
-      '/NH',
-    ]);
-
-    return stdout.toLowerCase().includes('slippi launcher.exe');
-  } catch {
-    return false;
-  }
+  return isProcessRunning('Slippi Launcher.exe', 'slippi.launcher');
 }
 
 export async function killSlippi(): Promise<{
   killed: boolean;
   message: string;
 }> {
-  if (process.platform !== 'win32') {
-    return { killed: false, message: 'killSlippi only supported on Windows' };
-  }
-
-  try {
-    const running = await isSlippiRunning();
-    if (!running) {
-      return { killed: false, message: 'Slippi Launcher is not running' };
-    }
-
-    await execFileAsync('taskkill', ['/IM', 'Slippi Launcher.exe', '/F']);
-    return { killed: true, message: 'Slippi Launcher terminated successfully' };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { killed: false, message: `Failed to kill Slippi Launcher: ${msg}` };
-  }
+  return killProcess(
+    'Slippi Launcher.exe',
+    'slippi.launcher',
+    'Slippi Launcher',
+  );
 }
 
 export async function isSlippiDolphinRunning(): Promise<boolean> {
-  if (process.platform !== 'win32') {
-    return false;
-  }
-
-  try {
-    const { stdout } = await execFileAsync('tasklist', [
-      '/FI',
-      'IMAGENAME eq Slippi Dolphin.exe',
-      '/FO',
-      'CSV',
-      '/NH',
-    ]);
-
-    return stdout.toLowerCase().includes('slippi dolphin.exe');
-  } catch {
-    return false;
-  }
+  return isProcessRunning('Slippi Dolphin.exe', 'slippi.dolphin');
 }
 
 export async function isObsRunning(): Promise<boolean> {
-  // Windows-only implementation for now
-  if (process.platform !== 'win32') {
-    return false;
-  }
-
-  try {
-    // CSV output makes parsing consistent.
-    // tasklist returns a header; /NH removes the header row.
-    const { stdout } = await execFileAsync('tasklist', [
-      '/FI',
-      'IMAGENAME eq obs64.exe',
-      '/FO',
-      'CSV',
-      '/NH',
-    ]);
-
-    // If not running, output is typically like:
-    // "INFO: No tasks are running which match the specified criteria."
-    // If running, first column includes "obs64.exe"
-    return stdout.toLowerCase().includes('obs64.exe');
-  } catch {
-    // If tasklist fails for any reason, assume not running rather than crash the app.
-    return false;
-  }
+  return isProcessRunning('obs64.exe', 'obs');
 }
 
-export async function killOBS(): Promise<{ killed: boolean; message: string }> {
-  // Windows-only implementation for now
-  if (process.platform !== 'win32') {
-    return { killed: false, message: 'killOBS only supported on Windows' };
-  }
-
-  try {
-    // Check if OBS is running first
-    const running = await isObsRunning();
-    if (!running) {
-      return { killed: false, message: 'OBS is not running' };
-    }
-
-    // Use taskkill to terminate obs64.exe
-    await execFileAsync('taskkill', ['/IM', 'obs64.exe', '/F']);
-    return { killed: true, message: 'OBS terminated successfully' };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return { killed: false, message: `Failed to kill OBS: ${msg}` };
-  }
+export async function killOBS(): Promise<{
+  killed: boolean;
+  message: string;
+}> {
+  return killProcess('obs64.exe', 'obs', 'OBS');
 }
