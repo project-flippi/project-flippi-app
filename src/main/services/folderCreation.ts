@@ -8,10 +8,6 @@ function repoRootDir(): string {
   return path.join(os.homedir(), 'project-flippi');
 }
 
-function templateDir(): string {
-  return path.join(repoRootDir(), '_EventTemplate');
-}
-
 function eventsDir(): string {
   return path.join(repoRootDir(), 'Event');
 }
@@ -43,39 +39,32 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-type CpFn = (
-  src: string,
-  dest: string,
-  opts: { recursive: boolean; errorOnExist?: boolean },
-) => Promise<void>;
+async function scaffoldEventFolder(dest: string): Promise<void> {
+  const dirs = [
+    'data',
+    'images',
+    'slp',
+    'thumbnails',
+    path.join('videos', 'clips'),
+    path.join('videos', 'compilations'),
+  ];
 
-async function copyDir(src: string, dest: string): Promise<void> {
-  // Prefer native fs.cp if available (Node 16+)
-  const fsWithCp = fs as unknown as { cp?: CpFn };
-  if (typeof fsWithCp.cp === 'function') {
-    await fsWithCp.cp(src, dest, { recursive: true, errorOnExist: true });
-    return;
-  }
-
-  // Fallback recursive copy (lint-friendly: no for..of, no await-in-loop)
-  await fs.mkdir(dest, { recursive: true });
-
-  const entries = await fs.readdir(src, { withFileTypes: true });
+  const dataFiles = [
+    'combodata.jsonl',
+    'compdata.jsonl',
+    'event_title.txt',
+    'postedvids.txt',
+    'titlehistory.txt',
+    'venue_desc.txt',
+    'videodata.jsonl',
+  ];
 
   await Promise.all(
-    entries.map(async (e) => {
-      const s = path.join(src, e.name);
-      const d = path.join(dest, e.name);
+    dirs.map((d) => fs.mkdir(path.join(dest, d), { recursive: true })),
+  );
 
-      if (e.isDirectory()) {
-        await copyDir(s, d);
-        return;
-      }
-
-      if (e.isFile()) {
-        await fs.copyFile(s, d);
-      }
-    }),
+  await Promise.all(
+    dataFiles.map((f) => fs.writeFile(path.join(dest, 'data', f), '', 'utf-8')),
   );
 }
 
@@ -95,8 +84,8 @@ export async function createEventFromTemplate(params: {
     throw new Error(`Event folder already exists: ${sanitized}`);
   }
 
-  // Copy template -> Event/<Sanitized>
-  await copyDir(templateDir(), dest);
+  // Scaffold the event folder structure
+  await scaffoldEventFolder(dest);
 
   // Write metadata files
   const dataDir = path.join(dest, 'data');
