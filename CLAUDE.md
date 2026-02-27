@@ -125,4 +125,4 @@ GitHub Actions workflows in `.github/workflows/`:
 
 ## Platform Notes
 
-Windows-first (OBS/Clippi/Slippi process detection uses `tasklist`/`taskkill`). External process spawning in `src/main/utils/externalApps.ts` has cross-platform launch support but Windows-specific process management. Clippi connection status file path uses `process.env.APPDATA` (Windows-specific).
+Cross-platform (Windows, macOS, Linux). Process detection and termination in `src/main/utils/externalApps.ts` uses `tasklist`/`taskkill` on Windows and `pgrep`/`pkill` on macOS/Linux. Executable paths in `src/main/services/stackService.ts` resolve per-platform (e.g., `obs64.exe` on Windows, `/Applications/OBS.app` on macOS, `/usr/bin/obs` on Linux). Clippi connection status path uses `app.getPath('appData')` for cross-platform resolution. ASAR unpack pattern covers `.node`, `.dll`, `.dylib`, and `.so` for native modules on all platforms.
