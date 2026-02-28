@@ -22,7 +22,6 @@ The following external applications must be installed and configured:
   - OBS 28+: Install [obs-websocket 4.9.1-compat (Qt6)](https://github.com/obsproject/obs-websocket/releases/tag/4.9.1-compat)
 - **[Project Clippi (Flippi Fork)](https://github.com/project-flippi/project-clippi)** — The Flippi-specific fork of Project Clippi is required
 - **[Slippi Launcher](https://slippi.gg/)** — For Slippi Dolphin replay and live game integration
-- **Node.js** >= 14.x
 
 ## Install
 
