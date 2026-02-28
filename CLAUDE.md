@@ -120,8 +120,16 @@ Webpack configs live in `.erb/configs/` with separate configurations for main, r
 
 GitHub Actions workflows in `.github/workflows/`:
 - **test.yml** — Runs on push/PR: `npm run package` → `npm run lint` → `tsc` → `npm test` (macOS, Windows, Ubuntu; Node 22)
-- **publish.yml** — Builds and publishes via electron-builder on push to main
+- **publish.yml** — Builds and publishes on push to main. Runs on a 3-OS matrix (macos-latest, windows-latest, ubuntu-latest), each building only for its own platform (`--mac`, `--win`, `--linux`). macOS code signing is disabled (`CSC_IDENTITY_AUTO_DISCOVERY=false`). Publishes to GitHub Releases under `project-flippi/project-flippi-app`.
 - **codeql-analysis.yml** — Weekly CodeQL security scanning (JavaScript)
+
+## Release & Distribution
+
+- **App identity** — `productName: "Project Flippi"`, `appId: "org.projectflippi.app"`, version tracked in `release/app/package.json`
+- **Code signing** — Currently disabled (no certs). `build.afterSign` removed from `package.json`, `CSC_IDENTITY_AUTO_DISCOVERY=false` in CI for macOS.
+- **Installers** — Windows: NSIS (.exe), macOS: DMG (.dmg) for both arm64 and x64, Linux: AppImage
+- **Auto-update** — `electron-updater` checks GitHub Releases. Update metadata files (`latest.yml`, `latest-mac.yml`, `latest-linux.yml`) and `.blockmap` files for differential updates are published alongside installers.
+- **Testing checklist** — `TESTING.md` at project root contains a manual functionality test checklist for validating builds across platforms.
 
 ## Platform Notes
 
