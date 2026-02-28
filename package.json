@@ -180,11 +180,10 @@
     "webpack-merge": "^6.0.1"
   },
   "build": {
-    "productName": "ElectronReact",
-    "appId": "org.erb.ElectronReact",
+    "productName": "Project Flippi",
+    "appId": "org.projectflippi.app",
     "asar": true,
     "npmRebuild": false,
-    "afterSign": ".erb/scripts/notarize.js",
     "asarUnpack": "**/*.{node,dll,dylib,so}",
     "files": [
       "dist",
@@ -241,8 +240,8 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "electron-react-boilerplate",
-      "repo": "electron-react-boilerplate"
+      "owner": "project-flippi",
+      "repo": "project-flippi-app"
     }
   },
   "collective": {

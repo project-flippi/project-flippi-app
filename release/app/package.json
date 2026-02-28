@@ -1,12 +1,11 @@
 {
-  "name": "electron-react-boilerplate",
-  "version": "4.6.0",
-  "description": "A foundation for scalable desktop apps",
+  "name": "project-flippi",
+  "version": "0.1.0",
+  "description": "Desktop app for managing tournament recording workflows",
   "license": "MIT",
   "author": {
-    "name": "Electron React Boilerplate Maintainers",
-    "email": "electronreactboilerplate@gmail.com",
-    "url": "https://github.com/electron-react-boilerplate"
+    "name": "project-flippi",
+    "url": "https://github.com/project-flippi"
   },
   "main": "./dist/main/main.js",
   "scripts": {
