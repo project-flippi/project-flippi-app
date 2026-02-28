@@ -33,6 +33,7 @@ function RecordingPanel() {
   const [stackStatus, setStackStatus] = useState<string>('');
   const [stackBusy, setStackBusy] = useState(false);
 
+  const [relaunchObsBusy, setRelaunchObsBusy] = useState(false);
   const [relaunchBusy, setRelaunchBusy] = useState(false);
   const [relaunchSlippiBusy, setRelaunchSlippiBusy] = useState(false);
 
@@ -52,6 +53,7 @@ function RecordingPanel() {
   // Get persistent stack state from main process
   const { stack, clippi, slippi, obs } = useServiceStatus();
   const { running: stackRunning, currentEventName } = stack;
+  const showObsWarning = stackRunning && !obs.processRunning;
   const showClippiWarning = stackRunning && !clippi.processRunning;
   const showClippiConnectionWarning =
     stackRunning &&
@@ -60,6 +62,7 @@ function RecordingPanel() {
   const showSlippiWarning = stackRunning && !slippi.processRunning;
   const showGameCaptureWarning =
     stackRunning &&
+    obs.processRunning &&
     (obs.gameCapture === 'monitoring' || obs.gameCapture === 'inactive');
   const obsConnectedNow = obs.websocket === 'connected';
 
@@ -132,7 +135,7 @@ function RecordingPanel() {
     // If the stack is running, send the command to OBS.
     // The live OBS status polling drives the checkbox state, so no
     // manual revert is needed — the next status update will correct it.
-    if (stackRunning) {
+    if (stackRunning && obsConnectedNow) {
       const featureMap = {
         enableReplayBuffer: 'replayBuffer',
         startRecording: 'recording',
@@ -313,6 +316,48 @@ function RecordingPanel() {
                 <span className="pf-status-message">{stackStatus}</span>
               )}
             </div>
+            {showObsWarning && (
+              <div
+                style={{
+                  borderLeft: '4px solid #e5a000',
+                  background: '#fef9ec',
+                  padding: '8px 12px',
+                  marginTop: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  borderRadius: 4,
+                  color: '#7a5d00',
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ flex: 1 }}>
+                  OBS is not running — recording, replay buffer, and streaming
+                  are unavailable.
+                </span>
+                <button
+                  type="button"
+                  className="pf-button pf-button-primary"
+                  style={{ whiteSpace: 'nowrap', fontSize: 13 }}
+                  disabled={relaunchObsBusy}
+                  onClick={async () => {
+                    setRelaunchObsBusy(true);
+                    try {
+                      const res = await window.flippiStack.relaunchObs();
+                      if (!res.ok) {
+                        setStackStatus(res.message);
+                      }
+                    } catch (e: any) {
+                      setStackStatus(e?.message ?? String(e));
+                    } finally {
+                      setRelaunchObsBusy(false);
+                    }
+                  }}
+                >
+                  {relaunchObsBusy ? 'Relaunching…' : 'Relaunch OBS'}
+                </button>
+              </div>
+            )}
             {showClippiWarning && (
               <div
                 style={{
@@ -502,7 +547,7 @@ function RecordingPanel() {
                 id="obs-opt-replay-buffer"
                 type="checkbox"
                 checked={
-                  stackRunning
+                  stackRunning && obsConnectedNow
                     ? obs.replayBufferActive
                     : obsOptions.enableReplayBuffer
                 }
@@ -526,7 +571,9 @@ function RecordingPanel() {
                 id="obs-opt-recording"
                 type="checkbox"
                 checked={
-                  stackRunning ? obs.recording : obsOptions.startRecording
+                  stackRunning && obsConnectedNow
+                    ? obs.recording
+                    : obsOptions.startRecording
                 }
                 onChange={(e) =>
                   onObsOptionChange('startRecording', e.target.checked)
@@ -548,7 +595,9 @@ function RecordingPanel() {
                 id="obs-opt-streaming"
                 type="checkbox"
                 checked={
-                  stackRunning ? obs.streaming : obsOptions.startStreaming
+                  stackRunning && obsConnectedNow
+                    ? obs.streaming
+                    : obsOptions.startStreaming
                 }
                 onChange={(e) =>
                   onObsOptionChange('startStreaming', e.target.checked)

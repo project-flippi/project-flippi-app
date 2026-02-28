@@ -23,6 +23,7 @@ import {
   switchEvent,
   relaunchClippi,
   relaunchSlippi,
+  relaunchObs,
 } from './services/stackService';
 
 import { getSettings, updateSettings } from './settings/store';
@@ -41,7 +42,10 @@ import {
 } from './services/statusStore';
 
 import obsConnectionManager from './services/obsConnectionManager';
-import { initGameCaptureMonitoring } from './services/gameCaptureService';
+import {
+  initGameCaptureMonitoring,
+  stopPolling as stopGameCapturePolling,
+} from './services/gameCaptureService';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -75,15 +79,11 @@ function startObsProcessPolling(): void {
           },
         });
 
-        // If OBS stopped unexpectedly while stack was running, reset stack state
+        // When OBS goes down while the stack is running, reset game
+        // capture state and stop polling (no OBS to screenshot).
         if (!isRunningNow && status.stack.running) {
-          patchStatus({
-            stack: {
-              running: false,
-              currentEventName: null,
-              startedAt: null,
-            },
-          });
+          patchStatus({ obs: { gameCapture: 'unconfigured' } });
+          stopGameCapturePolling();
         }
       }
     } finally {
@@ -352,6 +352,10 @@ ipcMain.handle('stack:relaunchClippi', async () => {
 
 ipcMain.handle('stack:relaunchSlippi', async () => {
   return relaunchSlippi();
+});
+
+ipcMain.handle('stack:relaunchObs', async () => {
+  return relaunchObs();
 });
 
 ipcMain.handle('status:get', async () => {

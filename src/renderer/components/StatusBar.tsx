@@ -5,6 +5,7 @@ import type {
   SlippiServiceStatus,
 } from '../../common/statusTypes';
 import useServiceStatus from '../hooks/useServiceStatus';
+import useStackToasts from '../hooks/useStackToasts';
 import { ReactComponent as ObsLogo } from '../styles/images/obs-logo.svg';
 import { ReactComponent as ClippiLogo } from '../styles/images/clippi-logo.svg';
 import { ReactComponent as SlippiLogo } from '../styles/images/slippi-logo.svg';
@@ -117,11 +118,20 @@ export default function StatusBar() {
     obsText = 'Running (awaiting connection)';
   }
 
+  const clippiState = getClippiState(status.clippi);
+  const slippiState = getSlippiState(status.slippi);
+
+  const isAllGreen =
+    obsState === 'green' && clippiState === 'green' && slippiState === 'green';
+  useStackToasts(isAllGreen, status.stack.running);
+
   let gameCaptureText: string | null = null;
-  if (status.obs.gameCapture === 'monitoring') {
-    gameCaptureText = 'Awaiting game capture';
-  } else if (status.obs.gameCapture === 'inactive') {
-    gameCaptureText = 'Game capture lost';
+  if (status.obs.processRunning) {
+    if (status.obs.gameCapture === 'monitoring') {
+      gameCaptureText = 'Awaiting game capture';
+    } else if (status.obs.gameCapture === 'inactive') {
+      gameCaptureText = 'Game capture lost';
+    }
   }
 
   return (
@@ -164,7 +174,7 @@ export default function StatusBar() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <StatusLight state={getClippiState(status.clippi)} />
+        <StatusLight state={clippiState} />
         <span title="Clippi">
           <ClippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
         </span>
@@ -172,7 +182,7 @@ export default function StatusBar() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <StatusLight state={getSlippiState(status.slippi)} />
+        <StatusLight state={slippiState} />
         <span title="Slippi">
           <SlippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
         </span>

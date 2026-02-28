@@ -202,6 +202,22 @@ export type StopStackResult = {
 export async function stopStack(): Promise<StopStackResult> {
   const warnings: string[] = [];
 
+  // Reset stack state FIRST so polling loops see running=false before
+  // they detect dead processes (prevents spurious warning toasts).
+  patchStatus({
+    stack: {
+      running: false,
+      currentEventName: null,
+      startedAt: null,
+    },
+  });
+
+  // Stop game capture detection polling early
+  stopGameCapturePolling();
+
+  // Clear flippi-config.json so Clippi stops writing combo data
+  await clearFlippiConfig();
+
   // Stop replay buffer (best-effort)
   const replayRes = await obsConnectionManager.stopReplayBuffer();
   if (!replayRes.ok && replayRes.message !== 'Not connected to OBS') {
@@ -243,21 +259,6 @@ export async function stopStack(): Promise<StopStackResult> {
   ) {
     warnings.push(killSlippiRes.message);
   }
-
-  // Stop game capture detection polling
-  stopGameCapturePolling();
-
-  // Clear flippi-config.json so Clippi stops writing combo data
-  await clearFlippiConfig();
-
-  // Reset stack state
-  patchStatus({
-    stack: {
-      running: false,
-      currentEventName: null,
-      startedAt: null,
-    },
-  });
 
   return {
     ok: true,
@@ -327,6 +328,58 @@ export async function relaunchSlippi(): Promise<RelaunchSlippiResult> {
   }
 
   return { ok: true, message: 'Slippi Launcher relaunched' };
+}
+
+export type RelaunchObsResult = { ok: boolean; message: string };
+
+export async function relaunchObs(): Promise<RelaunchObsResult> {
+  const status = getStatus();
+
+  if (!status.stack.running) {
+    return { ok: false, message: 'Stack is not running' };
+  }
+
+  const alreadyRunning = await isObsRunning();
+  if (alreadyRunning) {
+    return { ok: true, message: 'OBS is already running' };
+  }
+
+  try {
+    const exePath = obsExePath();
+    await launchOBS(exePath, path.dirname(exePath));
+  } catch (err) {
+    log.error('[stack] Failed to relaunch OBS:', err);
+    return {
+      ok: false,
+      message: `Failed to launch OBS: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  // Reconnect and reconfigure for the current event
+  const { currentEventName } = status.stack;
+  if (currentEventName) {
+    const recordingFolder = eventVideosDir(currentEventName);
+    const { obs: obsSettings } = await getSettings();
+
+    const cfg = await obsConnectionManager.configureForEvent(recordingFolder, {
+      connectTimeoutMs: 30_000,
+      enableReplayBuffer: obsSettings.enableReplayBuffer,
+      startRecording: obsSettings.startRecording,
+      startStreaming: obsSettings.startStreaming,
+    });
+
+    if (!cfg.ok) {
+      return {
+        ok: false,
+        message: `OBS launched but configuration failed: ${cfg.message ?? 'Unknown error'}`,
+      };
+    }
+
+    // Restart game capture polling
+    startGameCapturePolling();
+  }
+
+  return { ok: true, message: 'OBS relaunched' };
 }
 
 export type SwitchEventResult = {
