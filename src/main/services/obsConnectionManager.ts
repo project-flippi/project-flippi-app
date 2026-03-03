@@ -277,6 +277,22 @@ class ObsConnectionManager {
       const folder =
         (got as any)['rec-folder']?.toString?.() ?? recordingFolder;
 
+      // Ensure consistent filename formatting
+      await obs.send('SetFilenameFormatting', {
+        'filename-formatting': '%CCYY-%MM-%DD %hh-%mm-%ss',
+      });
+
+      // Set replay buffer filename prefix (saves to clips/ subfolder)
+      try {
+        await (obs as any).send('SetProfileParameter', {
+          parameterCategory: 'SimpleOutput',
+          parameterName: 'RecRBPrefix',
+          parameterValue: 'clips/Replay',
+        });
+      } catch {
+        // May fail if OBS is in Advanced output mode; non-critical
+      }
+
       // Replay buffer (enabled by default for backwards-compat)
       if (opts?.enableReplayBuffer !== false) {
         try {
