@@ -10,10 +10,9 @@
  */
 import path from 'path';
 import fs from 'fs';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
-import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import listEventFolders from './services/eventService';
 import { createEventFromTemplate } from './services/folderCreation';
@@ -305,7 +304,7 @@ ipcMain.handle('settings:get', () => getSettings());
 ipcMain.handle(
   'settings:update',
   async (event, partial: Partial<AppSettings>) => {
-    const updated = updateSettings(partial);
+    const updated = await updateSettings(partial);
 
     // If OBS connection settings changed, force the websocket manager to reset.
     // Only invalidate for host/port/password — not for action toggles like
@@ -317,6 +316,11 @@ ipcMain.handle(
         'password' in partial.obs)
     ) {
       obsConnectionManager.invalidateConnection();
+    }
+
+    // Apply always-on-top setting to the window immediately
+    if ('alwaysOnTop' in partial && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setAlwaysOnTop(updated.alwaysOnTop);
     }
 
     return updated;
@@ -463,6 +467,16 @@ const createWindow = async () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
     }
+
+    // Apply stored always-on-top preference
+    getSettings()
+      .then((settings) => {
+        if (settings.alwaysOnTop && mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.setAlwaysOnTop(true);
+        }
+      })
+      .catch(() => {});
+
     if (process.env.START_MINIMIZED) {
       mainWindow.minimize();
     } else {
@@ -475,8 +489,8 @@ const createWindow = async () => {
     mainWindow = null;
   });
 
-  const menuBuilder = new MenuBuilder(mainWindow);
-  menuBuilder.buildMenu();
+  // Remove the default menu bar (File/View/Help)
+  Menu.setApplicationMenu(null);
 
   // Open urls in the user's browser
   mainWindow.webContents.setWindowOpenHandler((edata) => {

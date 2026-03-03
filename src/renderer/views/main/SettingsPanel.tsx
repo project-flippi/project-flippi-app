@@ -30,6 +30,15 @@ function SettingsPanel() {
     <section className="pf-section pf-settings">
       <h1>Settings</h1>
 
+      <label className="pf-checkbox-row">
+        <input
+          type="checkbox"
+          checked={draft.alwaysOnTop}
+          onChange={(e) => updateSection('alwaysOnTop', e.target.checked)}
+        />
+        Always on Top
+      </label>
+
       <div className="pf-settings-grid">
         <YouTubeSettingsCard
           value={draft.youtube}
