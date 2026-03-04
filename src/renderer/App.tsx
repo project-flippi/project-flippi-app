@@ -5,7 +5,7 @@ import StatusBar from './components/StatusBar';
 
 function App() {
   return (
-    <>
+    <div className="pf-app-shell">
       <MainPanel />
       <StatusBar />
       <Toaster
@@ -20,7 +20,7 @@ function App() {
           },
         }}
       />
-    </>
+    </div>
   );
 }
 

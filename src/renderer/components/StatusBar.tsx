@@ -138,19 +138,10 @@ export default function StatusBar() {
     <div
       className="pf-card pf-status-bar"
       style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
         padding: '10px 16px',
-        borderRadius: 0,
-        borderLeft: 'none',
-        borderRight: 'none',
-        borderBottom: 'none',
         display: 'flex',
         alignItems: 'center',
         gap: 18,
-        zIndex: 9999,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center' }}>
