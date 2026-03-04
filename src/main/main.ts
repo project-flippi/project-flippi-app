@@ -104,42 +104,6 @@ function startObsProcessPolling(): void {
   process.on('exit', () => clearInterval(timer));
 }
 
-function startObsFeaturePolling(): void {
-  const intervalMs = 3000;
-
-  let inFlight = false;
-
-  const tick = async () => {
-    if (inFlight) return;
-    inFlight = true;
-
-    try {
-      const featureStatus = await obsConnectionManager.getFeatureStatus();
-      if (!featureStatus) return;
-
-      const current = getStatus().obs;
-      if (
-        current.replayBufferActive !== featureStatus.replayBufferActive ||
-        current.recording !== featureStatus.recording ||
-        current.streaming !== featureStatus.streaming
-      ) {
-        patchStatus({ obs: featureStatus });
-      }
-    } finally {
-      inFlight = false;
-    }
-  };
-
-  tick().catch(() => {});
-
-  const timer = setInterval(() => {
-    tick().catch(() => {});
-  }, intervalMs);
-
-  timer.unref?.();
-  process.on('exit', () => clearInterval(timer));
-}
-
 function getClippiStatusFilePath(): string {
   try {
     return path.join(
@@ -520,7 +484,6 @@ app
   .then(() => {
     createWindow();
     startObsProcessPolling();
-    startObsFeaturePolling();
     startClippiProcessPolling();
     startSlippiProcessPolling();
     initGameCaptureMonitoring();

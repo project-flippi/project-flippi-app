@@ -30,6 +30,7 @@ function SettingsPanel() {
     <section className="pf-section pf-settings">
       <h1>Settings</h1>
 
+      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
       <label className="pf-checkbox-row">
         <input
           type="checkbox"

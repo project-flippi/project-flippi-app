@@ -43,7 +43,7 @@ function MainPanel() {
       <aside className="pf-sidebar">
         <div className="pf-sidebar-header">
           <div className="pf-logo">Flippi</div>
-          <div className="pf-subtitle">Tournament Toolkit</div>
+          <div className="pf-subtitle">Content Creation Toolkit</div>
         </div>
 
         <nav className="pf-nav">
@@ -76,11 +76,6 @@ function MainPanel() {
             Settings
           </button>
         </nav>
-
-        <div className="pf-sidebar-footer">
-          <span className="pf-footer-text">Project Flippi</span>
-          <span className="pf-footer-subtext">Melee Recording & Content</span>
-        </div>
       </aside>
 
       <main className="pf-main">

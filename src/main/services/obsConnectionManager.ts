@@ -111,13 +111,26 @@ class ObsConnectionManager {
       }
 
       try {
-        this.obs.on('ConnectionOpened', () => {
+        this.obs.on('Identified', () => {
           this.connectionReady = true;
           setObsWebsocketState('connected');
         });
       } catch {
         // ignore
       }
+
+      // Subscribe to OBS output state events for instant UI updates
+      this.obs.on('RecordStateChanged', (data) => {
+        patchStatus({ obs: { recording: data.outputActive } });
+      });
+
+      this.obs.on('StreamStateChanged', (data) => {
+        patchStatus({ obs: { streaming: data.outputActive } });
+      });
+
+      this.obs.on('ReplayBufferStateChanged', (data) => {
+        patchStatus({ obs: { replayBufferActive: data.outputActive } });
+      });
     }
 
     return this.obs;
@@ -192,7 +205,7 @@ class ObsConnectionManager {
     const obs = this.ensureObsInstance();
 
     const conn = await loadObsConnectionSettings();
-    const address = `${conn.host}:${conn.port}`;
+    const url = `ws://${conn.host}:${conn.port}`;
 
     const startedAt = Date.now();
     let lastErrMsg: string | undefined;
@@ -201,10 +214,11 @@ class ObsConnectionManager {
     while (Date.now() - startedAt < timeoutMs) {
       try {
         // eslint-disable-next-line no-await-in-loop
-        await obs.connect({ address, password: conn.password });
+        await obs.connect(url, conn.password);
 
         this.connectionReady = true;
         setObsWebsocketState('connected', undefined);
+        this.syncFeatureStatus();
         return { ok: true };
       } catch (err: unknown) {
         const msg = formatUnknownError(err);
@@ -251,6 +265,20 @@ class ObsConnectionManager {
   }
 
   /**
+   * Fire-and-forget initial sync of feature status after connecting.
+   * Events only fire on changes, so we need to query once to catch
+   * features that were already running before Flippi connected.
+   */
+  private syncFeatureStatus(): void {
+    this.getFeatureStatus()
+      .then((status) => {
+        if (status) patchStatus({ obs: status });
+        return undefined;
+      })
+      .catch(() => {});
+  }
+
+  /**
    * Configure OBS for recording (requires connection).
    */
   public async configureForEvent(
@@ -269,22 +297,59 @@ class ObsConnectionManager {
 
     if (!connRes.ok) return { ok: false, message: connRes.message };
 
+    // OBS v5 WebSocket resolves connect() after identification, but OBS
+    // may not be fully ready to handle requests yet (especially right
+    // after launch). Wait before the first attempt, then retry if needed.
+    await delay(3000);
+
+    const maxRetries = 3;
+    let lastErr: string | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      if (attempt > 0) {
+        // eslint-disable-next-line no-await-in-loop
+        await delay(1000);
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      const result = await this.tryConfigureForEvent(recordingFolder, opts);
+      if (result.ok) return result;
+
+      lastErr = result.message;
+    }
+
+    setObsWebsocketState('error', lastErr);
+    return { ok: false, message: lastErr };
+  }
+
+  private async tryConfigureForEvent(
+    recordingFolder: string,
+    opts?: {
+      enableReplayBuffer?: boolean;
+      startRecording?: boolean;
+      startStreaming?: boolean;
+    },
+  ): Promise<{ ok: boolean; message?: string }> {
     const obs = this.ensureObsInstance();
 
     try {
-      await obs.send('SetRecordingFolder', { 'rec-folder': recordingFolder });
-      const got = await obs.send('GetRecordingFolder');
+      await obs.call('SetRecordDirectory', {
+        recordDirectory: recordingFolder,
+      });
+      const got = await obs.call('GetRecordDirectory');
       const folder =
-        (got as any)['rec-folder']?.toString?.() ?? recordingFolder;
+        (got as any).recordDirectory?.toString?.() ?? recordingFolder;
 
       // Ensure consistent filename formatting
-      await obs.send('SetFilenameFormatting', {
-        'filename-formatting': '%CCYY-%MM-%DD %hh-%mm-%ss',
+      await obs.call('SetProfileParameter', {
+        parameterCategory: 'Output',
+        parameterName: 'FilenameFormatting',
+        parameterValue: '%CCYY-%MM-%DD %hh-%mm-%ss',
       });
 
       // Set replay buffer filename prefix (saves to clips/ subfolder)
       try {
-        await (obs as any).send('SetProfileParameter', {
+        await obs.call('SetProfileParameter', {
           parameterCategory: 'SimpleOutput',
           parameterName: 'RecRBPrefix',
           parameterValue: 'clips/Replay',
@@ -296,10 +361,10 @@ class ObsConnectionManager {
       // Replay buffer (enabled by default for backwards-compat)
       if (opts?.enableReplayBuffer !== false) {
         try {
-          const r = await obs.send('GetReplayBufferStatus');
-          const active = Boolean((r as any).isReplayBufferActive);
+          const r = await obs.call('GetReplayBufferStatus');
+          const active = Boolean((r as any).outputActive);
           if (!active) {
-            await obs.send('StartReplayBuffer');
+            await obs.call('StartReplayBuffer');
           }
         } catch {
           // ignore: replay buffer may not be enabled
@@ -309,10 +374,10 @@ class ObsConnectionManager {
       // Recording (opt-in)
       if (opts?.startRecording) {
         try {
-          const r = await obs.send('GetRecordingStatus');
-          const recording = Boolean((r as any).isRecording);
+          const r = await obs.call('GetRecordStatus');
+          const recording = Boolean((r as any).outputActive);
           if (!recording) {
-            await obs.send('StartRecording');
+            await obs.call('StartRecord');
           }
         } catch {
           // ignore
@@ -322,10 +387,10 @@ class ObsConnectionManager {
       // Streaming (opt-in)
       if (opts?.startStreaming) {
         try {
-          const r = await obs.send('GetStreamingStatus');
-          const streaming = Boolean((r as any).streaming);
+          const r = await obs.call('GetStreamStatus');
+          const streaming = Boolean((r as any).outputActive);
           if (!streaming) {
-            await obs.send('StartStreaming', {});
+            await obs.call('StartStream');
           }
         } catch {
           // ignore
@@ -335,7 +400,6 @@ class ObsConnectionManager {
       return { ok: true, message: `OBS configured (folder: ${folder}).` };
     } catch (err: unknown) {
       const msg = formatUnknownError(err);
-      setObsWebsocketState('error', msg);
       return { ok: false, message: msg };
     }
   }
@@ -351,10 +415,10 @@ class ObsConnectionManager {
     const obs = this.ensureObsInstance();
 
     try {
-      const r = await obs.send('GetReplayBufferStatus');
-      const active = Boolean((r as any).isReplayBufferActive);
+      const r = await obs.call('GetReplayBufferStatus');
+      const active = Boolean((r as any).outputActive);
       if (active) {
-        await obs.send('StopReplayBuffer');
+        await obs.call('StopReplayBuffer');
       }
       return { ok: true, message: 'Replay buffer stopped' };
     } catch (err: unknown) {
@@ -374,10 +438,10 @@ class ObsConnectionManager {
     const obs = this.ensureObsInstance();
 
     try {
-      const r = await obs.send('GetRecordingStatus');
-      const recording = Boolean((r as any).isRecording);
+      const r = await obs.call('GetRecordStatus');
+      const recording = Boolean((r as any).outputActive);
       if (recording) {
-        await obs.send('StopRecording');
+        await obs.call('StopRecord');
       }
       return { ok: true, message: 'Recording stopped' };
     } catch (err: unknown) {
@@ -398,7 +462,7 @@ class ObsConnectionManager {
     }
 
     const obs = this.ensureObsInstance();
-    return obs.send(requestType as any, params as any);
+    return obs.call(requestType as any, params as any);
   }
 
   /**
@@ -407,16 +471,16 @@ class ObsConnectionManager {
   public async getSourcesList(): Promise<
     { name: string; type: string; typeId: string }[]
   > {
-    const result = (await this.sendRequest('GetSourcesList')) as any;
+    const result = (await this.sendRequest('GetInputList')) as any;
     const sources: { name: string; type: string; typeId: string }[] = [];
 
-    if (Array.isArray(result?.sources)) {
-      result.sources.forEach((s: any) => {
-        if (typeof s.name === 'string') {
+    if (Array.isArray(result?.inputs)) {
+      result.inputs.forEach((s: any) => {
+        if (typeof s.inputName === 'string') {
           sources.push({
-            name: s.name,
-            type: s.type ?? '',
-            typeId: s.typeId ?? '',
+            name: s.inputName,
+            type: s.inputKind ?? '',
+            typeId: s.inputUuid ?? '',
           });
         }
       });
@@ -436,10 +500,10 @@ class ObsConnectionManager {
     const obs = this.ensureObsInstance();
 
     try {
-      const r = await obs.send('GetReplayBufferStatus');
-      const active = Boolean((r as any).isReplayBufferActive);
+      const r = await obs.call('GetReplayBufferStatus');
+      const active = Boolean((r as any).outputActive);
       if (!active) {
-        await obs.send('StartReplayBuffer');
+        await obs.call('StartReplayBuffer');
       }
       return { ok: true, message: 'Replay buffer started' };
     } catch (err: unknown) {
@@ -459,10 +523,10 @@ class ObsConnectionManager {
     const obs = this.ensureObsInstance();
 
     try {
-      const r = await obs.send('GetRecordingStatus');
-      const recording = Boolean((r as any).isRecording);
+      const r = await obs.call('GetRecordStatus');
+      const recording = Boolean((r as any).outputActive);
       if (!recording) {
-        await obs.send('StartRecording');
+        await obs.call('StartRecord');
       }
       return { ok: true, message: 'Recording started' };
     } catch (err: unknown) {
@@ -484,13 +548,13 @@ class ObsConnectionManager {
     const obs = this.ensureObsInstance();
 
     try {
-      const r = await obs.send('GetStreamingStatus');
-      const streaming = Boolean((r as any).streaming);
+      const r = await obs.call('GetStreamStatus');
+      const streaming = Boolean((r as any).outputActive);
       if (streaming) {
         return { ok: true, message: 'Already streaming' };
       }
 
-      await obs.send('StartStreaming', {});
+      await obs.call('StartStream');
 
       // OBS accepts the command but may fail asynchronously (e.g. bad
       // stream key, unreachable server). Wait briefly then verify.
@@ -503,8 +567,8 @@ class ObsConnectionManager {
         };
       }
 
-      const check = await obs.send('GetStreamingStatus');
-      const stillStreaming = Boolean((check as any).streaming);
+      const check = await obs.call('GetStreamStatus');
+      const stillStreaming = Boolean((check as any).outputActive);
       if (!stillStreaming) {
         return {
           ok: false,
@@ -530,10 +594,10 @@ class ObsConnectionManager {
     const obs = this.ensureObsInstance();
 
     try {
-      const r = await obs.send('GetStreamingStatus');
-      const streaming = Boolean((r as any).streaming);
+      const r = await obs.call('GetStreamStatus');
+      const streaming = Boolean((r as any).outputActive);
       if (streaming) {
-        await obs.send('StopStreaming');
+        await obs.call('StopStream');
       }
       return { ok: true, message: 'Streaming stopped' };
     } catch (err: unknown) {
@@ -560,22 +624,22 @@ class ObsConnectionManager {
     let streaming = false;
 
     try {
-      const r = await obs.send('GetReplayBufferStatus');
-      replayBufferActive = Boolean((r as any).isReplayBufferActive);
+      const r = await obs.call('GetReplayBufferStatus');
+      replayBufferActive = Boolean((r as any).outputActive);
     } catch {
       // replay buffer may not be enabled in OBS
     }
 
     try {
-      const r = await obs.send('GetRecordingStatus');
-      recording = Boolean((r as any).isRecording);
+      const r = await obs.call('GetRecordStatus');
+      recording = Boolean((r as any).outputActive);
     } catch {
       // ignore
     }
 
     try {
-      const r = await obs.send('GetStreamingStatus');
-      streaming = Boolean((r as any).streaming);
+      const r = await obs.call('GetStreamStatus');
+      streaming = Boolean((r as any).outputActive);
     } catch {
       // ignore
     }
