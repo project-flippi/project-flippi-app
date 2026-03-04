@@ -10,7 +10,7 @@ export interface YoutubeSettings {
 
 export interface ObsSettings {
   host: string; // default "127.0.0.1"
-  port: string; // default "4444"
+  port: string; // default "4455"
   password: string;
   gameCaptureSource: string; // OBS source name to monitor for game capture
   enableReplayBuffer: boolean; // start replay buffer when stack starts
@@ -48,7 +48,7 @@ export const defaultSettings: AppSettings = {
   },
   obs: {
     host: '127.0.0.1',
-    port: '4444',
+    port: '4455',
     password: '',
     gameCaptureSource: '',
     enableReplayBuffer: true,

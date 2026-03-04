@@ -9,7 +9,7 @@ type Props = {
 function ImageAISettingsCard({ value, onChange }: Props) {
   return (
     <div className="pf-card">
-      <h2>Image Generation AI</h2>
+      <h2>Image Generation AI (Optional)</h2>
 
       <div className="pf-field">
         <label htmlFor="ai-image-provider-select">

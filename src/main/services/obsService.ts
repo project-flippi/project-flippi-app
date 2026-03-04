@@ -57,30 +57,30 @@ export async function configureObsForEventRecording(params: {
     return { ok: false, connected: false, message: e?.message ?? String(e) };
   }
 
-  const address = `${conn.host}:${conn.port}`;
+  const url = `ws://${conn.host}:${conn.port}`;
 
   try {
-    await obs.connect({ address, password: conn.password });
+    await obs.connect(url, conn.password);
 
-    // Set recording folder (compat-safe)
-    await obs.send('SetRecordingFolder', {
-      'rec-folder': params.recordingFolder,
-    }); // :contentReference[oaicite:6]{index=6}
-    const got = await obs.send('GetRecordingFolder'); // :contentReference[oaicite:7]{index=7}
+    // Set recording folder
+    await obs.call('SetRecordDirectory', {
+      recordDirectory: params.recordingFolder,
+    });
+    const got = await obs.call('GetRecordDirectory');
     const folder =
-      (got as any)['rec-folder']?.toString?.() ?? params.recordingFolder;
+      (got as any).recordDirectory?.toString?.() ?? params.recordingFolder;
 
     // Ensure Replay Buffer running
     let replayActive: boolean | undefined;
     try {
-      const r = await obs.send('GetReplayBufferStatus'); // :contentReference[oaicite:8]{index=8}
-      replayActive = Boolean((r as any).isReplayBufferActive);
+      const r = await obs.call('GetReplayBufferStatus');
+      replayActive = Boolean((r as any).outputActive);
       if (!replayActive) {
-        await obs.send('StartReplayBuffer'); // :contentReference[oaicite:9]{index=9}
+        await obs.call('StartReplayBuffer');
         replayActive = true;
       }
     } catch {
-      // mirrors your JS behavior: don’t fail hard if replay buffer is disabled :contentReference[oaicite:10]{index=10}
+      // don’t fail hard if replay buffer is disabled in OBS
       replayActive = undefined;
     }
 

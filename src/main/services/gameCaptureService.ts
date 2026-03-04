@@ -64,16 +64,16 @@ async function checkCapture(sourceName: string): Promise<boolean | null> {
 
   try {
     const result = (await obsConnectionManager.sendRequest(
-      'TakeSourceScreenshot',
+      'GetSourceScreenshot',
       {
         sourceName,
-        embedPictureFormat: 'png',
-        width: 160,
-        height: 90,
+        imageFormat: 'png',
+        imageWidth: 160,
+        imageHeight: 90,
       },
     )) as any;
 
-    const imgData: string | undefined = result?.img;
+    const imgData: string | undefined = result?.imageData;
     if (!imgData) return null;
 
     return analyzeScreenshot(imgData);

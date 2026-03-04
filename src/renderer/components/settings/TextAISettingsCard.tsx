@@ -9,7 +9,7 @@ type Props = {
 function TextAISettingsCard({ value, onChange }: Props) {
   return (
     <div className="pf-card">
-      <h2>Text Generation AI</h2>
+      <h2>Text Generation AI (Optional)</h2>
 
       <div className="pf-field">
         <label htmlFor="ai-text-provider-select">
