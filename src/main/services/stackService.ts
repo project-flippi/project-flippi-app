@@ -169,7 +169,11 @@ export async function startStack(params: {
     });
 
     // Sync Clippi combodata config (non-fatal)
-    const clippiSync = await syncClippiComboData(params.eventName);
+    const clippiSync = await syncClippiComboData(params.eventName, {
+      host: obsSettings.host,
+      port: obsSettings.port,
+      password: obsSettings.password,
+    });
     if (!clippiSync.ok) {
       log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
     }
@@ -294,7 +298,12 @@ export async function relaunchClippi(): Promise<RelaunchClippiResult> {
   // Re-sync combo data for the current event
   const { currentEventName } = status.stack;
   if (currentEventName) {
-    const clippiSync = await syncClippiComboData(currentEventName);
+    const { obs: obsSettings } = await getSettings();
+    const clippiSync = await syncClippiComboData(currentEventName, {
+      host: obsSettings.host,
+      port: obsSettings.port,
+      password: obsSettings.password,
+    });
     if (!clippiSync.ok) {
       log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
     }
@@ -446,8 +455,12 @@ export async function switchEvent(params: {
     },
   });
 
-  // Sync Clippi combodata symlink (non-fatal)
-  const clippiSync = await syncClippiComboData(params.eventName);
+  // Sync Clippi combodata config (non-fatal)
+  const clippiSync = await syncClippiComboData(params.eventName, {
+    host: obsSettings.host,
+    port: obsSettings.port,
+    password: obsSettings.password,
+  });
   if (!clippiSync.ok) {
     log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
   }

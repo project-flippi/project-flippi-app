@@ -9,6 +9,12 @@ import { patchStatus } from './statusStore';
 // Types
 // ---------------------------------------------------------------------------
 
+export type ObsWebsocketConfig = {
+  host: string;
+  port: string;
+  password: string;
+};
+
 export type SyncResult = {
   ok: boolean;
   configFile: string;
@@ -65,6 +71,7 @@ async function pathExists(p: string): Promise<boolean> {
  */
 export async function syncClippiComboData(
   eventName: string,
+  obsWebsocket?: ObsWebsocketConfig,
 ): Promise<SyncResult> {
   const comboDataPath = eventComboFile(eventName);
   const configFile = flippiConfigFile();
@@ -94,7 +101,11 @@ export async function syncClippiComboData(
   }
 
   // 3. Write flippi-config.json (atomic: write .tmp then rename)
-  const configData = JSON.stringify({ comboDataPath }, null, 2);
+  const configPayload: Record<string, unknown> = { comboDataPath };
+  if (obsWebsocket) {
+    configPayload.obsWebsocket = obsWebsocket;
+  }
+  const configData = JSON.stringify(configPayload, null, 2);
   const tmpFile = `${configFile}.tmp`;
   try {
     await fs.writeFile(tmpFile, configData, 'utf-8');
