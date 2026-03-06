@@ -1,8 +1,6 @@
 // src/main/services/stackService.ts
 import path from 'path';
-import fs from 'fs';
 import os from 'os';
-import { app } from 'electron';
 import log from 'electron-log';
 import {
   ensureDir,
@@ -84,24 +82,6 @@ function slippiExePath(): string {
   }
 }
 
-/**
- * Remove OBS's .sentinel folder to prevent the "did not shut down properly"
- * dialog on next launch. OBS creates this on startup and removes it on clean
- * exit, but it can be left behind even after a graceful shutdown.
- */
-async function clearObsSentinel(): Promise<void> {
-  const sentinel = path.join(
-    app.getPath('appData'),
-    'obs-studio',
-    '.sentinel',
-  );
-  try {
-    await fs.promises.rm(sentinel, { recursive: true, force: true });
-  } catch (err) {
-    log.warn('[stack] Failed to clear OBS sentinel:', err);
-  }
-}
-
 export type StartStackResult = {
   ok: boolean;
   eventName: string;
@@ -136,7 +116,6 @@ export async function startStack(params: {
 
   let launchedObs = false;
   if (!obsRunning) {
-    await clearObsSentinel();
     const exePath = obsExePath();
     await launchOBS(exePath, path.dirname(exePath));
     launchedObs = true;
@@ -385,7 +364,6 @@ export async function relaunchObs(): Promise<RelaunchObsResult> {
   }
 
   try {
-    await clearObsSentinel();
     const exePath = obsExePath();
     await launchOBS(exePath, path.dirname(exePath));
   } catch (err) {
