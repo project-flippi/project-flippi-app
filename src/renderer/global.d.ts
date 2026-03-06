@@ -13,6 +13,10 @@ declare global {
       get: () => Promise<AppSettings>;
       update: (partial: {
         version?: 1;
+        alwaysOnTop?: boolean;
+        closeObsOnStop?: boolean;
+        closeClippiOnStop?: boolean;
+        closeSlippiOnStop?: boolean;
         youtube?: Partial<YoutubeSettings>;
         obs?: Partial<ObsSettings>;
         textAi?: Partial<TextAiSettings>;

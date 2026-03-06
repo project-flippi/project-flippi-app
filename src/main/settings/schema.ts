@@ -31,6 +31,9 @@ export interface ImageAiSettings {
 export interface AppSettings {
   version: 1; // simple version tag for future migrations
   alwaysOnTop: boolean;
+  closeObsOnStop: boolean;
+  closeClippiOnStop: boolean;
+  closeSlippiOnStop: boolean;
   youtube: YoutubeSettings;
   obs: ObsSettings;
   textAi: TextAiSettings;
@@ -41,6 +44,9 @@ export interface AppSettings {
 export const defaultSettings: AppSettings = {
   version: 1,
   alwaysOnTop: false,
+  closeObsOnStop: true,
+  closeClippiOnStop: true,
+  closeSlippiOnStop: true,
   youtube: {
     clientId: '',
     projectId: '',

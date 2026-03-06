@@ -37,6 +37,13 @@ function RecordingPanel() {
   const [relaunchBusy, setRelaunchBusy] = useState(false);
   const [relaunchSlippiBusy, setRelaunchSlippiBusy] = useState(false);
 
+  // Stack options — close apps on stop
+  const [closeOnStop, setCloseOnStop] = useState({
+    obs: true,
+    clippi: true,
+    slippi: true,
+  });
+
   // OBS action options
   const [obsOptions, setObsOptions] = useState({
     enableReplayBuffer: true,
@@ -87,6 +94,11 @@ function RecordingPanel() {
     window.flippiSettings
       .get()
       .then((s) => {
+        setCloseOnStop({
+          obs: s.closeObsOnStop ?? true,
+          clippi: s.closeClippiOnStop ?? true,
+          slippi: s.closeSlippiOnStop ?? true,
+        });
         setSelectedSource(s.obs.gameCaptureSource || '');
         setObsOptions({
           enableReplayBuffer: s.obs.enableReplayBuffer ?? true,
@@ -609,6 +621,55 @@ function RecordingPanel() {
           <div className="pf-note" style={{ marginTop: 4 }}>
             Choose what OBS does when the recording stack starts. Changes apply
             immediately if the stack is already running.
+          </div>
+        </div>
+
+        <div className="pf-field" style={{ marginTop: 12 }}>
+          <span>Close on Stop</span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              marginTop: 4,
+            }}
+          >
+            {(
+              [
+                ['obs', 'closeObsOnStop', 'OBS'],
+                ['clippi', 'closeClippiOnStop', 'Project Clippi'],
+                ['slippi', 'closeSlippiOnStop', 'Slippi Launcher'],
+              ] as const
+            ).map(([key, settingKey, label]) => (
+              <label
+                key={key}
+                htmlFor={`stack-opt-close-${key}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontWeight: 'normal',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  id={`stack-opt-close-${key}`}
+                  type="checkbox"
+                  checked={closeOnStop[key]}
+                  onChange={async (e) => {
+                    const value = e.target.checked;
+                    setCloseOnStop((cur) => ({ ...cur, [key]: value }));
+                    await window.flippiSettings.update({
+                      [settingKey]: value,
+                    });
+                  }}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div className="pf-note" style={{ marginTop: 4 }}>
+            Choose which apps to close when the recording stack stops.
           </div>
         </div>
 
