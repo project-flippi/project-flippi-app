@@ -3,20 +3,9 @@ import React, { useState } from 'react';
 import '../../styles/main.css';
 import SettingsPanel from './SettingsPanel';
 import RecordingPanel from './RecordingPanel';
+import VideoManagementPanel from './VideoManagementPanel';
 
 type View = 'recording' | 'videos' | 'schedule' | 'settings';
-
-function VideoManagementPlaceholder() {
-  return (
-    <section className="pf-section">
-      <h1>Video Management</h1>
-      <p>
-        Here you&apos;ll browse events, games, clips, sets and compilations, and
-        manage metadata.
-      </p>
-    </section>
-  );
-}
 
 function SchedulingPlaceholder() {
   return (
@@ -80,7 +69,7 @@ function MainPanel() {
 
       <main className="pf-main">
         {activeView === 'recording' && <RecordingPanel />}
-        {activeView === 'videos' && <VideoManagementPlaceholder />}
+        {activeView === 'videos' && <VideoManagementPanel />}
         {activeView === 'schedule' && <SchedulingPlaceholder />}
         {activeView === 'settings' && <SettingsPanel />}
       </main>

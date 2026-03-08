@@ -63,6 +63,46 @@ contextBridge.exposeInMainWorld('flippiObs', {
     ipcRenderer.invoke('obs:setFeature', { feature, enabled }),
 });
 
+contextBridge.exposeInMainWorld('flippiDialog', {
+  selectFolder: (): Promise<{ ok: boolean; path: string }> =>
+    ipcRenderer.invoke('dialog:selectFolder'),
+});
+
+contextBridge.exposeInMainWorld('flippiVideo', {
+  getClips: (eventName: string) =>
+    ipcRenderer.invoke('video:getClips', { eventName }),
+  getCompilations: (eventName: string) =>
+    ipcRenderer.invoke('video:getCompilations', { eventName }),
+  generateClipData: (eventName: string) =>
+    ipcRenderer.invoke('video:generateClipData', { eventName }),
+  pairVideoFiles: (eventName: string) =>
+    ipcRenderer.invoke('video:pairVideoFiles', { eventName }),
+  updateClip: (
+    eventName: string,
+    timestamp: string,
+    updates: Record<string, any>,
+  ) =>
+    ipcRenderer.invoke('video:updateClip', { eventName, timestamp, updates }),
+  createCompilation: (eventName: string, options: Record<string, any>) =>
+    ipcRenderer.invoke('video:createCompilation', { eventName, options }),
+  updateCompilation: (
+    eventName: string,
+    filePath: string,
+    updates: Record<string, any>,
+  ) =>
+    ipcRenderer.invoke('video:updateCompilation', {
+      eventName,
+      filePath,
+      updates,
+    }),
+  aiGenerateTitle: (prompt: string, eventName: string) =>
+    ipcRenderer.invoke('video:aiGenerateTitle', { prompt, eventName }),
+  aiGenerateDesc: (title: string) =>
+    ipcRenderer.invoke('video:aiGenerateDesc', { title }),
+  aiGenerateThumbnail: (title: string) =>
+    ipcRenderer.invoke('video:aiGenerateThumbnail', { title }),
+});
+
 contextBridge.exposeInMainWorld('flippiStatus', {
   get: () => ipcRenderer.invoke('status:get'),
   onChanged: (callback: (status: any) => void) => {

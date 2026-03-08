@@ -34,6 +34,7 @@ export interface AppSettings {
   closeObsOnStop: boolean;
   closeClippiOnStop: boolean;
   closeSlippiOnStop: boolean;
+  slpDataFolder: string; // path to SLP replay data folder
   youtube: YoutubeSettings;
   obs: ObsSettings;
   textAi: TextAiSettings;
@@ -47,6 +48,7 @@ export const defaultSettings: AppSettings = {
   closeObsOnStop: true,
   closeClippiOnStop: true,
   closeSlippiOnStop: true,
+  slpDataFolder: '',
   youtube: {
     clientId: '',
     projectId: '',

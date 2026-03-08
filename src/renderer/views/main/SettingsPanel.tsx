@@ -4,6 +4,7 @@ import YouTubeSettingsCard from '../../components/settings/YouTubeSettingsCard';
 import OBSSettingsCard from '../../components/settings/OBSSettingsCard';
 import TextAISettingsCard from '../../components/settings/TextAISettingsCard';
 import ImageAISettingsCard from '../../components/settings/ImageAISettingsCard';
+import SlpSettingsCard from '../../components/settings/SlpSettingsCard';
 
 function SettingsPanel() {
   const {
@@ -59,6 +60,11 @@ function SettingsPanel() {
         <ImageAISettingsCard
           value={draft.imageAi}
           onChange={(next) => updateSection('imageAi', next)}
+        />
+
+        <SlpSettingsCard
+          value={draft.slpDataFolder}
+          onChange={(next) => updateSection('slpDataFolder', next)}
         />
       </div>
 

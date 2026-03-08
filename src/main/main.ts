@@ -10,7 +10,7 @@
  */
 import path from 'path';
 import fs from 'fs';
-import { app, BrowserWindow, shell, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, Menu, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { resolveHtmlPath } from './util';
@@ -45,6 +45,22 @@ import {
   initGameCaptureMonitoring,
   stopPolling as stopGameCapturePolling,
 } from './services/gameCaptureService';
+
+import {
+  getClipsForEvent,
+  getCompilationsForEvent,
+  generateClipData,
+  pairVideoFiles,
+  updateClip,
+  createCompilation,
+  updateCompilation,
+} from './services/videoDataService';
+
+import {
+  generateClipTitle,
+  generateDescription,
+  generateThumbnail,
+} from './services/aiService';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -372,6 +388,96 @@ ipcMain.handle(
     }
 
     return result;
+  },
+);
+
+ipcMain.handle('dialog:selectFolder', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+  });
+  if (result.canceled || result.filePaths.length === 0) {
+    return { ok: false, path: '' };
+  }
+  return { ok: true, path: result.filePaths[0] };
+});
+
+ipcMain.handle('video:getClips', async (_evt, args: { eventName: string }) => {
+  return getClipsForEvent(args.eventName);
+});
+
+ipcMain.handle(
+  'video:getCompilations',
+  async (_evt, args: { eventName: string }) => {
+    return getCompilationsForEvent(args.eventName);
+  },
+);
+
+ipcMain.handle(
+  'video:generateClipData',
+  async (_evt, args: { eventName: string }) => {
+    return generateClipData(args.eventName);
+  },
+);
+
+ipcMain.handle(
+  'video:pairVideoFiles',
+  async (_evt, args: { eventName: string }) => {
+    return pairVideoFiles(args.eventName);
+  },
+);
+
+ipcMain.handle(
+  'video:updateClip',
+  async (
+    _evt,
+    args: {
+      eventName: string;
+      timestamp: string;
+      updates: Record<string, any>;
+    },
+  ) => {
+    return updateClip(args.eventName, args.timestamp, args.updates);
+  },
+);
+
+ipcMain.handle(
+  'video:createCompilation',
+  async (_evt, args: { eventName: string; options: Record<string, any> }) => {
+    return createCompilation(args.eventName, args.options);
+  },
+);
+
+ipcMain.handle(
+  'video:updateCompilation',
+  async (
+    _evt,
+    args: { eventName: string; filePath: string; updates: Record<string, any> },
+  ) => {
+    return updateCompilation(args.eventName, args.filePath, args.updates);
+  },
+);
+
+ipcMain.handle(
+  'video:aiGenerateTitle',
+  async (_evt, args: { prompt: string; eventName: string }) => {
+    const settings = await getSettings();
+    return generateClipTitle(args.prompt, args.eventName, settings);
+  },
+);
+
+ipcMain.handle(
+  'video:aiGenerateDesc',
+  async (_evt, args: { title: string }) => {
+    const settings = await getSettings();
+    return generateDescription(args.title, settings);
+  },
+);
+
+ipcMain.handle(
+  'video:aiGenerateThumbnail',
+  async (_evt, args: { title: string }) => {
+    const settings = await getSettings();
+    return generateThumbnail(args.title, settings);
   },
 );
 

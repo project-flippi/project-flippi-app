@@ -299,3 +299,161 @@ html, body, #root {
   color: #ffffff;
 }
 
+/* Tabs */
+.pf-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #1f2937;
+  margin-bottom: 12px;
+}
+
+.pf-tab {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.pf-tab:hover {
+  color: #e5e7eb;
+}
+
+.pf-tab--active {
+  color: #eff6ff;
+  border-bottom-color: #0ea5e9;
+  font-weight: 600;
+}
+
+/* Clip card */
+.pf-clip-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.pf-clip-card-players {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.pf-clip-card-fields {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pf-clip-card-fields .pf-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.pf-clip-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Clips list */
+.pf-clips-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Compilation card */
+.pf-comp-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.pf-comp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.pf-compilations-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Player info */
+.pf-player-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.pf-player-role {
+  background: #1e293b;
+  color: #94a3b8;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.pf-player-character {
+  color: #e5e7eb;
+  font-weight: 500;
+}
+
+.pf-player-tag {
+  color: #9ca3af;
+}
+
+/* Combo stats */
+.pf-combo-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.pf-ko-badge {
+  background: #dc2626;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Filter panel */
+.pf-filter-panel {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.pf-filter-panel h3 {
+  font-size: 0.95rem;
+  margin: 0 0 8px 0;
+}
+
+/* Danger button */
+.pf-button-danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
+}
+
