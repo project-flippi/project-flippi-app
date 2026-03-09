@@ -113,3 +113,10 @@ export function getStageName(id: number | null): string {
 export function getMoveName(id: number): string {
   return moveDict[id]?.shortName ?? `Move ${id}`;
 }
+
+export const portColors: Record<number, string> = {
+  1: '#F44336', // Red (P1)
+  2: '#2196F3', // Blue (P2)
+  3: '#FFEB3B', // Yellow (P3)
+  4: '#4CAF50', // Green (P4)
+};

@@ -10,6 +10,7 @@ import type {
   GameEntry,
   PairGamesResult,
 } from '../../common/meleeTypes';
+import { parseSlpFile } from './slpParserService';
 
 const VIDEO_EXTENSIONS = /\.(mp4|mkv|avi|mov|flv|webm)$/i;
 
@@ -343,15 +344,16 @@ export async function getGameEntries(
   const entries: GameEntry[] = await Promise.all(
     videos.map(async (video) => {
       const slpPath = pairingMap.get(video.filePath) ?? null;
-      if (!slpPath) return { video, slpFile: null };
+      if (!slpPath) return { video, slpFile: null, slpGameData: null };
 
       // Try from the pre-loaded map first
       const fromMap = slpInfoMap?.get(slpPath) ?? null;
-      if (fromMap) return { video, slpFile: fromMap };
+      const slpFile = fromMap || (await buildSlpFileInfo(slpPath));
 
-      // Fallback: stat the file directly
-      const fallback = await buildSlpFileInfo(slpPath);
-      return { video, slpFile: fallback };
+      // Parse SLP game data
+      const slpGameData = parseSlpFile(slpPath);
+
+      return { video, slpFile, slpGameData };
     }),
   );
 

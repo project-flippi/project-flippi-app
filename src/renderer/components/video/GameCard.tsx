@@ -1,4 +1,6 @@
+import { useState, useEffect, useCallback } from 'react';
 import type { GameEntry } from '../../../common/meleeTypes';
+import GameMatchInfo from './GameMatchInfo';
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -25,12 +27,57 @@ function localFileUrl(filePath: string): string {
   return `local-file://${encodeURIComponent(normalized)}`;
 }
 
+interface VideoPlayerModalProps {
+  src: string;
+  title: string;
+  onClose: () => void;
+}
+
+function VideoPlayerModal({ src, title, onClose }: VideoPlayerModalProps) {
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div className="pf-video-modal-overlay" onClick={onClose}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div
+        className="pf-video-modal-content"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="pf-video-modal-header">
+          <span className="pf-video-modal-title">{title}</span>
+          <button
+            type="button"
+            className="pf-video-modal-close"
+            onClick={onClose}
+          >
+            &times;
+          </button>
+        </div>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video src={src} controls autoPlay className="pf-video-modal-player" />
+      </div>
+    </div>
+  );
+}
+
 interface GameCardProps {
   game: GameEntry;
 }
 
 function GameCard({ game }: GameCardProps) {
   const { video, slpFile } = game;
+  const [showPlayer, setShowPlayer] = useState(false);
 
   return (
     <div
@@ -43,24 +90,27 @@ function GameCard({ game }: GameCardProps) {
         alignItems: 'flex-start',
       }}
     >
-      {/* Video preview */}
+      {/* Video preview — click to play */}
       <div style={{ flexShrink: 0, width: 220 }}>
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video
-          src={localFileUrl(video.filePath)}
-          preload="metadata"
-          style={{
-            width: 220,
-            borderRadius: 4,
-            backgroundColor: '#111',
-            display: 'block',
-          }}
-          onLoadedMetadata={(e) => {
-            // Seek to 2 seconds for a better preview frame
-            const vid = e.currentTarget;
-            if (vid.duration > 2) vid.currentTime = 2;
-          }}
-        />
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+        <div className="pf-video-thumbnail" onClick={() => setShowPlayer(true)}>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video
+            src={localFileUrl(video.filePath)}
+            preload="metadata"
+            style={{
+              width: 220,
+              borderRadius: 4,
+              backgroundColor: '#111',
+              display: 'block',
+            }}
+            onLoadedMetadata={(e) => {
+              const vid = e.currentTarget;
+              if (vid.duration > 2) vid.currentTime = 2;
+            }}
+          />
+          <div className="pf-video-play-icon">&#9654;</div>
+        </div>
         <div
           style={{ fontSize: '0.8em', color: '#999', marginTop: 4 }}
           title={video.filePath}
@@ -68,8 +118,7 @@ function GameCard({ game }: GameCardProps) {
           {video.fileName}
         </div>
         <div style={{ fontSize: '0.75em', color: '#777' }}>
-          {formatFileSize(video.fileSize)} &middot;{' '}
-          {formatTimestamp(video.fileCreatedAt)}
+          {formatFileSize(video.fileSize)}
         </div>
       </div>
 
@@ -77,20 +126,32 @@ function GameCard({ game }: GameCardProps) {
       <div style={{ flex: 1, minWidth: 0 }}>
         {slpFile ? (
           <>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>
-              SLP Source File
-            </div>
+            {game.slpGameData ? (
+              <GameMatchInfo slpGameData={game.slpGameData} />
+            ) : (
+              <>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  SLP Source File
+                </div>
+                <div
+                  style={{ fontSize: '0.9em', wordBreak: 'break-all' }}
+                  title={slpFile.filePath}
+                >
+                  {slpFile.fileName}
+                </div>
+                <div style={{ fontSize: '0.8em', color: '#999', marginTop: 4 }}>
+                  Game started: {formatTimestamp(slpFile.gameStartedAt)}
+                </div>
+                <div style={{ fontSize: '0.8em', color: '#999' }}>
+                  {formatFileSize(slpFile.fileSize)}
+                </div>
+              </>
+            )}
             <div
-              style={{ fontSize: '0.9em', wordBreak: 'break-all' }}
+              style={{ fontSize: '0.75em', color: '#666', marginTop: 4 }}
               title={slpFile.filePath}
             >
-              {slpFile.fileName}
-            </div>
-            <div style={{ fontSize: '0.8em', color: '#999', marginTop: 4 }}>
-              Game started: {formatTimestamp(slpFile.gameStartedAt)}
-            </div>
-            <div style={{ fontSize: '0.8em', color: '#999' }}>
-              {formatFileSize(slpFile.fileSize)}
+              {slpFile.fileName} &middot; {formatFileSize(slpFile.fileSize)}
             </div>
           </>
         ) : (
@@ -99,6 +160,15 @@ function GameCard({ game }: GameCardProps) {
           </div>
         )}
       </div>
+
+      {/* Video player modal */}
+      {showPlayer && (
+        <VideoPlayerModal
+          src={localFileUrl(video.filePath)}
+          title={video.fileName}
+          onClose={() => setShowPlayer(false)}
+        />
+      )}
     </div>
   );
 }

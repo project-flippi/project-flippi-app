@@ -451,6 +451,173 @@ html, body, #root {
   margin: 0 0 8px 0;
 }
 
+/* Game match info */
+.pf-match-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-match-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.pf-match-badge {
+  background: #1e293b;
+  color: #94a3b8;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pf-match-duration {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.pf-match-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.pf-port-indicator {
+  font-weight: 700;
+  font-size: 0.8rem;
+  min-width: 20px;
+  text-align: center;
+}
+
+.pf-stock-icon {
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+}
+
+.pf-winner-badge {
+  background: #16a34a;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.pf-player-identity {
+  color: #e5e7eb;
+}
+
+.pf-player-code {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.pf-match-incomplete {
+  font-size: 0.75rem;
+  color: #f59e0b;
+  font-style: italic;
+}
+
+/* Video thumbnail */
+.pf-video-thumbnail {
+  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pf-video-thumbnail:hover {
+  opacity: 0.85;
+}
+
+.pf-video-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.5);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pf-video-thumbnail:hover .pf-video-play-icon {
+  opacity: 1;
+}
+
+/* Video player modal */
+.pf-video-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-video-modal-content {
+  background: #0f172a;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.pf-video-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.pf-video-modal-title {
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-video-modal-close {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.pf-video-modal-close:hover {
+  color: #e5e7eb;
+}
+
+.pf-video-modal-player {
+  max-width: 85vw;
+  max-height: 80vh;
+  display: block;
+}
+
 /* Danger button */
 .pf-button-danger {
   background: linear-gradient(135deg, #dc2626, #b91c1c);

@@ -81,6 +81,35 @@ export interface CompilationOptions {
 }
 
 // ---------------------------------------------------------------------------
+// Parsed SLP game data types
+// ---------------------------------------------------------------------------
+
+/** Parsed player data from an SLP file */
+export interface SlpPlayerData {
+  playerIndex: number;
+  port: number; // 1-4
+  characterId: number | undefined;
+  characterColor: number | undefined;
+  nametag: string;
+  connectCode: string;
+  displayName: string;
+  teamId: number | undefined;
+  isWinner: boolean;
+  placement: number | undefined;
+}
+
+export type MatchType = 'Singles' | 'Doubles' | 'Free for All' | 'Unknown';
+
+export interface SlpGameData {
+  players: SlpPlayerData[];
+  stageId: number | undefined;
+  matchType: MatchType;
+  durationSeconds: number | null;
+  gameComplete: boolean;
+  lrasInitiatorIndex: number | undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Game video / SLP pairing types
 // ---------------------------------------------------------------------------
 
@@ -106,6 +135,7 @@ export interface SlpFileInfo {
 export interface GameEntry {
   video: GameVideoFile;
   slpFile: SlpFileInfo | null;
+  slpGameData: SlpGameData | null;
 }
 
 export interface PairGamesResult {
