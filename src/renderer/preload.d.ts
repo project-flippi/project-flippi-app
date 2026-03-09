@@ -1,5 +1,10 @@
 import { ElectronHandler } from '../main/preload';
-import type { VideoDataEntry, CompilationEntry } from '../common/meleeTypes';
+import type {
+  VideoDataEntry,
+  CompilationEntry,
+  GameEntry,
+  PairGamesResult,
+} from '../common/meleeTypes';
 
 declare global {
   // eslint-disable-next-line no-unused-vars
@@ -75,6 +80,8 @@ declare global {
       aiGenerateThumbnail: (
         title: string,
       ) => Promise<{ ok: boolean; thumbnailPath?: string }>;
+      getGameEntries: (eventName: string) => Promise<GameEntry[]>;
+      pairGameVideos: (eventName: string) => Promise<PairGamesResult>;
     };
   }
 }

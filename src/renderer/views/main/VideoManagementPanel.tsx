@@ -1,19 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import useVideoData from '../../hooks/useVideoData';
-import ClipsView from './ClipsView';
-import CompilationsView from './CompilationsView';
-
-type Tab = 'clips' | 'compilations';
+import type { GameEntry } from '../../../common/meleeTypes';
+import GameCard from '../../components/video/GameCard';
 
 function VideoManagementPanel() {
   const [events, setEvents] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState('');
-  const [activeTab, setActiveTab] = useState<Tab>('clips');
+  const [games, setGames] = useState<GameEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
-
-  const { clips, compilations, isLoading, error, loadClips, loadCompilations } =
-    useVideoData();
 
   useEffect(() => {
     window.flippiEvents
@@ -29,51 +25,35 @@ function VideoManagementPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const loadGames = useCallback(async (eventName: string) => {
+    if (!eventName) return;
+    setIsLoading(true);
+    setError('');
+    try {
+      const entries = await window.flippiVideo.getGameEntries(eventName);
+      setGames(entries);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load games');
+      setGames([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedEvent) {
-      loadClips(selectedEvent);
-      loadCompilations(selectedEvent);
+      loadGames(selectedEvent);
     }
-  }, [selectedEvent, loadClips, loadCompilations]);
+  }, [selectedEvent, loadGames]);
 
-  const showClips = useCallback(() => setActiveTab('clips'), []);
-  const showCompilations = useCallback(() => setActiveTab('compilations'), []);
-
-  const refresh = useCallback(() => {
-    if (selectedEvent) {
-      loadClips(selectedEvent);
-      loadCompilations(selectedEvent);
-    }
-  }, [selectedEvent, loadClips, loadCompilations]);
-
-  async function handleGenerateClipData() {
+  async function handlePairGameVideos() {
     if (!selectedEvent) return;
     setActionBusy(true);
-    setActionStatus('Generating clip data...');
+    setActionStatus('Pairing game videos with SLP files...');
     try {
-      const res = await window.flippiVideo.generateClipData(selectedEvent);
+      const res = await window.flippiVideo.pairGameVideos(selectedEvent);
       setActionStatus(res.message);
-      if (res.ok) refresh();
-    } catch (err: any) {
-      setActionStatus(err?.message ?? 'Failed');
-    } finally {
-      setActionBusy(false);
-      setTimeout(() => setActionStatus(''), 5000);
-    }
-  }
-
-  async function handlePairVideoFiles() {
-    if (!selectedEvent) return;
-    setActionBusy(true);
-    setActionStatus('Pairing video files...');
-    try {
-      const res = await window.flippiVideo.pairVideoFiles(selectedEvent);
-      setActionStatus(
-        res.ok
-          ? `Paired ${res.paired} clips (${res.unmatched} unmatched).`
-          : 'Failed to pair video files.',
-      );
-      if (res.ok) refresh();
+      if (res.ok) loadGames(selectedEvent);
     } catch (err: any) {
       setActionStatus(err?.message ?? 'Failed');
     } finally {
@@ -107,50 +87,9 @@ function VideoManagementPanel() {
           </label>
         </div>
 
-        <div className="pf-settings-actions" style={{ marginBottom: 12 }}>
-          <button
-            type="button"
-            className="pf-button pf-button-primary"
-            onClick={handleGenerateClipData}
-            disabled={actionBusy || !selectedEvent}
-          >
-            Create Clip Data
-          </button>
-          <button
-            type="button"
-            className="pf-button"
-            onClick={handlePairVideoFiles}
-            disabled={actionBusy || !selectedEvent}
-          >
-            Pair Video Files
-          </button>
-          <button
-            type="button"
-            className="pf-button"
-            onClick={refresh}
-            disabled={isLoading || !selectedEvent}
-          >
-            Refresh
-          </button>
-          {actionStatus && (
-            <span className="pf-status-message">{actionStatus}</span>
-          )}
-        </div>
-
         <div className="pf-tabs">
-          <button
-            type="button"
-            className={`pf-tab ${activeTab === 'clips' ? 'pf-tab--active' : ''}`}
-            onClick={showClips}
-          >
-            Clips ({clips.length})
-          </button>
-          <button
-            type="button"
-            className={`pf-tab ${activeTab === 'compilations' ? 'pf-tab--active' : ''}`}
-            onClick={showCompilations}
-          >
-            Compilations ({compilations.length})
+          <button type="button" className="pf-tab pf-tab--active">
+            Games ({games.length})
           </button>
         </div>
 
@@ -165,21 +104,35 @@ function VideoManagementPanel() {
           </div>
         )}
 
-        {!isLoading && activeTab === 'clips' && (
-          <ClipsView
-            clips={clips}
-            compilations={compilations}
-            eventName={selectedEvent}
-            onUpdated={refresh}
-          />
+        {!isLoading && games.length === 0 && !error && (
+          <div style={{ padding: '16px 0', color: '#777' }}>
+            No video files found for this event.
+          </div>
         )}
-        {!isLoading && activeTab === 'compilations' && (
-          <CompilationsView
-            compilations={compilations}
-            eventName={selectedEvent}
-            onUpdated={refresh}
-          />
+
+        {!isLoading && (
+          <div style={{ marginTop: 8 }}>
+            {games.map((game) => (
+              <GameCard key={game.video.filePath} game={game} />
+            ))}
+          </div>
         )}
+
+        <div style={{ marginTop: 16 }}>
+          <button
+            type="button"
+            className="pf-button pf-button-primary"
+            onClick={handlePairGameVideos}
+            disabled={actionBusy || !selectedEvent}
+          >
+            Pair Game Videos with SLP data files
+          </button>
+          {actionStatus && (
+            <span className="pf-status-message" style={{ marginLeft: 12 }}>
+              {actionStatus}
+            </span>
+          )}
+        </div>
       </div>
     </section>
   );

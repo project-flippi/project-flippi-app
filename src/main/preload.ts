@@ -101,6 +101,10 @@ contextBridge.exposeInMainWorld('flippiVideo', {
     ipcRenderer.invoke('video:aiGenerateDesc', { title }),
   aiGenerateThumbnail: (title: string) =>
     ipcRenderer.invoke('video:aiGenerateThumbnail', { title }),
+  getGameEntries: (eventName: string) =>
+    ipcRenderer.invoke('video:getGameEntries', { eventName }),
+  pairGameVideos: (eventName: string) =>
+    ipcRenderer.invoke('video:pairGameVideos', { eventName }),
 });
 
 contextBridge.exposeInMainWorld('flippiStatus', {

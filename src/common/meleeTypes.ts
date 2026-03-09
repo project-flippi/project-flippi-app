@@ -79,3 +79,39 @@ export interface CompilationOptions {
   maxClips: number;
   minClips: number;
 }
+
+// ---------------------------------------------------------------------------
+// Game video / SLP pairing types
+// ---------------------------------------------------------------------------
+
+/** A video file discovered in the event's videos/ directory */
+export interface GameVideoFile {
+  filePath: string;
+  fileName: string;
+  /** File creation time (birthtime) as ISO string — when OBS started writing */
+  fileCreatedAt: string;
+  fileSize: number;
+}
+
+/** An SLP replay file */
+export interface SlpFileInfo {
+  filePath: string;
+  fileName: string;
+  /** Timestamp parsed from filename (ISO string) — game start time */
+  gameStartedAt: string;
+  fileSize: number;
+}
+
+/** A game row: a video file optionally paired with its SLP source */
+export interface GameEntry {
+  video: GameVideoFile;
+  slpFile: SlpFileInfo | null;
+}
+
+export interface PairGamesResult {
+  ok: boolean;
+  totalVideos: number;
+  paired: number;
+  unmatched: number;
+  message: string;
+}

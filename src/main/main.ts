@@ -10,7 +10,16 @@
  */
 import path from 'path';
 import fs from 'fs';
-import { app, BrowserWindow, shell, ipcMain, Menu, dialog } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  Menu,
+  dialog,
+  net,
+  protocol,
+} from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { resolveHtmlPath } from './util';
@@ -61,6 +70,8 @@ import {
   generateDescription,
   generateThumbnail,
 } from './services/aiService';
+
+import { getGameEntries, pairGameVideos } from './services/gameVideoService';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -481,6 +492,22 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  'video:getGameEntries',
+  async (_evt, args: { eventName: string }) => {
+    const settings = await getSettings();
+    return getGameEntries(args.eventName, settings.slpDataFolder);
+  },
+);
+
+ipcMain.handle(
+  'video:pairGameVideos',
+  async (_evt, args: { eventName: string }) => {
+    const settings = await getSettings();
+    return pairGameVideos(args.eventName, settings.slpDataFolder);
+  },
+);
+
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
   sourceMapSupport.install();
@@ -585,9 +612,26 @@ app.on('window-all-closed', () => {
   }
 });
 
+// Register a custom scheme so the renderer can load local files (videos, etc.)
+// even when served from http://localhost in dev mode.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'local-file',
+    privileges: { stream: true, bypassCSP: true },
+  },
+]);
+
 app
   .whenReady()
   .then(() => {
+    // Handle local-file:// requests by reading the file from disk
+    protocol.handle('local-file', (request) => {
+      const filePath = decodeURIComponent(
+        request.url.replace('local-file://', ''),
+      );
+      return net.fetch(`file://${filePath}`);
+    });
+
     createWindow();
     startObsProcessPolling();
     startClippiProcessPolling();
