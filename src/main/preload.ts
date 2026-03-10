@@ -107,6 +107,41 @@ contextBridge.exposeInMainWorld('flippiVideo', {
     ipcRenderer.invoke('video:pairGameVideos', { eventName }),
 });
 
+contextBridge.exposeInMainWorld('flippiSets', {
+  getEntries: (eventName: string) =>
+    ipcRenderer.invoke('sets:getEntries', { eventName }),
+  create: (
+    eventName: string,
+    matchType: string,
+    setType: string,
+    phase: string,
+    roundType: string,
+    roundNumber: string,
+    playerOverrides: { side: number; name: string }[],
+    videoFilePath: string,
+  ) =>
+    ipcRenderer.invoke('sets:create', {
+      eventName,
+      matchType,
+      setType,
+      phase,
+      roundType,
+      roundNumber,
+      playerOverrides,
+      videoFilePath,
+    }),
+  addGame: (eventName: string, setId: string, videoFilePath: string) =>
+    ipcRenderer.invoke('sets:addGame', { eventName, setId, videoFilePath }),
+  removeGame: (eventName: string, setId: string, videoFilePath: string) =>
+    ipcRenderer.invoke('sets:removeGame', { eventName, setId, videoFilePath }),
+  update: (eventName: string, setId: string, updates: Record<string, any>) =>
+    ipcRenderer.invoke('sets:update', { eventName, setId, updates }),
+  delete: (eventName: string, setId: string) =>
+    ipcRenderer.invoke('sets:delete', { eventName, setId }),
+  findForVideo: (eventName: string, videoFilePath: string) =>
+    ipcRenderer.invoke('sets:findForVideo', { eventName, videoFilePath }),
+});
+
 contextBridge.exposeInMainWorld('flippiStatus', {
   get: () => ipcRenderer.invoke('status:get'),
   onChanged: (callback: (status: any) => void) => {

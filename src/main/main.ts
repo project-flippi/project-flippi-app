@@ -73,6 +73,16 @@ import {
 
 import { getGameEntries, pairGameVideos } from './services/gameVideoService';
 
+import {
+  getSetEntries,
+  createSet,
+  addGameToSet,
+  removeGameFromSet,
+  updateSet,
+  deleteSet,
+  findSetForVideo,
+} from './services/setService';
+
 function broadcastStatus() {
   const status = getStatus();
   BrowserWindow.getAllWindows().forEach((win) => {
@@ -505,6 +515,87 @@ ipcMain.handle(
   async (_evt, args: { eventName: string }) => {
     const settings = await getSettings();
     return pairGameVideos(args.eventName, settings.slpDataFolder);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Sets IPC handlers
+// ---------------------------------------------------------------------------
+
+ipcMain.handle('sets:getEntries', async (_evt, args: { eventName: string }) => {
+  const settings = await getSettings();
+  return getSetEntries(args.eventName, settings.slpDataFolder);
+});
+
+ipcMain.handle(
+  'sets:create',
+  async (
+    _evt,
+    args: {
+      eventName: string;
+      matchType: string;
+      setType: string;
+      phase: string;
+      roundType: string;
+      roundNumber: string;
+      playerOverrides: { side: number; name: string }[];
+      videoFilePath: string;
+    },
+  ) => {
+    return createSet(
+      args.eventName,
+      args.matchType as any,
+      args.setType as any,
+      args.phase as any,
+      args.roundType as any,
+      args.roundNumber,
+      args.playerOverrides,
+      args.videoFilePath,
+    );
+  },
+);
+
+ipcMain.handle(
+  'sets:addGame',
+  async (
+    _evt,
+    args: { eventName: string; setId: string; videoFilePath: string },
+  ) => {
+    return addGameToSet(args.eventName, args.setId, args.videoFilePath);
+  },
+);
+
+ipcMain.handle(
+  'sets:removeGame',
+  async (
+    _evt,
+    args: { eventName: string; setId: string; videoFilePath: string },
+  ) => {
+    return removeGameFromSet(args.eventName, args.setId, args.videoFilePath);
+  },
+);
+
+ipcMain.handle(
+  'sets:update',
+  async (
+    _evt,
+    args: { eventName: string; setId: string; updates: Record<string, any> },
+  ) => {
+    return updateSet(args.eventName, args.setId, args.updates);
+  },
+);
+
+ipcMain.handle(
+  'sets:delete',
+  async (_evt, args: { eventName: string; setId: string }) => {
+    return deleteSet(args.eventName, args.setId);
+  },
+);
+
+ipcMain.handle(
+  'sets:findForVideo',
+  async (_evt, args: { eventName: string; videoFilePath: string }) => {
+    return findSetForVideo(args.eventName, args.videoFilePath);
   },
 );
 

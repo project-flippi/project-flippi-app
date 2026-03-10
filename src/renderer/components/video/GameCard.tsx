@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { GameEntry } from '../../../common/meleeTypes';
+import type { GameEntry, SetEntry } from '../../../common/meleeTypes';
 import GameMatchInfo from './GameMatchInfo';
+import NewSetForm from './NewSetForm';
 
-function formatFileSize(bytes: number): string {
+export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024)
@@ -10,7 +11,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function formatTimestamp(iso: string): string {
+export function formatTimestamp(iso: string): string {
   try {
     return new Date(iso).toLocaleString();
   } catch {
@@ -22,7 +23,7 @@ function formatTimestamp(iso: string): string {
  * Convert an absolute file path to a local-file:// URL for use in <video src>.
  * Uses a custom Electron protocol to bypass web security restrictions in dev mode.
  */
-function localFileUrl(filePath: string): string {
+export function localFileUrl(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/');
   return `local-file://${encodeURIComponent(normalized)}`;
 }
@@ -33,7 +34,11 @@ interface VideoPlayerModalProps {
   onClose: () => void;
 }
 
-function VideoPlayerModal({ src, title, onClose }: VideoPlayerModalProps) {
+export function VideoPlayerModal({
+  src,
+  title,
+  onClose,
+}: VideoPlayerModalProps) {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -73,11 +78,45 @@ function VideoPlayerModal({ src, title, onClose }: VideoPlayerModalProps) {
 
 interface GameCardProps {
   game: GameEntry;
+  /** Available sets for the "Add to Set" dropdown */
+  sets?: SetEntry[];
+  /** Current event name */
+  eventName?: string;
+  /** Called after a set mutation (add/create) */
+  onSetChanged?: () => void;
+  /** The set ID this game currently belongs to, if any */
+  currentSetId?: string | null;
 }
 
-function GameCard({ game }: GameCardProps) {
+function GameCard({
+  game,
+  sets,
+  eventName,
+  onSetChanged,
+  currentSetId,
+}: GameCardProps) {
   const { video, slpFile } = game;
   const [showPlayer, setShowPlayer] = useState(false);
+  const [showNewSetForm, setShowNewSetForm] = useState(false);
+
+  const currentSet = sets?.find((s) => s.set.id === currentSetId);
+
+  async function handleSetSelect(value: string) {
+    if (!eventName) return;
+    if (value === '__new__') {
+      setShowNewSetForm(true);
+      return;
+    }
+    if (value && value !== '') {
+      try {
+        await window.flippiSets.addGame(eventName, value, video.filePath);
+        onSetChanged?.();
+      } catch (err: any) {
+        // eslint-disable-next-line no-alert
+        alert(err?.message ?? 'Failed to add to set');
+      }
+    }
+  }
 
   return (
     <div
@@ -122,7 +161,7 @@ function GameCard({ game }: GameCardProps) {
         </div>
       </div>
 
-      {/* SLP info */}
+      {/* SLP info + set assignment */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {slpFile ? (
           <>
@@ -159,6 +198,40 @@ function GameCard({ game }: GameCardProps) {
             No SLP file paired
           </div>
         )}
+
+        {/* Add to Set dropdown */}
+        {sets && eventName && (
+          <div className="pf-add-to-set">
+            {currentSetId && currentSet ? (
+              <span
+                className="pf-match-badge"
+                style={{ fontSize: '0.8rem' }}
+                title={currentSet.title}
+              >
+                In set:{' '}
+                {currentSet.title.length > 50
+                  ? `${currentSet.title.slice(0, 50)}...`
+                  : currentSet.title}
+              </span>
+            ) : (
+              <select
+                value=""
+                onChange={(e) => handleSetSelect(e.target.value)}
+                style={{ fontSize: '0.8rem' }}
+              >
+                <option value="">Add to Set...</option>
+                {sets.map((s) => (
+                  <option key={s.set.id} value={s.set.id}>
+                    {s.title.length > 60
+                      ? `${s.title.slice(0, 60)}...`
+                      : s.title}
+                  </option>
+                ))}
+                <option value="__new__">+ New Set...</option>
+              </select>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Video player modal */}
@@ -169,8 +242,29 @@ function GameCard({ game }: GameCardProps) {
           onClose={() => setShowPlayer(false)}
         />
       )}
+
+      {/* New set form modal */}
+      {showNewSetForm && eventName && (
+        <NewSetForm
+          eventName={eventName}
+          videoFilePath={video.filePath}
+          slpGameData={game.slpGameData}
+          onCreated={() => {
+            setShowNewSetForm(false);
+            onSetChanged?.();
+          }}
+          onCancel={() => setShowNewSetForm(false)}
+        />
+      )}
     </div>
   );
 }
+
+GameCard.defaultProps = {
+  sets: undefined,
+  eventName: undefined,
+  onSetChanged: undefined,
+  currentSetId: null,
+};
 
 export default GameCard;

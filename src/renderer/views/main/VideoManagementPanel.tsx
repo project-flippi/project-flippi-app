@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GameEntry } from '../../../common/meleeTypes';
+import type { GameEntry, SetEntry } from '../../../common/meleeTypes';
 import GameCard from '../../components/video/GameCard';
+import SetCard from '../../components/video/SetCard';
 
 function VideoManagementPanel() {
   const [events, setEvents] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [games, setGames] = useState<GameEntry[]>([]);
+  const [sets, setSets] = useState<SetEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<'games' | 'sets'>('games');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
+
+  // Map of videoFilePath -> setId for quick lookup
+  const [videoSetMap, setVideoSetMap] = useState<Map<string, string>>(
+    new Map(),
+  );
 
   useEffect(() => {
     window.flippiEvents
@@ -40,11 +48,45 @@ function VideoManagementPanel() {
     }
   }, []);
 
+  const loadSets = useCallback(async (eventName: string) => {
+    if (!eventName) return;
+    try {
+      const entries = await window.flippiSets.getEntries(eventName);
+      setSets(entries);
+
+      // Build video -> set lookup
+      const map = new Map<string, string>();
+      entries.forEach((entry) => {
+        entry.set.gameVideoFilePaths.forEach((vp) => {
+          map.set(vp, entry.set.id);
+        });
+      });
+      setVideoSetMap(map);
+    } catch {
+      setSets([]);
+      setVideoSetMap(new Map());
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedEvent) {
       loadGames(selectedEvent);
+      loadSets(selectedEvent);
     }
-  }, [selectedEvent, loadGames]);
+  }, [selectedEvent, loadGames, loadSets]);
+
+  const handleSetChanged = useCallback(() => {
+    if (selectedEvent) {
+      loadSets(selectedEvent);
+    }
+  }, [selectedEvent, loadSets]);
+
+  const handleSetChangedWithGames = useCallback(() => {
+    if (selectedEvent) {
+      loadSets(selectedEvent);
+      loadGames(selectedEvent);
+    }
+  }, [selectedEvent, loadSets, loadGames]);
 
   async function handlePairGameVideos() {
     if (!selectedEvent) return;
@@ -53,7 +95,10 @@ function VideoManagementPanel() {
     try {
       const res = await window.flippiVideo.pairGameVideos(selectedEvent);
       setActionStatus(res.message);
-      if (res.ok) loadGames(selectedEvent);
+      if (res.ok) {
+        loadGames(selectedEvent);
+        loadSets(selectedEvent);
+      }
     } catch (err: any) {
       setActionStatus(err?.message ?? 'Failed');
     } finally {
@@ -88,8 +133,19 @@ function VideoManagementPanel() {
         </div>
 
         <div className="pf-tabs">
-          <button type="button" className="pf-tab pf-tab--active">
+          <button
+            type="button"
+            className={`pf-tab ${activeTab === 'games' ? 'pf-tab--active' : ''}`}
+            onClick={() => setActiveTab('games')}
+          >
             Games ({games.length})
+          </button>
+          <button
+            type="button"
+            className={`pf-tab ${activeTab === 'sets' ? 'pf-tab--active' : ''}`}
+            onClick={() => setActiveTab('sets')}
+          >
+            Sets ({sets.length})
           </button>
         </div>
 
@@ -104,18 +160,48 @@ function VideoManagementPanel() {
           </div>
         )}
 
-        {!isLoading && games.length === 0 && !error && (
-          <div style={{ padding: '16px 0', color: '#777' }}>
-            No video files found for this event.
-          </div>
+        {/* Games tab */}
+        {activeTab === 'games' && !isLoading && (
+          <>
+            {games.length === 0 && !error && (
+              <div style={{ padding: '16px 0', color: '#777' }}>
+                No video files found for this event.
+              </div>
+            )}
+            <div style={{ marginTop: 8 }}>
+              {games.map((game) => (
+                <GameCard
+                  key={game.video.filePath}
+                  game={game}
+                  sets={sets}
+                  eventName={selectedEvent}
+                  onSetChanged={handleSetChanged}
+                  currentSetId={videoSetMap.get(game.video.filePath) ?? null}
+                />
+              ))}
+            </div>
+          </>
         )}
 
-        {!isLoading && (
-          <div style={{ marginTop: 8 }}>
-            {games.map((game) => (
-              <GameCard key={game.video.filePath} game={game} />
-            ))}
-          </div>
+        {/* Sets tab */}
+        {activeTab === 'sets' && !isLoading && (
+          <>
+            {sets.length === 0 && (
+              <div style={{ padding: '16px 0', color: '#777' }}>
+                No sets created yet. Add games to a set from the Games tab.
+              </div>
+            )}
+            <div style={{ marginTop: 8 }}>
+              {sets.map((setEntry) => (
+                <SetCard
+                  key={setEntry.set.id}
+                  setEntry={setEntry}
+                  eventName={selectedEvent}
+                  onChanged={handleSetChangedWithGames}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         <div style={{ marginTop: 16 }}>

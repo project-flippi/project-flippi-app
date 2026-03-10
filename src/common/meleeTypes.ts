@@ -145,3 +145,54 @@ export interface PairGamesResult {
   unmatched: number;
   message: string;
 }
+
+// ---------------------------------------------------------------------------
+// Set (tournament set) types
+// ---------------------------------------------------------------------------
+
+export type SetMatchType = 'Singles' | 'Doubles';
+
+export type SetType = 'Tournament' | 'Friendlies' | 'Ranked' | 'Unranked';
+
+export type SetPhase = 'Pools' | 'Winners' | 'Losers' | 'Grand';
+
+export type SetRoundType = 'Round' | 'Quarters' | 'Semis' | 'Finals';
+
+/** Override for a player's display name within a set */
+export interface SetPlayerOverride {
+  /** Which side: 0 or 1 (Singles), or 0-3 (Doubles) */
+  side: number;
+  /** Override display name (empty string = use SLP-derived name) */
+  name: string;
+}
+
+/** Persisted set data (stored in sets.json) */
+export interface GameSet {
+  /** Unique identifier */
+  id: string;
+  /** Singles or Doubles */
+  matchType: SetMatchType;
+  /** Tournament, Friendlies, Ranked, or Unranked */
+  setType: SetType;
+  /** Tournament phase (only used when setType is Tournament) */
+  phase: SetPhase;
+  /** Round type: Round, Quarters, Semis, Finals */
+  roundType: SetRoundType;
+  /** Round number (only used when roundType is "Round") */
+  roundNumber: string;
+  /** Player name overrides indexed by side */
+  playerOverrides: SetPlayerOverride[];
+  /** Video file paths belonging to this set (sorted by filename) */
+  gameVideoFilePaths: string[];
+  /** ISO timestamp when created */
+  createdAt: string;
+}
+
+/** Runtime set entry returned to renderer (enriched with game data) */
+export interface SetEntry {
+  set: GameSet;
+  /** Resolved game entries (populated at read time) */
+  games: GameEntry[];
+  /** Computed display title */
+  title: string;
+}

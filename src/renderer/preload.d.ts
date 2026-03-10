@@ -4,6 +4,9 @@ import type {
   CompilationEntry,
   GameEntry,
   PairGamesResult,
+  SetEntry,
+  GameSet,
+  SetPlayerOverride,
 } from '../common/meleeTypes';
 
 declare global {
@@ -82,6 +85,39 @@ declare global {
       ) => Promise<{ ok: boolean; thumbnailPath?: string }>;
       getGameEntries: (eventName: string) => Promise<GameEntry[]>;
       pairGameVideos: (eventName: string) => Promise<PairGamesResult>;
+    };
+    flippiSets: {
+      getEntries: (eventName: string) => Promise<SetEntry[]>;
+      create: (
+        eventName: string,
+        matchType: string,
+        setType: string,
+        phase: string,
+        roundType: string,
+        roundNumber: string,
+        playerOverrides: SetPlayerOverride[],
+        videoFilePath: string,
+      ) => Promise<GameSet>;
+      addGame: (
+        eventName: string,
+        setId: string,
+        videoFilePath: string,
+      ) => Promise<GameSet>;
+      removeGame: (
+        eventName: string,
+        setId: string,
+        videoFilePath: string,
+      ) => Promise<GameSet | null>;
+      update: (
+        eventName: string,
+        setId: string,
+        updates: Record<string, any>,
+      ) => Promise<GameSet>;
+      delete: (eventName: string, setId: string) => Promise<void>;
+      findForVideo: (
+        eventName: string,
+        videoFilePath: string,
+      ) => Promise<string | null>;
     };
   }
 }
