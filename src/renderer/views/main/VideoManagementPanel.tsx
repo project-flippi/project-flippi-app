@@ -1,7 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { GameEntry, SetEntry } from '../../../common/meleeTypes';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { GameEntry, GameSet, SetEntry } from '../../../common/meleeTypes';
+import { computeSetTitle } from '../../../common/setUtils';
 import GameCard from '../../components/video/GameCard';
 import SetCard from '../../components/video/SetCard';
+
+/** Build a video-file-path → setId lookup from the current sets list. */
+function buildVideoSetMap(entries: SetEntry[]): Map<string, string> {
+  const map = new Map<string, string>();
+  entries.forEach((entry) => {
+    entry.set.gameVideoFilePaths.forEach((vp) => {
+      map.set(vp, entry.set.id);
+    });
+  });
+  return map;
+}
 
 function VideoManagementPanel() {
   const [events, setEvents] = useState<string[]>([]);
@@ -14,10 +26,8 @@ function VideoManagementPanel() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionStatus, setActionStatus] = useState('');
 
-  // Map of videoFilePath -> setId for quick lookup
-  const [videoSetMap, setVideoSetMap] = useState<Map<string, string>>(
-    new Map(),
-  );
+  // Derived video -> set lookup (recalculated when sets change)
+  const videoSetMap = useMemo(() => buildVideoSetMap(sets), [sets]);
 
   useEffect(() => {
     window.flippiEvents
@@ -53,18 +63,8 @@ function VideoManagementPanel() {
     try {
       const entries = await window.flippiSets.getEntries(eventName);
       setSets(entries);
-
-      // Build video -> set lookup
-      const map = new Map<string, string>();
-      entries.forEach((entry) => {
-        entry.set.gameVideoFilePaths.forEach((vp) => {
-          map.set(vp, entry.set.id);
-        });
-      });
-      setVideoSetMap(map);
     } catch {
       setSets([]);
-      setVideoSetMap(new Map());
     }
   }, []);
 
@@ -75,18 +75,79 @@ function VideoManagementPanel() {
     }
   }, [selectedEvent, loadGames, loadSets]);
 
+  // -----------------------------------------------------------------------
+  // Optimistic update helpers (no full reload)
+  // -----------------------------------------------------------------------
+
+  /** Recompute a single SetEntry's title after its GameSet changed. */
+  const recomputeEntry = useCallback(
+    (entry: SetEntry, updatedSet: GameSet): SetEntry => ({
+      set: updatedSet,
+      games: entry.games,
+      title: computeSetTitle(updatedSet, entry.games, selectedEvent),
+    }),
+    [selectedEvent],
+  );
+
+  /** Called when a set's metadata is updated (dropdowns, player overrides). */
+  const handleSetUpdated = useCallback(
+    (updatedSet: GameSet) => {
+      setSets((prev) =>
+        prev.map((entry) =>
+          entry.set.id === updatedSet.id
+            ? recomputeEntry(entry, updatedSet)
+            : entry,
+        ),
+      );
+    },
+    [recomputeEntry],
+  );
+
+  /** Called when a game is removed from a set. */
+  const handleGameRemoved = useCallback(
+    (setId: string, videoFilePath: string) => {
+      setSets((prev) => {
+        const updated = prev
+          .map((entry) => {
+            if (entry.set.id !== setId) return entry;
+            const newGames = entry.games.filter(
+              (g) => g.video.filePath !== videoFilePath,
+            );
+            const newSet = {
+              ...entry.set,
+              gameVideoFilePaths: entry.set.gameVideoFilePaths.filter(
+                (p) => p !== videoFilePath,
+              ),
+            };
+            // If set is now empty, it was deleted server-side
+            if (newGames.length === 0) return null;
+            return {
+              set: newSet,
+              games: newGames,
+              title: computeSetTitle(newSet, newGames, selectedEvent),
+            };
+          })
+          .filter((e): e is SetEntry => e !== null);
+        return updated;
+      });
+    },
+    [selectedEvent],
+  );
+
+  /** Called when a set is deleted entirely. */
+  const handleSetDeleted = useCallback((setId: string) => {
+    setSets((prev) => prev.filter((entry) => entry.set.id !== setId));
+  }, []);
+
+  /**
+   * Called from the Games tab when a game is added to a set or a new set is
+   * created. We do a lightweight reload of sets only (games stay stable).
+   */
   const handleSetChanged = useCallback(() => {
     if (selectedEvent) {
       loadSets(selectedEvent);
     }
   }, [selectedEvent, loadSets]);
-
-  const handleSetChangedWithGames = useCallback(() => {
-    if (selectedEvent) {
-      loadSets(selectedEvent);
-      loadGames(selectedEvent);
-    }
-  }, [selectedEvent, loadSets, loadGames]);
 
   async function handlePairGameVideos() {
     if (!selectedEvent) return;
@@ -197,7 +258,9 @@ function VideoManagementPanel() {
                   key={setEntry.set.id}
                   setEntry={setEntry}
                   eventName={selectedEvent}
-                  onChanged={handleSetChangedWithGames}
+                  onSetUpdated={handleSetUpdated}
+                  onGameRemoved={handleGameRemoved}
+                  onSetDeleted={handleSetDeleted}
                 />
               ))}
             </div>

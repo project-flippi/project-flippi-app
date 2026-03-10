@@ -1,13 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   SetEntry,
   SetPhase,
   SetType,
   SetRoundType,
+  GameSet,
+  SetPlayerOverride,
 } from '../../../common/meleeTypes';
 import { getResolvedPlayers } from '../../../common/setUtils';
 import GameMatchInfo from './GameMatchInfo';
 import { VideoPlayerModal, localFileUrl, formatFileSize } from './GameCard';
+
+/** Controlled input that saves on blur. Manages its own local state. */
+function PlayerOverrideInput({
+  setId,
+  side,
+  initialValue,
+  placeholder,
+  port,
+  onSave,
+}: {
+  setId: string;
+  side: number;
+  initialValue: string;
+  placeholder: string;
+  port: number | undefined;
+  onSave: (side: number, name: string) => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
+  return (
+    <div className="pf-set-player-override">
+      <label htmlFor={`set-${setId}-p${side}`}>
+        <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
+          P{side + 1}
+          {port != null ? ` (Port ${port})` : ''}
+        </span>
+        <input
+          id={`set-${setId}-p${side}`}
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={() => onSave(side, value)}
+          placeholder={placeholder}
+          style={{ width: 160, fontSize: '0.85rem' }}
+        />
+      </label>
+    </div>
+  );
+}
 
 const SET_TYPES: SetType[] = ['Tournament', 'Friendlies', 'Ranked', 'Unranked'];
 const PHASES: SetPhase[] = ['Pools', 'Winners', 'Losers', 'Grand'];
@@ -16,65 +61,81 @@ const ROUND_TYPES: SetRoundType[] = ['Round', 'Quarters', 'Semis', 'Finals'];
 interface SetCardProps {
   setEntry: SetEntry;
   eventName: string;
-  onChanged: () => void;
+  /** Optimistic: called with the updated GameSet after metadata changes */
+  onSetUpdated: (updatedSet: GameSet) => void;
+  /** Optimistic: called after a game is removed from this set */
+  onGameRemoved: (setId: string, videoFilePath: string) => void;
+  /** Optimistic: called after this set is deleted */
+  onSetDeleted: (setId: string) => void;
 }
 
-function SetCard({ setEntry, eventName, onChanged }: SetCardProps) {
+function SetCard({
+  setEntry,
+  eventName,
+  onSetUpdated,
+  onGameRemoved,
+  onSetDeleted,
+}: SetCardProps) {
   const { set, games, title } = setEntry;
   const [showPlayer, setShowPlayer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const resolvedPlayers = getResolvedPlayers(set, games);
-
-  async function handleUpdate(updates: Record<string, any>) {
-    setBusy(true);
-    try {
-      await window.flippiSets.update(eventName, set.id, updates);
-      onChanged();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const isTournament = set.setType === 'Tournament';
 
-  async function handlePlayerOverride(side: number, name: string) {
-    const overrides = [...set.playerOverrides];
-    const existing = overrides.findIndex((o) => o.side === side);
-    if (existing >= 0) {
-      overrides[existing] = { side, name };
-    } else {
-      overrides.push({ side, name });
-    }
+  // Track the latest overrides locally so successive blur saves
+  // don't clobber each other with stale prop data.
+  const overridesRef = useRef<SetPlayerOverride[]>(set.playerOverrides);
+  overridesRef.current = set.playerOverrides;
+
+  async function handleUpdate(updates: Record<string, any>) {
     try {
-      await window.flippiSets.update(eventName, set.id, {
-        playerOverrides: overrides,
-      });
-      onChanged();
+      const updated = await window.flippiSets.update(
+        eventName,
+        set.id,
+        updates,
+      );
+      onSetUpdated(updated);
     } catch {
       // ignore
     }
   }
 
+  const handlePlayerOverrideSave = useCallback(
+    (side: number, name: string) => {
+      const overrides = [...overridesRef.current];
+      const existing = overrides.findIndex((o) => o.side === side);
+      if (existing >= 0) {
+        overrides[existing] = { side, name };
+      } else {
+        overrides.push({ side, name });
+      }
+      overridesRef.current = overrides;
+      handleUpdate({ playerOverrides: overrides });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [eventName, set.id],
+  );
+
   async function handleRemoveGame(videoFilePath: string) {
     setBusy(true);
     try {
       await window.flippiSets.removeGame(eventName, set.id, videoFilePath);
-      onChanged();
+      onGameRemoved(set.id, videoFilePath);
     } finally {
       setBusy(false);
     }
   }
 
   async function handleDeleteSet() {
-    // eslint-disable-next-line no-alert
-    if (!window.confirm('Delete this set? Games will not be deleted.')) return;
     setBusy(true);
     try {
       await window.flippiSets.delete(eventName, set.id);
-      onChanged();
+      onSetDeleted(set.id);
     } finally {
       setBusy(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -136,8 +197,8 @@ function SetCard({ setEntry, eventName, onChanged }: SetCardProps) {
               <input
                 type="number"
                 min="1"
-                value={set.roundNumber}
-                onChange={(e) => handleUpdate({ roundNumber: e.target.value })}
+                defaultValue={set.roundNumber}
+                onBlur={(e) => handleUpdate({ roundNumber: e.target.value })}
                 disabled={busy}
                 style={{ width: 60 }}
               />
@@ -145,19 +206,51 @@ function SetCard({ setEntry, eventName, onChanged }: SetCardProps) {
           </>
         )}
 
-        <button
-          type="button"
-          className="pf-button pf-button-danger"
-          onClick={handleDeleteSet}
-          disabled={busy}
-          style={{
-            marginLeft: 'auto',
-            fontSize: '0.8rem',
-            padding: '4px 10px',
-          }}
-        >
-          Delete Set
-        </button>
+        {confirmDelete ? (
+          <span
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              gap: 6,
+              alignItems: 'center',
+              fontSize: '0.8rem',
+            }}
+          >
+            <span style={{ color: '#f87171' }}>Delete this set?</span>
+            <button
+              type="button"
+              className="pf-button pf-button-danger"
+              onClick={handleDeleteSet}
+              disabled={busy}
+              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+            >
+              {busy ? 'Deleting...' : 'Yes'}
+            </button>
+            <button
+              type="button"
+              className="pf-button"
+              onClick={() => setConfirmDelete(false)}
+              disabled={busy}
+              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+            >
+              No
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="pf-button pf-button-danger"
+            onClick={() => setConfirmDelete(true)}
+            disabled={busy}
+            style={{
+              marginLeft: 'auto',
+              fontSize: '0.8rem',
+              padding: '4px 10px',
+            }}
+          >
+            Delete Set
+          </button>
+        )}
       </div>
 
       {/* Player overrides */}
@@ -165,22 +258,15 @@ function SetCard({ setEntry, eventName, onChanged }: SetCardProps) {
         {resolvedPlayers.map((rp) => {
           const override = set.playerOverrides.find((o) => o.side === rp.side);
           return (
-            <div key={rp.side} className="pf-set-player-override">
-              <label htmlFor={`set-${set.id}-p${rp.side}`}>
-                <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
-                  P{rp.side + 1}
-                  {rp.port != null ? ` (Port ${rp.port})` : ''}
-                </span>
-                <input
-                  id={`set-${set.id}-p${rp.side}`}
-                  type="text"
-                  defaultValue={override?.name ?? ''}
-                  placeholder={rp.resolvedName}
-                  onBlur={(e) => handlePlayerOverride(rp.side, e.target.value)}
-                  style={{ width: 160, fontSize: '0.85rem' }}
-                />
-              </label>
-            </div>
+            <PlayerOverrideInput
+              key={`${set.id}-p${rp.side}`}
+              setId={set.id}
+              side={rp.side}
+              initialValue={override?.name ?? ''}
+              placeholder={rp.resolvedName}
+              port={rp.port}
+              onSave={handlePlayerOverrideSave}
+            />
           );
         })}
       </div>

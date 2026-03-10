@@ -81,9 +81,21 @@ Registered in `src/main/main.ts`:
 
 ### Renderer Structure
 
-- `src/renderer/views/main/` — Page-level components (MainPanel with sidebar nav, RecordingPanel, SettingsPanel)
+- `src/renderer/views/main/` — Page-level components (MainPanel with sidebar nav, RecordingPanel, SettingsPanel, VideoManagementPanel)
 - `src/renderer/components/` — StatusBar (service status with logo indicators), settings cards (OBSSettingsCard, YouTubeSettingsCard, TextAISettingsCard, ImageAISettingsCard), SecretInput
+- `src/renderer/components/video/` — GameCard (game display + set assignment), SetCard (set display + inline editing), NewSetForm (set creation modal), GameMatchInfo (SLP match details)
 - `src/renderer/hooks/` — `useServiceStatus` (status subscription), `useSettings` (settings CRUD with draft/saved state management)
+
+### Video Management & Sets
+
+- **VideoManagementPanel** (`src/renderer/views/main/VideoManagementPanel.tsx`) — Games/Sets tabs. Manages optimistic UI updates: `handleSetUpdated` recomputes set titles via `computeSetTitle()` when metadata changes.
+- **SetCard** (`src/renderer/components/video/SetCard.tsx`) — Inline editing of set metadata (dropdowns + player name overrides). All metadata changes route through `handleUpdate()` → `onSetUpdated()` so the parent recomputes titles. Player override inputs use local state with `useEffect` sync to stay in sync with parent props. Deletion uses inline React confirmation (not `window.confirm()`).
+- **NewSetForm** (`src/renderer/components/video/NewSetForm.tsx`) — Modal for creating new sets with match type, tournament metadata, and optional player name overrides.
+- **Set utilities** (`src/common/setUtils.ts`) — `computeSetTitle()` builds display titles from player names, characters, and set metadata. `getResolvedPlayers()` resolves player identities across games for override fields.
+
+### Electron-Specific Patterns
+
+- **Avoid `window.confirm()` / `window.alert()`** — Native dialogs in Electron block the renderer process and disrupt keyboard event routing to the webview. Text inputs in subsequently-mounted components may not receive keyboard events until focus is naturally re-established. Use inline React confirmation UI instead.
 
 ### Shared Types
 
