@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   SlpGameData,
   SetPhase,
@@ -96,7 +97,7 @@ function NewSetForm({
     );
   }
 
-  return (
+  return createPortal(
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className="pf-video-modal-overlay" onClick={onCancel}>
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
@@ -249,7 +250,8 @@ function NewSetForm({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

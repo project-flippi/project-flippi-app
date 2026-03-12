@@ -74,7 +74,9 @@ import {
 import { getGameEntries, pairGameVideos } from './services/gameVideoService';
 
 import {
+  readSets,
   getSetEntries,
+  buildSetEntries,
   createSet,
   addGameToSet,
   removeGameFromSet,
@@ -515,6 +517,18 @@ ipcMain.handle(
   async (_evt, args: { eventName: string }) => {
     const settings = await getSettings();
     return pairGameVideos(args.eventName, settings.slpDataFolder);
+  },
+);
+
+ipcMain.handle(
+  'video:getGameAndSetEntries',
+  async (_evt, args: { eventName: string }) => {
+    const settings = await getSettings();
+    // Load game entries once, share with set building to avoid duplicate I/O
+    const games = await getGameEntries(args.eventName, settings.slpDataFolder);
+    const rawSets = await readSets(args.eventName);
+    const sets = buildSetEntries(rawSets, games, args.eventName);
+    return { games, sets };
   },
 );
 

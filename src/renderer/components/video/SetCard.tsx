@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import type {
   SetEntry,
   SetPhase,
@@ -10,6 +10,7 @@ import type {
 import { getResolvedPlayers } from '../../../common/setUtils';
 import GameMatchInfo from './GameMatchInfo';
 import { VideoPlayerModal, localFileUrl, formatFileSize } from './GameCard';
+import LazyVideoThumbnail from './LazyVideoThumbnail';
 
 /** Controlled input that saves on blur. Manages its own local state. */
 function PlayerOverrideInput({
@@ -81,7 +82,10 @@ function SetCard({
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const resolvedPlayers = getResolvedPlayers(set, games);
+  const resolvedPlayers = useMemo(
+    () => getResolvedPlayers(set, games),
+    [set, games],
+  );
   const isTournament = set.setType === 'Tournament';
 
   // Track the latest overrides locally so successive blur saves
@@ -286,20 +290,9 @@ function SetCard({
                 className="pf-video-thumbnail"
                 onClick={() => setShowPlayer(game.video.filePath)}
               >
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video
+                <LazyVideoThumbnail
                   src={localFileUrl(game.video.filePath)}
-                  preload="metadata"
-                  style={{
-                    width: 140,
-                    borderRadius: 4,
-                    backgroundColor: '#111',
-                    display: 'block',
-                  }}
-                  onLoadedMetadata={(e) => {
-                    const vid = e.currentTarget;
-                    if (vid.duration > 2) vid.currentTime = 2;
-                  }}
+                  width={140}
                 />
                 <div
                   className="pf-video-play-icon"
@@ -383,4 +376,4 @@ function SetCard({
   );
 }
 
-export default SetCard;
+export default memo(SetCard);

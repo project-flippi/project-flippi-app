@@ -85,6 +85,9 @@ declare global {
       ) => Promise<{ ok: boolean; thumbnailPath?: string }>;
       getGameEntries: (eventName: string) => Promise<GameEntry[]>;
       pairGameVideos: (eventName: string) => Promise<PairGamesResult>;
+      getGameAndSetEntries: (
+        eventName: string,
+      ) => Promise<{ games: GameEntry[]; sets: SetEntry[] }>;
     };
     flippiSets: {
       getEntries: (eventName: string) => Promise<SetEntry[]>;

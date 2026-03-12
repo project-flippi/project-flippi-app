@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
+import { createPortal } from 'react-dom';
 import type { GameEntry, SetEntry } from '../../../common/meleeTypes';
 import GameMatchInfo from './GameMatchInfo';
 import NewSetForm from './NewSetForm';
+import LazyVideoThumbnail from './LazyVideoThumbnail';
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -51,7 +53,7 @@ export function VideoPlayerModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  return (
+  return createPortal(
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className="pf-video-modal-overlay" onClick={onClose}>
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
@@ -72,7 +74,8 @@ export function VideoPlayerModal({
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video src={src} controls autoPlay className="pf-video-modal-player" />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -133,21 +136,7 @@ function GameCard({
       <div style={{ flexShrink: 0, width: 220 }}>
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div className="pf-video-thumbnail" onClick={() => setShowPlayer(true)}>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video
-            src={localFileUrl(video.filePath)}
-            preload="metadata"
-            style={{
-              width: 220,
-              borderRadius: 4,
-              backgroundColor: '#111',
-              display: 'block',
-            }}
-            onLoadedMetadata={(e) => {
-              const vid = e.currentTarget;
-              if (vid.duration > 2) vid.currentTime = 2;
-            }}
-          />
+          <LazyVideoThumbnail src={localFileUrl(video.filePath)} width={220} />
           <div className="pf-video-play-icon">&#9654;</div>
         </div>
         <div
@@ -267,4 +256,4 @@ GameCard.defaultProps = {
   currentSetId: null,
 };
 
-export default GameCard;
+export default memo(GameCard);

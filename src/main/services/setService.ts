@@ -37,7 +37,7 @@ function setsFilePath(eventName: string): string {
 // Read / write sets file
 // ---------------------------------------------------------------------------
 
-async function readSets(eventName: string): Promise<GameSet[]> {
+export async function readSets(eventName: string): Promise<GameSet[]> {
   try {
     const raw = await fs.readFile(setsFilePath(eventName), 'utf-8');
     return JSON.parse(raw);
@@ -208,15 +208,15 @@ export async function findSetForVideo(
 // Get enriched set entries for renderer
 // ---------------------------------------------------------------------------
 
-export async function getSetEntries(
+/**
+ * Build SetEntry[] from pre-loaded game entries — avoids re-calling
+ * getGameEntries() when games are already loaded.
+ */
+export function buildSetEntries(
+  sets: GameSet[],
+  allGames: GameEntry[],
   eventName: string,
-  slpDataFolder: string,
-): Promise<SetEntry[]> {
-  const sets = await readSets(eventName);
-  if (sets.length === 0) return [];
-
-  // Load all game entries once
-  const allGames = await getGameEntries(eventName, slpDataFolder);
+): SetEntry[] {
   const gameMap = new Map<string, GameEntry>(
     allGames.map((g) => [g.video.filePath, g]),
   );
@@ -230,4 +230,16 @@ export async function getSetEntries(
 
     return { set, games, title };
   });
+}
+
+export async function getSetEntries(
+  eventName: string,
+  slpDataFolder: string,
+): Promise<SetEntry[]> {
+  const sets = await readSets(eventName);
+  if (sets.length === 0) return [];
+
+  // Load all game entries once
+  const allGames = await getGameEntries(eventName, slpDataFolder);
+  return buildSetEntries(sets, allGames, eventName);
 }

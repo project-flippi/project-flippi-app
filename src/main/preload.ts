@@ -105,6 +105,8 @@ contextBridge.exposeInMainWorld('flippiVideo', {
     ipcRenderer.invoke('video:getGameEntries', { eventName }),
   pairGameVideos: (eventName: string) =>
     ipcRenderer.invoke('video:pairGameVideos', { eventName }),
+  getGameAndSetEntries: (eventName: string) =>
+    ipcRenderer.invoke('video:getGameAndSetEntries', { eventName }),
 });
 
 contextBridge.exposeInMainWorld('flippiSets', {

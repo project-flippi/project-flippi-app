@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GameEntry, GameSet, SetEntry } from '../../../common/meleeTypes';
 import { computeSetTitle } from '../../../common/setUtils';
 import GameCard from '../../components/video/GameCard';
 import SetCard from '../../components/video/SetCard';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { List } = require('react-window');
 
 /** Build a video-file-path → setId lookup from the current sets list. */
 function buildVideoSetMap(entries: SetEntry[]): Map<string, string> {
@@ -13,6 +16,78 @@ function buildVideoSetMap(entries: SetEntry[]): Map<string, string> {
     });
   });
   return map;
+}
+
+const GAME_CARD_HEIGHT = 160;
+const SET_CARD_BASE_HEIGHT = 200;
+const SET_CARD_GAME_HEIGHT = 110;
+
+interface GameRowProps {
+  games: GameEntry[];
+  sets: SetEntry[];
+  eventName: string;
+  videoSetMap: Map<string, string>;
+  onSetChanged: () => void;
+}
+
+function GameRow({
+  index,
+  style,
+  games,
+  sets,
+  eventName,
+  videoSetMap,
+  onSetChanged,
+}: {
+  index: number;
+  style: React.CSSProperties;
+} & GameRowProps) {
+  const game = games[index];
+  return (
+    <div style={style}>
+      <GameCard
+        game={game}
+        sets={sets}
+        eventName={eventName}
+        onSetChanged={onSetChanged}
+        currentSetId={videoSetMap.get(game.video.filePath) ?? null}
+      />
+    </div>
+  );
+}
+
+interface SetRowProps {
+  sets: SetEntry[];
+  eventName: string;
+  onSetUpdated: (updatedSet: GameSet) => void;
+  onGameRemoved: (setId: string, videoFilePath: string) => void;
+  onSetDeleted: (setId: string) => void;
+}
+
+function SetRow({
+  index,
+  style,
+  sets,
+  eventName,
+  onSetUpdated,
+  onGameRemoved,
+  onSetDeleted,
+}: {
+  index: number;
+  style: React.CSSProperties;
+} & SetRowProps) {
+  const setEntry = sets[index];
+  return (
+    <div style={style}>
+      <SetCard
+        setEntry={setEntry}
+        eventName={eventName}
+        onSetUpdated={onSetUpdated}
+        onGameRemoved={onGameRemoved}
+        onSetDeleted={onSetDeleted}
+      />
+    </div>
+  );
 }
 
 function VideoManagementPanel() {
@@ -43,16 +118,19 @@ function VideoManagementPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadGames = useCallback(async (eventName: string) => {
+  // Combined loader: loads games and sets in a single IPC call
+  const loadAll = useCallback(async (eventName: string) => {
     if (!eventName) return;
     setIsLoading(true);
     setError('');
     try {
-      const entries = await window.flippiVideo.getGameEntries(eventName);
-      setGames(entries);
+      const result = await window.flippiVideo.getGameAndSetEntries(eventName);
+      setGames(result.games);
+      setSets(result.sets);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load games');
       setGames([]);
+      setSets([]);
     } finally {
       setIsLoading(false);
     }
@@ -70,10 +148,9 @@ function VideoManagementPanel() {
 
   useEffect(() => {
     if (selectedEvent) {
-      loadGames(selectedEvent);
-      loadSets(selectedEvent);
+      loadAll(selectedEvent);
     }
-  }, [selectedEvent, loadGames, loadSets]);
+  }, [selectedEvent, loadAll]);
 
   // -----------------------------------------------------------------------
   // Optimistic update helpers (no full reload)
@@ -157,8 +234,7 @@ function VideoManagementPanel() {
       const res = await window.flippiVideo.pairGameVideos(selectedEvent);
       setActionStatus(res.message);
       if (res.ok) {
-        loadGames(selectedEvent);
-        loadSets(selectedEvent);
+        loadAll(selectedEvent);
       }
     } catch (err: any) {
       setActionStatus(err?.message ?? 'Failed');
@@ -167,6 +243,44 @@ function VideoManagementPanel() {
       setTimeout(() => setActionStatus(''), 5000);
     }
   }
+
+  const getSetRowHeight = useCallback(
+    (index: number) => {
+      const entry = sets[index];
+      if (!entry) return SET_CARD_BASE_HEIGHT;
+      return SET_CARD_BASE_HEIGHT + entry.games.length * SET_CARD_GAME_HEIGHT;
+    },
+    [sets],
+  );
+
+  // Stable rowProps objects for react-window (re-created only when deps change)
+  const gameRowProps = useMemo(
+    () => ({
+      games,
+      sets,
+      eventName: selectedEvent,
+      videoSetMap,
+      onSetChanged: handleSetChanged,
+    }),
+    [games, sets, selectedEvent, videoSetMap, handleSetChanged],
+  );
+
+  const setRowProps = useMemo(
+    () => ({
+      sets,
+      eventName: selectedEvent,
+      onSetUpdated: handleSetUpdated,
+      onGameRemoved: handleGameRemoved,
+      onSetDeleted: handleSetDeleted,
+    }),
+    [
+      sets,
+      selectedEvent,
+      handleSetUpdated,
+      handleGameRemoved,
+      handleSetDeleted,
+    ],
+  );
 
   return (
     <section className="pf-section">
@@ -229,18 +343,18 @@ function VideoManagementPanel() {
                 No video files found for this event.
               </div>
             )}
-            <div style={{ marginTop: 8 }}>
-              {games.map((game) => (
-                <GameCard
-                  key={game.video.filePath}
-                  game={game}
-                  sets={sets}
-                  eventName={selectedEvent}
-                  onSetChanged={handleSetChanged}
-                  currentSetId={videoSetMap.get(game.video.filePath) ?? null}
+            {games.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <List
+                  style={{ height: 600 }}
+                  rowComponent={GameRow}
+                  rowCount={games.length}
+                  rowHeight={GAME_CARD_HEIGHT}
+                  rowProps={gameRowProps}
+                  overscanCount={3}
                 />
-              ))}
-            </div>
+              </div>
+            )}
           </>
         )}
 
@@ -252,18 +366,18 @@ function VideoManagementPanel() {
                 No sets created yet. Add games to a set from the Games tab.
               </div>
             )}
-            <div style={{ marginTop: 8 }}>
-              {sets.map((setEntry) => (
-                <SetCard
-                  key={setEntry.set.id}
-                  setEntry={setEntry}
-                  eventName={selectedEvent}
-                  onSetUpdated={handleSetUpdated}
-                  onGameRemoved={handleGameRemoved}
-                  onSetDeleted={handleSetDeleted}
+            {sets.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <List
+                  style={{ height: 600 }}
+                  rowComponent={SetRow}
+                  rowCount={sets.length}
+                  rowHeight={getSetRowHeight}
+                  rowProps={setRowProps}
+                  overscanCount={2}
                 />
-              ))}
-            </div>
+              </div>
+            )}
           </>
         )}
 

@@ -11,7 +11,6 @@ import type {
  * Parse an SLP file and return structured game data.
  * Returns null if the file cannot be parsed.
  */
-// eslint-disable-next-line import/prefer-default-export
 export function parseSlpFile(filePath: string): SlpGameData | null {
   try {
     // Must use /node subpath for file-based parsing in Electron main process
@@ -83,4 +82,25 @@ export function parseSlpFile(filePath: string): SlpGameData | null {
     log.warn(`[slpParser] Failed to parse ${filePath}: ${err.message}`);
     return null;
   }
+}
+
+/**
+ * Yield to the event loop so the main process stays responsive
+ * during batch SLP parsing.
+ */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => {
+    setImmediate(resolve);
+  });
+}
+
+/**
+ * Parse an SLP file asynchronously, yielding to the event loop
+ * so the main process isn't blocked during batch operations.
+ */
+export async function parseSlpFileAsync(
+  filePath: string,
+): Promise<SlpGameData | null> {
+  await yieldToEventLoop();
+  return parseSlpFile(filePath);
 }

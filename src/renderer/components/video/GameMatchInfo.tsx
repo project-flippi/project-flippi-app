@@ -1,4 +1,5 @@
 /* eslint-disable import/no-self-import, import/no-useless-path-segments */
+import React from 'react';
 import type { SlpGameData } from '../../../common/meleeTypes';
 import { getStageName, portColors } from '../../../common/meleeResources';
 
@@ -123,4 +124,4 @@ function GameMatchInfo({ slpGameData }: GameMatchInfoProps) {
   );
 }
 
-export default GameMatchInfo;
+export default React.memo(GameMatchInfo);
