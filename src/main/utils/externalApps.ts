@@ -70,6 +70,28 @@ function cleanEnv(
 }
 
 /**
+ * Launch a macOS .app bundle using the `open` command.
+ * This is the idiomatic way to launch apps on macOS and handles
+ * Gatekeeper, code signing, and proper app initialization.
+ */
+async function launchMacApp(appBundlePath: string): Promise<LaunchResult> {
+  try {
+    await fs.access(appBundlePath);
+  } catch {
+    throw new Error(`Application not found: ${appBundlePath}`);
+  }
+
+  const child: ChildProcess = spawn('open', ['-a', appBundlePath], {
+    detached: true,
+    stdio: 'ignore',
+    env: cleanEnv(),
+  });
+  child.unref();
+
+  return { pid: child.pid ?? 0, exePath: appBundlePath, args: [] };
+}
+
+/**
  * Launch an external application (OBS / Clippi / Slippi / etc).
  */
 export async function launchApp(opts: LaunchOptions): Promise<LaunchResult> {
@@ -81,6 +103,14 @@ export async function launchApp(opts: LaunchOptions): Promise<LaunchResult> {
     detached = true,
     ignoreStdio = true,
   } = opts;
+
+  // On macOS, launch .app bundles via `open` for proper Launch Services handling
+  if (process.platform === 'darwin') {
+    const appMatch = exePath.match(/^(.+\.app)\//);
+    if (appMatch) {
+      return launchMacApp(appMatch[1]);
+    }
+  }
 
   await assertExeExists(exePath);
 
@@ -217,12 +247,18 @@ export async function isSlippiDolphinRunning(): Promise<boolean> {
 }
 
 export async function isObsRunning(): Promise<boolean> {
-  return isProcessRunning('obs64.exe', 'obs');
+  // On macOS, 'obs' is too broad — matches Obsidian, camera extensions, etc.
+  // Use the .app bundle path to match only the real OBS process.
+  const pattern =
+    process.platform === 'darwin' ? 'OBS.app/Contents/MacOS/OBS' : 'obs';
+  return isProcessRunning('obs64.exe', pattern);
 }
 
 export async function killOBS(): Promise<{
   killed: boolean;
   message: string;
 }> {
-  return killProcess('obs64.exe', 'obs', 'OBS');
+  const pattern =
+    process.platform === 'darwin' ? 'OBS.app/Contents/MacOS/OBS' : 'obs';
+  return killProcess('obs64.exe', pattern, 'OBS');
 }

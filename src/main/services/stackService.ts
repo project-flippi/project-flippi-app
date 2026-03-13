@@ -27,7 +27,7 @@ import {
 function obsExePath(): string {
   switch (process.platform) {
     case 'darwin':
-      return '/Applications/OBS.app/Contents/MacOS/obs';
+      return '/Applications/OBS.app/Contents/MacOS/OBS';
     case 'linux':
       return '/usr/bin/obs';
     default: {

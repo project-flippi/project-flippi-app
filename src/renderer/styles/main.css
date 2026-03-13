@@ -107,8 +107,26 @@ html, body, #root {
   flex: 1;
   padding: 20px 24px;
   box-sizing: border-box;
-  overflow: auto;
+  overflow-y: scroll;
   background: radial-gradient(circle at top left, #0f172a 0, #020617 60%);
+}
+
+/* Always-visible scrollbar (macOS overlay scrollbars auto-hide on dark backgrounds) */
+.pf-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pf-main::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pf-main::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+
+.pf-main::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
 }
 
 .pf-section h1 {
@@ -389,6 +407,27 @@ html, body, #root {
   max-height: 60vh;
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.pf-clips-list::-webkit-scrollbar,
+.pf-compilations-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pf-clips-list::-webkit-scrollbar-track,
+.pf-compilations-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pf-clips-list::-webkit-scrollbar-thumb,
+.pf-compilations-list::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+.pf-clips-list::-webkit-scrollbar-thumb:hover,
+.pf-compilations-list::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
 }
 
 /* Player info */
