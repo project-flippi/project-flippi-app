@@ -6,7 +6,7 @@ import path from 'path';
 import log from 'electron-log';
 import { net } from 'electron';
 import type { AppSettings } from '../settings/schema';
-import { getEventDataPaths } from './videoDataService';
+import { getEventDb } from '../database/db';
 
 // ---------------------------------------------------------------------------
 // Similarity check (port of is_too_similar using SequenceMatcher-like logic)
@@ -35,28 +35,25 @@ function similarityRatio(a: string, b: string): number {
   return (2 * dp[m][n]) / (m + n);
 }
 
-async function isTooSimilar(
+function isTooSimilar(
   title: string,
-  historyPath: string,
+  eventName: string,
   threshold = 0.7,
-): Promise<boolean> {
+): boolean {
   try {
-    const content = await fs.readFile(historyPath, 'utf-8');
-    const lines = content
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
-    return lines.some((line) => similarityRatio(title, line) >= threshold);
+    const db = getEventDb(eventName);
+    const rows = db
+      .prepare<[], { title: string }>('SELECT title FROM title_history')
+      .all();
+    return rows.some((row) => similarityRatio(title, row.title) >= threshold);
   } catch {
     return false;
   }
 }
 
-async function appendTitleHistory(
-  historyPath: string,
-  title: string,
-): Promise<void> {
-  await fs.appendFile(historyPath, `${title}\n`, 'utf-8');
+function appendTitleHistory(eventName: string, title: string): void {
+  const db = getEventDb(eventName);
+  db.prepare('INSERT INTO title_history (title) VALUES (?)').run(title);
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +215,6 @@ export async function generateClipTitle(
   settings: AppSettings,
 ): Promise<{ ok: boolean; title?: string }> {
   try {
-    const paths = getEventDataPaths(eventName);
     const maxAttempts = 3;
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -226,11 +222,9 @@ export async function generateClipTitle(
       const title = await generateText(prompt, TITLE_SYSTEM_PROMPT, settings);
 
       if (title) {
-        // eslint-disable-next-line no-await-in-loop
-        const tooSimilar = await isTooSimilar(title, paths.titleHistory);
+        const tooSimilar = isTooSimilar(title, eventName);
         if (!tooSimilar) {
-          // eslint-disable-next-line no-await-in-loop
-          await appendTitleHistory(paths.titleHistory, title);
+          appendTitleHistory(eventName, title);
           return { ok: true, title };
         }
         log.info(`[ai] Title too similar, retrying (attempt ${attempt + 1})`);
@@ -240,7 +234,7 @@ export async function generateClipTitle(
     // Final attempt — use whatever we get
     const title = await generateText(prompt, TITLE_SYSTEM_PROMPT, settings);
     if (title) {
-      await appendTitleHistory(paths.titleHistory, title);
+      appendTitleHistory(eventName, title);
       return { ok: true, title };
     }
 

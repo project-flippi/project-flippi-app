@@ -12,6 +12,7 @@ import type {
 } from '../../common/meleeTypes';
 import { parseSlpFileAsync } from './slpParserService';
 import { getCached, upsertEntry } from '../database/metadataCache';
+import { getEventDb } from '../database/db';
 
 const VIDEO_EXTENSIONS = /\.(mp4|mkv|avi|mov|flv|webm)$/i;
 
@@ -29,16 +30,7 @@ function eventVideosDir(eventName: string): string {
   );
 }
 
-function pairingsFilePath(eventName: string): string {
-  return path.join(
-    os.homedir(),
-    'project-flippi',
-    'Event',
-    eventName,
-    'data',
-    'gamepairings.json',
-  );
-}
+// pairingsFilePath removed — pairings now stored in event.db
 
 // ---------------------------------------------------------------------------
 // SLP filename timestamp parsing
@@ -173,7 +165,7 @@ export async function listSlpFiles(
 }
 
 // ---------------------------------------------------------------------------
-// Read / write pairings file
+// Read / write pairings (SQLite)
 // ---------------------------------------------------------------------------
 
 interface StoredPairing {
@@ -181,25 +173,29 @@ interface StoredPairing {
   slpPath: string | null;
 }
 
-async function readPairings(eventName: string): Promise<StoredPairing[]> {
-  try {
-    const raw = await fs.readFile(pairingsFilePath(eventName), 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+function readPairings(eventName: string): StoredPairing[] {
+  const db = getEventDb(eventName);
+  const rows = db
+    .prepare<
+      [],
+      { video_path: string; slp_path: string | null }
+    >('SELECT video_path, slp_path FROM game_pairings')
+    .all();
+  return rows.map((r) => ({ videoPath: r.video_path, slpPath: r.slp_path }));
 }
 
-async function writePairings(
-  eventName: string,
-  pairings: StoredPairing[],
-): Promise<void> {
-  const filePath = pairingsFilePath(eventName);
-  const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-  const tmp = `${filePath}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(pairings, null, 2), 'utf-8');
-  await fs.rename(tmp, filePath);
+function writePairings(eventName: string, pairings: StoredPairing[]): void {
+  const db = getEventDb(eventName);
+  const write = db.transaction(() => {
+    db.prepare('DELETE FROM game_pairings').run();
+    const insert = db.prepare(
+      'INSERT INTO game_pairings (video_path, slp_path) VALUES (?, ?)',
+    );
+    pairings.forEach((p) => {
+      insert.run(p.videoPath, p.slpPath);
+    });
+  });
+  write();
 }
 
 // ---------------------------------------------------------------------------
@@ -277,7 +273,7 @@ export async function pairGameVideos(
       return { videoPath: video.filePath, slpPath: null };
     });
 
-    await writePairings(eventName, pairings);
+    writePairings(eventName, pairings);
 
     const unmatched = videos.length - paired;
     log.info(
@@ -329,7 +325,7 @@ export async function getGameEntries(
   const videos = await listGameVideos(eventName);
   if (videos.length === 0) return [];
 
-  const pairings = await readPairings(eventName);
+  const pairings = readPairings(eventName);
   const pairingMap = new Map<string, string | null>(
     pairings.map((p) => [p.videoPath, p.slpPath]),
   );

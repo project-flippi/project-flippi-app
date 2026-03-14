@@ -38,7 +38,22 @@ All in `src/main/services/`:
 - **gameCaptureService** (`gameCaptureService.ts`) — Monitors an OBS game capture source via periodic screenshots analyzed with `sharp`. Detects whether game content is present. States: `unconfigured` → `monitoring` → `active`/`inactive`. Polling runs at 3s intervals while the stack is active.
 - **clippiIntegration** (`clippiIntegration.ts`) — Syncs Clippi combo data config by writing `flippi-config.json` (atomic write via `.tmp` + rename) pointing to the event's `combodata.jsonl`. Also handles cleanup on stack stop.
 - **eventService** (`eventService.ts`) — Lists event folders from `~/project-flippi/Event/`.
-- **folderCreation** (`folderCreation.ts`) — Creates event folders by scaffolding the directory structure and empty placeholder files in code (no external template dependency). Includes `sanitizeEventFolderName()` for safe folder names.
+- **folderCreation** (`folderCreation.ts`) — Creates event folders by scaffolding the directory structure. Initializes `event.db` with schema and seeds `event_metadata`. Only creates `combodata.jsonl` as a placeholder file (Clippi dependency). Includes `sanitizeEventFolderName()` for safe folder names.
+
+### Per-Event SQLite Database
+
+Each event stores structured data in `~/project-flippi/Event/{name}/data/event.db` instead of individual JSON/JSONL/text files. The database is managed by a lazy pool in `src/main/database/db.ts` (`getEventDb(eventName)`).
+
+**Schema tables:** `clips`, `compilations`, `sets`, `set_games`, `game_pairings`, `title_history`, `event_metadata`
+
+**Key files:**
+- `src/main/database/db.ts` — Global SLP cache DB + per-event DB pool (`getEventDb`, `closeEventDb`, `closeAllEventDbs`)
+- `src/main/database/eventDbHelpers.ts` — Row mapping helpers (snake_case ↔ camelCase, JSON parse/stringify)
+- `src/main/database/eventMigration.ts` — Auto-migrates old files (videodata.jsonl, compdata.jsonl, sets.json, gamepairings.json, titlehistory.txt, event_title.txt, venue_desc.txt) to SQLite on first access. Old files are left in place but become inert.
+
+**What stays as files:**
+- `combodata.jsonl` — Written by external Clippi process, Flippi only reads
+- `flippi-config.json` — Read by external Clippi process
 
 ### Polling Architecture (Main Process)
 

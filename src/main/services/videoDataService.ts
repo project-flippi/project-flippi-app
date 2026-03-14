@@ -1,5 +1,5 @@
 // src/main/services/videoDataService.ts
-// JSONL I/O, combo data processing, clip/compilation management
+// Clip/compilation management — backed by per-event SQLite
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -15,6 +15,12 @@ import {
   getStageName,
   getMoveName,
 } from '../../common/meleeResources';
+import { getEventDb } from '../database/db';
+import {
+  rowToVideoDataEntry,
+  videoDataEntryToParams,
+  rowToCompilationEntry,
+} from '../database/eventDbHelpers';
 
 // ---------------------------------------------------------------------------
 // Path helpers
@@ -31,9 +37,6 @@ export function getEventDataPaths(eventName: string) {
     eventDir,
     dataDir,
     comboData: path.join(dataDir, 'combodata.jsonl'),
-    videoData: path.join(dataDir, 'videodata.jsonl'),
-    compData: path.join(dataDir, 'compdata.jsonl'),
-    titleHistory: path.join(dataDir, 'titlehistory.txt'),
     videoClips: path.join(eventDir, 'videos', 'clips'),
     videoCompilations: path.join(eventDir, 'videos', 'compilations'),
     thumbnails: path.join(eventDir, 'thumbnails'),
@@ -42,7 +45,7 @@ export function getEventDataPaths(eventName: string) {
 }
 
 // ---------------------------------------------------------------------------
-// JSONL I/O
+// JSONL parser — kept for combodata.jsonl (written by external Clippi process)
 // ---------------------------------------------------------------------------
 
 export async function parseJsonl<T>(filePath: string): Promise<T[]> {
@@ -58,24 +61,6 @@ export async function parseJsonl<T>(filePath: string): Promise<T[]> {
     if (err.code === 'ENOENT') return [];
     throw err;
   }
-}
-
-export async function writeJsonlAtomic<T>(
-  filePath: string,
-  rows: T[],
-): Promise<void> {
-  const content = rows.map((r) => JSON.stringify(r)).join('\n');
-  const tmpFile = `${filePath}.tmp`;
-  await fs.writeFile(tmpFile, content ? `${content}\n` : '', 'utf-8');
-  await fs.rename(tmpFile, filePath);
-}
-
-export async function appendJsonl<T>(
-  filePath: string,
-  rows: T[],
-): Promise<void> {
-  const content = rows.map((r) => JSON.stringify(r)).join('\n');
-  await fs.appendFile(filePath, `${content}\n`, 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
@@ -158,15 +143,21 @@ function comboToVideoEntry(combo: ComboData): VideoDataEntry {
 export async function getClipsForEvent(
   eventName: string,
 ): Promise<VideoDataEntry[]> {
-  const paths = getEventDataPaths(eventName);
-  return parseJsonl<VideoDataEntry>(paths.videoData);
+  const db = getEventDb(eventName);
+  const rows = db
+    .prepare<[], any>('SELECT * FROM clips ORDER BY timestamp')
+    .all();
+  return rows.map(rowToVideoDataEntry);
 }
 
 export async function getCompilationsForEvent(
   eventName: string,
 ): Promise<CompilationEntry[]> {
-  const paths = getEventDataPaths(eventName);
-  return parseJsonl<CompilationEntry>(paths.compData);
+  const db = getEventDb(eventName);
+  const rows = db
+    .prepare<[], any>('SELECT * FROM compilations ORDER BY created_at')
+    .all();
+  return rows.map(rowToCompilationEntry);
 }
 
 export async function getComboDataForEvent(
@@ -187,13 +178,17 @@ export async function generateClipData(
       return { ok: true, created: 0, message: 'No combo data found.' };
     }
 
-    // Load existing videodata to find timestamps already processed
-    const existing = await parseJsonl<VideoDataEntry>(paths.videoData);
-    const existingTimestamps = new Set(existing.map((e) => e.timestamp));
-
-    const newEntries = combos
-      .filter((c) => !existingTimestamps.has(c.timestamp))
-      .map(comboToVideoEntry);
+    const db = getEventDb(eventName);
+    const newEntries = combos.map(comboToVideoEntry).filter((entry) => {
+      // INSERT OR IGNORE handles dedup, but we can skip already-existing ones
+      const existing = db
+        .prepare<
+          [string],
+          { timestamp: string }
+        >('SELECT timestamp FROM clips WHERE timestamp = ?')
+        .get(entry.timestamp);
+      return !existing;
+    });
 
     if (newEntries.length === 0) {
       return {
@@ -203,7 +198,24 @@ export async function generateClipData(
       };
     }
 
-    await appendJsonl(paths.videoData, newEntries);
+    const insertClip = db.prepare(
+      `INSERT OR IGNORE INTO clips (
+        timestamp, file_path, title, prompt, description, nametag,
+        stage_id, stage_name,
+        attacker_character_id, attacker_character_name, attacker_character_color,
+        attacker_nametag, attacker_connect_code, attacker_display_name,
+        defender_character_id, defender_character_name, defender_character_color,
+        defender_nametag, defender_connect_code, defender_display_name,
+        combo, phase, used_in_compilation, video_id, metadata_fixed
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+
+    const batchInsert = db.transaction(() => {
+      newEntries.forEach((entry) => {
+        insertClip.run(...videoDataEntryToParams(entry));
+      });
+    });
+    batchInsert();
 
     log.info(
       `[video] Generated ${newEntries.length} clip entries for ${eventName}`,
@@ -224,7 +236,14 @@ export async function pairVideoFiles(
 ): Promise<{ ok: boolean; paired: number; unmatched: number }> {
   try {
     const paths = getEventDataPaths(eventName);
-    const entries = await parseJsonl<VideoDataEntry>(paths.videoData);
+    const db = getEventDb(eventName);
+
+    const entries = db
+      .prepare<
+        [],
+        any
+      >('SELECT timestamp, file_path FROM clips ORDER BY timestamp')
+      .all();
 
     if (entries.length === 0) {
       return { ok: true, paired: 0, unmatched: 0 };
@@ -242,32 +261,28 @@ export async function pairVideoFiles(
     }
 
     // Simple pairing by index order (both sorted by timestamp/name)
-    const sortedEntries = [...entries].sort((a, b) =>
-      a.timestamp.localeCompare(b.timestamp),
-    );
-
-    let paired = 0;
+    const unpaired = entries.filter((e: any) => !e.file_path);
+    let paired = entries.length - unpaired.length;
     let unmatched = 0;
 
-    const updated = entries.map((entry) => {
-      if (entry.filePath) {
-        paired += 1;
-        return entry;
-      }
+    const updateStmt = db.prepare(
+      'UPDATE clips SET file_path = ? WHERE timestamp = ?',
+    );
 
-      const idx = sortedEntries.indexOf(entry);
-      if (idx >= 0 && idx < videoFiles.length) {
-        paired += 1;
-        return {
-          ...entry,
-          filePath: path.join(paths.videoClips, videoFiles[idx]),
-        };
-      }
-      unmatched += 1;
-      return entry;
+    const batchUpdate = db.transaction(() => {
+      unpaired.forEach((entry: any, idx: number) => {
+        if (idx < videoFiles.length) {
+          updateStmt.run(
+            path.join(paths.videoClips, videoFiles[idx]),
+            entry.timestamp,
+          );
+          paired += 1;
+        } else {
+          unmatched += 1;
+        }
+      });
     });
-
-    await writeJsonlAtomic(paths.videoData, updated);
+    batchUpdate();
 
     return { ok: true, paired, unmatched };
   } catch (err: any) {
@@ -282,15 +297,59 @@ export async function updateClip(
   updates: Record<string, any>,
 ): Promise<{ ok: boolean }> {
   try {
-    const paths = getEventDataPaths(eventName);
-    const entries = await parseJsonl<VideoDataEntry>(paths.videoData);
+    const db = getEventDb(eventName);
 
-    const idx = entries.findIndex((e) => e.timestamp === timestamp);
-    if (idx === -1) return { ok: false };
+    // Map camelCase field names to snake_case column names
+    const fieldMap: Record<string, string> = {
+      filePath: 'file_path',
+      title: 'title',
+      prompt: 'prompt',
+      description: 'description',
+      nametag: 'nametag',
+      stageId: 'stage_id',
+      stageName: 'stage_name',
+      attackerCharacterId: 'attacker_character_id',
+      attackerCharacterName: 'attacker_character_name',
+      attackerCharacterColor: 'attacker_character_color',
+      attackerNametag: 'attacker_nametag',
+      attackerConnectCode: 'attacker_connect_code',
+      attackerDisplayName: 'attacker_display_name',
+      defenderCharacterId: 'defender_character_id',
+      defenderCharacterName: 'defender_character_name',
+      defenderCharacterColor: 'defender_character_color',
+      defenderNametag: 'defender_nametag',
+      defenderConnectCode: 'defender_connect_code',
+      defenderDisplayName: 'defender_display_name',
+      combo: 'combo',
+      phase: 'phase',
+      usedInCompilation: 'used_in_compilation',
+      videoId: 'video_id',
+      metadataFixed: 'metadata_fixed',
+    };
 
-    entries[idx] = { ...entries[idx], ...updates };
-    await writeJsonlAtomic(paths.videoData, entries);
-    return { ok: true };
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      const col = fieldMap[key] ?? key;
+      setClauses.push(`${col} = ?`);
+      if (key === 'combo') {
+        values.push(JSON.stringify(value));
+      } else if (key === 'metadataFixed') {
+        values.push(value ? 1 : 0);
+      } else {
+        values.push(value);
+      }
+    });
+
+    if (setClauses.length === 0) return { ok: true };
+
+    values.push(timestamp);
+    const result = db
+      .prepare(`UPDATE clips SET ${setClauses.join(', ')} WHERE timestamp = ?`)
+      .run(...values);
+
+    return { ok: result.changes > 0 };
   } catch (err: any) {
     log.error(`[video] updateClip failed: ${err.message}`);
     return { ok: false };
@@ -303,13 +362,25 @@ export async function createCompilation(
 ): Promise<{ ok: boolean; filePath?: string; message: string }> {
   try {
     const paths = getEventDataPaths(eventName);
-    const entries = await parseJsonl<VideoDataEntry>(paths.videoData);
+    const db = getEventDb(eventName);
     const opts = options as Partial<CompilationOptions>;
 
     // Filter clips for compilation
-    let clips = entries.filter((e) => e.filePath);
+    let clips: any[];
     if (opts.excludeUsed) {
-      clips = clips.filter((e) => !e.usedInCompilation);
+      clips = db
+        .prepare<
+          [],
+          any
+        >("SELECT * FROM clips WHERE file_path != '' AND used_in_compilation = '' ORDER BY timestamp")
+        .all();
+    } else {
+      clips = db
+        .prepare<
+          [],
+          any
+        >("SELECT * FROM clips WHERE file_path != '' ORDER BY timestamp")
+        .all();
     }
 
     const maxClips = opts.maxClips ?? 20;
@@ -328,27 +399,28 @@ export async function createCompilation(
     const compName = `compilation_${Date.now()}.mp4`;
     const compPath = path.join(paths.videoCompilations, compName);
 
-    const compilation: CompilationEntry = {
-      filePath: compPath,
-      title: '',
-      description: '',
-      clipTitles: clips.map((c) => c.title),
-      clipFiles: clips.map((c) => c.filePath),
-      thumbnail: '',
-      createdAt: new Date().toISOString(),
-    };
+    const batchWrite = db.transaction(() => {
+      db.prepare(
+        `INSERT INTO compilations (file_path, title, description, clip_titles, clip_files, thumbnail, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        compPath,
+        '',
+        '',
+        JSON.stringify(clips.map((c: any) => c.title)),
+        JSON.stringify(clips.map((c: any) => c.file_path)),
+        '',
+        new Date().toISOString(),
+      );
 
-    // Mark clips as used
-    const usedTimestamps = new Set(clips.map((c) => c.timestamp));
-    const updatedEntries = entries.map((e) =>
-      usedTimestamps.has(e.timestamp)
-        ? { ...e, usedInCompilation: compPath }
-        : e,
-    );
-    await writeJsonlAtomic(paths.videoData, updatedEntries);
-
-    // Append compilation record
-    await appendJsonl(paths.compData, [compilation]);
+      const updateStmt = db.prepare(
+        'UPDATE clips SET used_in_compilation = ? WHERE timestamp = ?',
+      );
+      clips.forEach((clip: any) => {
+        updateStmt.run(compPath, clip.timestamp);
+      });
+    });
+    batchWrite();
 
     log.info(
       `[video] Created compilation with ${clips.length} clips for ${eventName}`,
@@ -356,7 +428,7 @@ export async function createCompilation(
     return {
       ok: true,
       filePath: compPath,
-      message: `Compilation created with ${clips.length} clips. FFmpeg concat not yet implemented — clip files listed in compdata.jsonl.`,
+      message: `Compilation created with ${clips.length} clips. FFmpeg concat not yet implemented — clip files listed in database.`,
     };
   } catch (err: any) {
     log.error(`[video] createCompilation failed: ${err.message}`);
@@ -370,15 +442,39 @@ export async function updateCompilation(
   updates: Record<string, any>,
 ): Promise<{ ok: boolean }> {
   try {
-    const paths = getEventDataPaths(eventName);
-    const entries = await parseJsonl<CompilationEntry>(paths.compData);
+    const db = getEventDb(eventName);
 
-    const idx = entries.findIndex((e) => e.filePath === filePath);
-    if (idx === -1) return { ok: false };
+    const fieldMap: Record<string, string> = {
+      title: 'title',
+      description: 'description',
+      clipTitles: 'clip_titles',
+      clipFiles: 'clip_files',
+      thumbnail: 'thumbnail',
+    };
 
-    entries[idx] = { ...entries[idx], ...updates };
-    await writeJsonlAtomic(paths.compData, entries);
-    return { ok: true };
+    const setClauses: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      const col = fieldMap[key] ?? key;
+      setClauses.push(`${col} = ?`);
+      if (key === 'clipTitles' || key === 'clipFiles') {
+        values.push(JSON.stringify(value));
+      } else {
+        values.push(value);
+      }
+    });
+
+    if (setClauses.length === 0) return { ok: true };
+
+    values.push(filePath);
+    const result = db
+      .prepare(
+        `UPDATE compilations SET ${setClauses.join(', ')} WHERE file_path = ?`,
+      )
+      .run(...values);
+
+    return { ok: result.changes > 0 };
   } catch (err: any) {
     log.error(`[video] updateCompilation failed: ${err.message}`);
     return { ok: false };

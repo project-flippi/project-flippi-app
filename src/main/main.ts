@@ -72,7 +72,7 @@ import {
 } from './services/aiService';
 
 import { getGameEntries, pairGameVideos } from './services/gameVideoService';
-import { initDatabase } from './database/db';
+import { initDatabase, closeAllEventDbs } from './database/db';
 import { invalidateAll, invalidatePath } from './database/metadataCache';
 
 import {
@@ -729,6 +729,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  closeAllEventDbs();
 });
 
 // Register a custom scheme so the renderer can load local files (videos, etc.)

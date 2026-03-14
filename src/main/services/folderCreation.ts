@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { getEventDb } from '../database/db';
 
 function repoRootDir(): string {
   // Same assumption as the Python tools for now: ~/project-flippi
@@ -49,15 +50,7 @@ async function scaffoldEventFolder(dest: string): Promise<void> {
     path.join('videos', 'compilations'),
   ];
 
-  const dataFiles = [
-    'combodata.jsonl',
-    'compdata.jsonl',
-    'event_title.txt',
-    'postedvids.txt',
-    'titlehistory.txt',
-    'venue_desc.txt',
-    'videodata.jsonl',
-  ];
+  const dataFiles = ['combodata.jsonl'];
 
   await Promise.all(
     dirs.map((d) => fs.mkdir(path.join(dest, d), { recursive: true })),
@@ -87,20 +80,18 @@ export async function createEventFromTemplate(params: {
   // Scaffold the event folder structure
   await scaffoldEventFolder(dest);
 
-  // Write metadata files
-  const dataDir = path.join(dest, 'data');
-  await fs.mkdir(dataDir, { recursive: true });
-
-  await fs.writeFile(
-    path.join(dataDir, 'event_title.txt'),
-    eventTitle,
-    'utf-8',
-  );
-  await fs.writeFile(
-    path.join(dataDir, 'venue_desc.txt'),
-    venueDesc ?? '',
-    'utf-8',
-  );
+  // Initialize event.db and seed metadata
+  const db = getEventDb(sanitized);
+  db.prepare(
+    'INSERT OR REPLACE INTO event_metadata (key, value) VALUES (?, ?)',
+  ).run('event_title', eventTitle);
+  db.prepare(
+    'INSERT OR REPLACE INTO event_metadata (key, value) VALUES (?, ?)',
+  ).run('venue_desc', venueDesc ?? '');
+  // Mark as not needing file migration (fresh event)
+  db.prepare(
+    'INSERT OR REPLACE INTO event_metadata (key, value) VALUES (?, ?)',
+  ).run('migrated_from_files', new Date().toISOString());
 
   return { eventName: sanitized, eventPath: dest };
 }

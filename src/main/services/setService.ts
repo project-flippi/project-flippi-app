@@ -1,8 +1,6 @@
 // src/main/services/setService.ts
-// CRUD operations for tournament sets
-import fs from 'fs/promises';
+// CRUD operations for tournament sets — backed by per-event SQLite
 import path from 'path';
-import os from 'os';
 import { randomUUID } from 'crypto';
 import log from 'electron-log';
 import type {
@@ -17,49 +15,40 @@ import type {
 } from '../../common/meleeTypes';
 import { computeSetTitle } from '../../common/setUtils';
 import { getGameEntries } from './gameVideoService';
+import { getEventDb } from '../database/db';
+import { rowToGameSet } from '../database/eventDbHelpers';
 
 // ---------------------------------------------------------------------------
-// Path helpers
+// Helpers
 // ---------------------------------------------------------------------------
-
-function setsFilePath(eventName: string): string {
-  return path.join(
-    os.homedir(),
-    'project-flippi',
-    'Event',
-    eventName,
-    'data',
-    'sets.json',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Read / write sets file
-// ---------------------------------------------------------------------------
-
-export async function readSets(eventName: string): Promise<GameSet[]> {
-  try {
-    const raw = await fs.readFile(setsFilePath(eventName), 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
-}
-
-async function writeSets(eventName: string, sets: GameSet[]): Promise<void> {
-  const filePath = setsFilePath(eventName);
-  const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-  const tmp = `${filePath}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(sets, null, 2), 'utf-8');
-  await fs.rename(tmp, filePath);
-}
 
 /** Sort video paths by filename (alphabetical = chronological for OBS naming) */
 function sortVideoPaths(paths: string[]): string[] {
   return [...paths].sort((a, b) =>
     path.basename(a).localeCompare(path.basename(b)),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Read sets from DB
+// ---------------------------------------------------------------------------
+
+export async function readSets(eventName: string): Promise<GameSet[]> {
+  const db = getEventDb(eventName);
+  const setRows = db
+    .prepare<[], any>('SELECT * FROM sets ORDER BY created_at')
+    .all();
+
+  return setRows.map((row: any) => {
+    const gameRows = db
+      .prepare<
+        [string],
+        { video_file_path: string }
+      >('SELECT video_file_path FROM set_games WHERE set_id = ? ORDER BY sort_order')
+      .all(row.id);
+    const gamePaths = gameRows.map((g) => g.video_file_path);
+    return rowToGameSet(row, gamePaths);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -76,10 +65,34 @@ export async function createSet(
   playerOverrides: SetPlayerOverride[],
   videoFilePath: string,
 ): Promise<GameSet> {
-  const sets = await readSets(eventName);
+  const db = getEventDb(eventName);
+  const id = randomUUID();
+  const createdAt = new Date().toISOString();
 
-  const newSet: GameSet = {
-    id: randomUUID(),
+  const insert = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO sets (id, match_type, set_type, phase, round_type, round_number, player_overrides, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      matchType,
+      setType,
+      phase,
+      roundType,
+      roundNumber,
+      JSON.stringify(playerOverrides),
+      createdAt,
+    );
+    db.prepare(
+      'INSERT INTO set_games (set_id, video_file_path, sort_order) VALUES (?, ?, ?)',
+    ).run(id, videoFilePath, 0);
+  });
+
+  insert();
+  log.info(`[sets] Created set ${id} for event ${eventName}`);
+
+  return {
+    id,
     matchType,
     setType,
     phase,
@@ -87,13 +100,8 @@ export async function createSet(
     roundNumber,
     playerOverrides,
     gameVideoFilePaths: [videoFilePath],
-    createdAt: new Date().toISOString(),
+    createdAt,
   };
-
-  sets.push(newSet);
-  await writeSets(eventName, sets);
-  log.info(`[sets] Created set ${newSet.id} for event ${eventName}`);
-  return newSet;
 }
 
 export async function addGameToSet(
@@ -101,27 +109,44 @@ export async function addGameToSet(
   setId: string,
   videoFilePath: string,
 ): Promise<GameSet> {
-  const sets = await readSets(eventName);
-  const set = sets.find((s) => s.id === setId);
-  if (!set) throw new Error(`Set ${setId} not found`);
+  const db = getEventDb(eventName);
 
-  // Ensure game isn't already in any set
-  const existingSet = sets.find((s) =>
-    s.gameVideoFilePaths.includes(videoFilePath),
-  );
-  if (existingSet) {
-    throw new Error(
-      `This game is already in set "${existingSet.id}". Remove it first.`,
+  // UNIQUE constraint on video_file_path will reject if already in any set
+  const setRow = db
+    .prepare<[string], any>('SELECT * FROM sets WHERE id = ?')
+    .get(setId);
+  if (!setRow) throw new Error(`Set ${setId} not found`);
+
+  // Get current games + add new one
+  const existingGames = db
+    .prepare<[string], { video_file_path: string }>(
+      'SELECT video_file_path FROM set_games WHERE set_id = ? ORDER BY sort_order',
+    )
+    .all(setId)
+    .map((g) => g.video_file_path);
+
+  const sorted = sortVideoPaths([...existingGames, videoFilePath]);
+
+  const update = db.transaction(() => {
+    // Re-insert all with correct sort order
+    db.prepare('DELETE FROM set_games WHERE set_id = ?').run(setId);
+    const insert = db.prepare(
+      'INSERT INTO set_games (set_id, video_file_path, sort_order) VALUES (?, ?, ?)',
     );
+    sorted.forEach((vp, idx) => insert.run(setId, vp, idx));
+  });
+
+  try {
+    update();
+  } catch (err: any) {
+    if (err.message?.includes('UNIQUE constraint failed')) {
+      throw new Error('This game is already in a set. Remove it first.');
+    }
+    throw err;
   }
 
-  set.gameVideoFilePaths = sortVideoPaths([
-    ...set.gameVideoFilePaths,
-    videoFilePath,
-  ]);
-  await writeSets(eventName, sets);
   log.info(`[sets] Added game to set ${setId}`);
-  return set;
+  return rowToGameSet(setRow, sorted);
 }
 
 export async function removeGameFromSet(
@@ -129,25 +154,39 @@ export async function removeGameFromSet(
   setId: string,
   videoFilePath: string,
 ): Promise<GameSet | null> {
-  const sets = await readSets(eventName);
-  const setIdx = sets.findIndex((s) => s.id === setId);
-  if (setIdx < 0) throw new Error(`Set ${setId} not found`);
+  const db = getEventDb(eventName);
 
-  const set = sets[setIdx];
-  set.gameVideoFilePaths = set.gameVideoFilePaths.filter(
-    (p) => p !== videoFilePath,
-  );
+  const setRow = db
+    .prepare<[string], any>('SELECT * FROM sets WHERE id = ?')
+    .get(setId);
+  if (!setRow) throw new Error(`Set ${setId} not found`);
 
-  if (set.gameVideoFilePaths.length === 0) {
-    sets.splice(setIdx, 1);
-    await writeSets(eventName, sets);
+  const result = db.transaction(() => {
+    db.prepare(
+      'DELETE FROM set_games WHERE set_id = ? AND video_file_path = ?',
+    ).run(setId, videoFilePath);
+
+    const remaining = db
+      .prepare<[string], { video_file_path: string }>(
+        'SELECT video_file_path FROM set_games WHERE set_id = ? ORDER BY sort_order',
+      )
+      .all(setId)
+      .map((g) => g.video_file_path);
+
+    if (remaining.length === 0) {
+      db.prepare('DELETE FROM sets WHERE id = ?').run(setId);
+      return null;
+    }
+    return remaining;
+  })();
+
+  if (result === null) {
     log.info(`[sets] Deleted empty set ${setId}`);
     return null;
   }
 
-  await writeSets(eventName, sets);
   log.info(`[sets] Removed game from set ${setId}`);
-  return set;
+  return rowToGameSet(setRow, result);
 }
 
 export async function updateSet(
@@ -165,53 +204,87 @@ export async function updateSet(
     >
   >,
 ): Promise<GameSet> {
-  const sets = await readSets(eventName);
-  const set = sets.find((s) => s.id === setId);
-  if (!set) throw new Error(`Set ${setId} not found`);
+  const db = getEventDb(eventName);
 
-  if (updates.matchType !== undefined) set.matchType = updates.matchType;
-  if (updates.setType !== undefined) set.setType = updates.setType;
-  if (updates.phase !== undefined) set.phase = updates.phase;
-  if (updates.roundType !== undefined) set.roundType = updates.roundType;
-  if (updates.roundNumber !== undefined) set.roundNumber = updates.roundNumber;
-  if (updates.playerOverrides !== undefined)
-    set.playerOverrides = updates.playerOverrides;
+  const setClauses: string[] = [];
+  const values: any[] = [];
 
-  await writeSets(eventName, sets);
+  if (updates.matchType !== undefined) {
+    setClauses.push('match_type = ?');
+    values.push(updates.matchType);
+  }
+  if (updates.setType !== undefined) {
+    setClauses.push('set_type = ?');
+    values.push(updates.setType);
+  }
+  if (updates.phase !== undefined) {
+    setClauses.push('phase = ?');
+    values.push(updates.phase);
+  }
+  if (updates.roundType !== undefined) {
+    setClauses.push('round_type = ?');
+    values.push(updates.roundType);
+  }
+  if (updates.roundNumber !== undefined) {
+    setClauses.push('round_number = ?');
+    values.push(updates.roundNumber);
+  }
+  if (updates.playerOverrides !== undefined) {
+    setClauses.push('player_overrides = ?');
+    values.push(JSON.stringify(updates.playerOverrides));
+  }
+
+  if (setClauses.length > 0) {
+    values.push(setId);
+    db.prepare(`UPDATE sets SET ${setClauses.join(', ')} WHERE id = ?`).run(
+      ...values,
+    );
+  }
+
+  const setRow = db
+    .prepare<[string], any>('SELECT * FROM sets WHERE id = ?')
+    .get(setId);
+  if (!setRow) throw new Error(`Set ${setId} not found`);
+
+  const gamePaths = db
+    .prepare<[string], { video_file_path: string }>(
+      'SELECT video_file_path FROM set_games WHERE set_id = ? ORDER BY sort_order',
+    )
+    .all(setId)
+    .map((g) => g.video_file_path);
+
   log.info(`[sets] Updated set ${setId}`);
-  return set;
+  return rowToGameSet(setRow, gamePaths);
 }
 
 export async function deleteSet(
   eventName: string,
   setId: string,
 ): Promise<void> {
-  const sets = await readSets(eventName);
-  const filtered = sets.filter((s) => s.id !== setId);
-  await writeSets(eventName, filtered);
+  const db = getEventDb(eventName);
+  // CASCADE deletes set_games automatically
+  db.prepare('DELETE FROM sets WHERE id = ?').run(setId);
   log.info(`[sets] Deleted set ${setId}`);
 }
 
-/**
- * Find which set (if any) a video belongs to.
- */
 export async function findSetForVideo(
   eventName: string,
   videoFilePath: string,
 ): Promise<string | null> {
-  const sets = await readSets(eventName);
-  const set = sets.find((s) => s.gameVideoFilePaths.includes(videoFilePath));
-  return set?.id ?? null;
+  const db = getEventDb(eventName);
+  const row = db
+    .prepare<
+      [string],
+      { set_id: string }
+    >('SELECT set_id FROM set_games WHERE video_file_path = ?')
+    .get(videoFilePath);
+  return row?.set_id ?? null;
 }
 
 // ---------------------------------------------------------------------------
 // Get enriched set entries for renderer
 // ---------------------------------------------------------------------------
 
-/**
- * Build SetEntry[] from pre-loaded game entries — avoids re-calling
- * getGameEntries() when games are already loaded.
- */
 export function buildSetEntries(
   sets: GameSet[],
   allGames: GameEntry[],
@@ -239,7 +312,6 @@ export async function getSetEntries(
   const sets = await readSets(eventName);
   if (sets.length === 0) return [];
 
-  // Load all game entries once
   const allGames = await getGameEntries(eventName, slpDataFolder);
   return buildSetEntries(sets, allGames, eventName);
 }
