@@ -11,6 +11,7 @@ import type {
   PairGamesResult,
 } from '../../common/meleeTypes';
 import { parseSlpFileAsync } from './slpParserService';
+import { getCached, upsertEntry } from '../database/metadataCache';
 
 const VIDEO_EXTENSIONS = /\.(mp4|mkv|avi|mov|flv|webm)$/i;
 
@@ -147,6 +148,7 @@ export async function listSlpFiles(
             fileName: entry.name,
             gameStartedAt: parsed.toISOString(),
             fileSize: stat.size,
+            fileMtime: stat.mtimeMs,
           } as SlpFileInfo;
         } catch {
           return null;
@@ -313,6 +315,7 @@ async function buildSlpFileInfo(slpPath: string): Promise<SlpFileInfo | null> {
       fileName: path.basename(slpPath),
       gameStartedAt: parsed?.toISOString() ?? stat.birthtime.toISOString(),
       fileSize: stat.size,
+      fileMtime: stat.mtimeMs,
     };
   } catch {
     return null;
@@ -350,8 +353,19 @@ export async function getGameEntries(
       const fromMap = slpInfoMap?.get(slpPath) ?? null;
       const slpFile = fromMap || (await buildSlpFileInfo(slpPath));
 
-      // Parse SLP game data (async to yield to event loop between files)
-      const slpGameData = await parseSlpFileAsync(slpPath);
+      // Check cache first, fall back to parsing
+      const mtime = slpFile?.fileMtime ?? 0;
+      const size = slpFile?.fileSize ?? 0;
+      const cached = getCached(slpPath, mtime, size);
+      let slpGameData;
+      if (cached) {
+        slpGameData = cached;
+      } else {
+        slpGameData = await parseSlpFileAsync(slpPath);
+        if (slpGameData) {
+          upsertEntry(slpPath, mtime, size, slpGameData);
+        }
+      }
 
       return { video, slpFile, slpGameData };
     }),

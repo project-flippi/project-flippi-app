@@ -129,6 +129,8 @@ export interface SlpFileInfo {
   /** Timestamp parsed from filename (ISO string) — game start time */
   gameStartedAt: string;
   fileSize: number;
+  /** File modification time in ms (stat.mtimeMs) — used for cache invalidation */
+  fileMtime: number;
 }
 
 /** A game row: a video file optionally paired with its SLP source */

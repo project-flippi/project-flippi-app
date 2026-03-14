@@ -72,6 +72,8 @@ import {
 } from './services/aiService';
 
 import { getGameEntries, pairGameVideos } from './services/gameVideoService';
+import { initDatabase } from './database/db';
+import { invalidateAll, invalidatePath } from './database/metadataCache';
 
 import {
   readSets,
@@ -521,6 +523,18 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  'video:invalidateCache',
+  async (_evt, args?: { slpPath?: string }) => {
+    if (args?.slpPath) {
+      invalidatePath(args.slpPath);
+    } else {
+      invalidateAll();
+    }
+    return { ok: true };
+  },
+);
+
+ipcMain.handle(
   'video:getGameAndSetEntries',
   async (_evt, args: { eventName: string }) => {
     const settings = await getSettings();
@@ -729,6 +743,9 @@ protocol.registerSchemesAsPrivileged([
 app
   .whenReady()
   .then(() => {
+    // Initialize SLP metadata cache database
+    initDatabase();
+
     // Handle local-file:// requests by reading the file from disk
     protocol.handle('local-file', (request) => {
       const filePath = decodeURIComponent(

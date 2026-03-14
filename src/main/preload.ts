@@ -107,6 +107,8 @@ contextBridge.exposeInMainWorld('flippiVideo', {
     ipcRenderer.invoke('video:pairGameVideos', { eventName }),
   getGameAndSetEntries: (eventName: string) =>
     ipcRenderer.invoke('video:getGameAndSetEntries', { eventName }),
+  invalidateCache: (slpPath?: string) =>
+    ipcRenderer.invoke('video:invalidateCache', slpPath ? { slpPath } : {}),
 });
 
 contextBridge.exposeInMainWorld('flippiSets', {
