@@ -51,11 +51,13 @@ function RecordingPanel() {
     startStreaming: false,
   });
 
-  // Game capture source selector state
+  // Source selector state
   const [obsSources, setObsSources] = useState<
     { name: string; type: string; typeId: string }[]
   >([]);
   const [selectedSource, setSelectedSource] = useState<string>('');
+  const [selectedPlayerCamSource, setSelectedPlayerCamSource] =
+    useState<string>('');
 
   // Get persistent stack state from main process
   const { stack, clippi, slippi, obs } = useServiceStatus();
@@ -100,6 +102,7 @@ function RecordingPanel() {
           slippi: s.closeSlippiOnStop ?? true,
         });
         setSelectedSource(s.obs.gameCaptureSource || '');
+        setSelectedPlayerCamSource(s.obs.playerCameraSource || '');
         setObsOptions({
           enableReplayBuffer: s.obs.enableReplayBuffer ?? true,
           startRecording: s.obs.startRecording ?? false,
@@ -124,14 +127,28 @@ function RecordingPanel() {
     await window.flippiSettings.update({ obs: { gameCaptureSource: value } });
   }
 
-  // Auto-reset selected source if it no longer exists in OBS
+  async function onPlayerCamSourceChange(value: string) {
+    setSelectedPlayerCamSource(value);
+    await window.flippiSettings.update({
+      obs: { playerCameraSource: value },
+    });
+  }
+
+  // Auto-reset selected sources if they no longer exist in OBS
   useEffect(() => {
-    if (
-      obsSources.length > 0 &&
-      selectedSource &&
-      !obsSources.some((s) => s.name === selectedSource)
-    ) {
-      onSourceChange('');
+    if (obsSources.length > 0) {
+      if (
+        selectedSource &&
+        !obsSources.some((s) => s.name === selectedSource)
+      ) {
+        onSourceChange('');
+      }
+      if (
+        selectedPlayerCamSource &&
+        !obsSources.some((s) => s.name === selectedPlayerCamSource)
+      ) {
+        onPlayerCamSourceChange('');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obsSources]);
@@ -531,6 +548,38 @@ function RecordingPanel() {
             </div>
             <div className="pf-note">
               Select the OBS source to monitor for game capture detection.
+            </div>
+          </label>
+        </div>
+
+        <div className="pf-field" style={{ marginTop: 12 }}>
+          <label htmlFor="player-camera-source-select">
+            Player Camera Source
+            <div className="pf-settings-actions">
+              {obsConnectedNow ? (
+                <select
+                  id="player-camera-source-select"
+                  value={selectedPlayerCamSource}
+                  onChange={(e) => onPlayerCamSourceChange(e.target.value)}
+                  onMouseDown={() => fetchObsSources()}
+                  style={{ minWidth: 260 }}
+                >
+                  <option value="">None (disabled)</option>
+                  {obsSources.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="pf-status-message">
+                  Connect to OBS to see available sources
+                </span>
+              )}
+            </div>
+            <div className="pf-note">
+              Select the OBS source for the player camera (used for short-form
+              video reformatting).
             </div>
           </label>
         </div>

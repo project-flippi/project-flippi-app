@@ -1,7 +1,11 @@
 // src/main/services/obsConnectionManager.ts
 import OBSWebSocket from 'obs-websocket-js';
+import log from 'electron-log';
 import { patchStatus, getStatus } from './statusStore';
 import { loadObsConnectionSettings } from './obsService';
+import { getSettings } from '../settings/store';
+import { getEventDb } from '../database/db';
+import type { SourceTransform } from '../../common/obsTransformTypes';
 
 type EnsureConnectedResult =
   | { ok: true }
@@ -122,6 +126,17 @@ class ObsConnectionManager {
       // Subscribe to OBS output state events for instant UI updates
       this.obs.on('RecordStateChanged', (data) => {
         patchStatus({ obs: { recording: data.outputActive } });
+
+        // When recording stops, capture source transforms for the saved file
+        if (!data.outputActive && (data as any).outputPath) {
+          this.captureAndStoreTransforms((data as any).outputPath).catch(
+            (err) => {
+              log.warn(
+                `[obs] Failed to capture transforms: ${formatUnknownError(err)}`,
+              );
+            },
+          );
+        }
       });
 
       this.obs.on('StreamStateChanged', (data) => {
@@ -603,6 +618,124 @@ class ObsConnectionManager {
     } catch (err: unknown) {
       const msg = formatUnknownError(err);
       return { ok: false, message: `Failed to stop streaming: ${msg}` };
+    }
+  }
+
+  /**
+   * Capture the transform settings for a single OBS source in the current scene.
+   */
+  private async captureSourceTransform(
+    sceneName: string,
+    sourceName: string,
+  ): Promise<SourceTransform | null> {
+    if (!this.connectionReady || !sourceName) return null;
+
+    const obs = this.ensureObsInstance();
+
+    try {
+      // Get scene items to find the sceneItemId for this source
+      const itemsResult = (await obs.call('GetSceneItemList', {
+        sceneName,
+      })) as any;
+
+      const items: any[] = itemsResult?.sceneItems ?? [];
+      const item = items.find((i: any) => i.sourceName === sourceName);
+      if (!item) return null;
+
+      const sceneItemId = item.sceneItemId as number;
+
+      // Get the transform for this scene item
+      const transformResult = (await obs.call('GetSceneItemTransform', {
+        sceneName,
+        sceneItemId,
+      })) as any;
+
+      const t = transformResult?.sceneItemTransform;
+      if (!t) return null;
+
+      return {
+        positionX: t.positionX ?? 0,
+        positionY: t.positionY ?? 0,
+        width: t.width ?? 0,
+        height: t.height ?? 0,
+        sourceWidth: t.sourceWidth ?? 0,
+        sourceHeight: t.sourceHeight ?? 0,
+        alignment: t.alignment ?? 0,
+        boundsType: t.boundsType ?? 'OBS_BOUNDS_NONE',
+        boundsWidth: t.boundsWidth ?? 0,
+        boundsHeight: t.boundsHeight ?? 0,
+        boundsAlignment: t.boundsAlignment ?? 0,
+        cropToBounds: Boolean(t.cropToBounds),
+        cropLeft: t.cropLeft ?? 0,
+        cropTop: t.cropTop ?? 0,
+        cropRight: t.cropRight ?? 0,
+        cropBottom: t.cropBottom ?? 0,
+      };
+    } catch (err) {
+      log.warn(
+        `[obs] Failed to get transform for "${sourceName}": ${formatUnknownError(err)}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Capture transforms for both configured sources and store in the event DB.
+   * Called fire-and-forget when a recording stops.
+   */
+  private async captureAndStoreTransforms(outputPath: string): Promise<void> {
+    if (!this.connectionReady) return;
+
+    const status = getStatus();
+    const eventName = status.stack.currentEventName;
+    if (!eventName) return;
+
+    const settings = await getSettings();
+    const gameCaptureSource = settings.obs.gameCaptureSource || '';
+    const playerCameraSource = settings.obs.playerCameraSource || '';
+
+    if (!gameCaptureSource && !playerCameraSource) return;
+
+    const obs = this.ensureObsInstance();
+
+    // Get the current scene
+    let sceneName = '';
+    try {
+      const sceneResult = (await obs.call('GetCurrentProgramScene')) as any;
+      sceneName = sceneResult?.currentProgramSceneName ?? '';
+    } catch {
+      return;
+    }
+
+    if (!sceneName) return;
+
+    const [gcTransform, pcTransform] = await Promise.all([
+      this.captureSourceTransform(sceneName, gameCaptureSource),
+      this.captureSourceTransform(sceneName, playerCameraSource),
+    ]);
+
+    // Store in event database
+    try {
+      const db = getEventDb(eventName);
+      db.prepare(
+        `INSERT OR REPLACE INTO recording_transforms
+         (video_path, scene_name, game_capture_source, game_capture_transform,
+          player_camera_source, player_camera_transform, captured_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        outputPath,
+        sceneName,
+        gameCaptureSource,
+        JSON.stringify(gcTransform ?? {}),
+        playerCameraSource,
+        JSON.stringify(pcTransform ?? {}),
+        new Date().toISOString(),
+      );
+      log.info(
+        `[obs] Saved recording transforms for ${outputPath} (event: ${eventName})`,
+      );
+    } catch (err) {
+      log.warn(`[obs] Failed to store transforms: ${formatUnknownError(err)}`);
     }
   }
 

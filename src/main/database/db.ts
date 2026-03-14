@@ -119,6 +119,16 @@ CREATE TABLE IF NOT EXISTS title_history (
   title TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS recording_transforms (
+  video_path              TEXT PRIMARY KEY,
+  scene_name              TEXT NOT NULL DEFAULT '',
+  game_capture_source     TEXT NOT NULL DEFAULT '',
+  game_capture_transform  TEXT NOT NULL DEFAULT '{}',
+  player_camera_source    TEXT NOT NULL DEFAULT '',
+  player_camera_transform TEXT NOT NULL DEFAULT '{}',
+  captured_at             TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS event_metadata (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT ''

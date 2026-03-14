@@ -13,6 +13,7 @@ export interface ObsSettings {
   port: string; // default "4455"
   password: string;
   gameCaptureSource: string; // OBS source name to monitor for game capture
+  playerCameraSource: string; // OBS source name for player camera
   enableReplayBuffer: boolean; // start replay buffer when stack starts
   startRecording: boolean; // start recording when stack starts
   startStreaming: boolean; // start streaming when stack starts
@@ -59,6 +60,7 @@ export const defaultSettings: AppSettings = {
     port: '4455',
     password: '',
     gameCaptureSource: '',
+    playerCameraSource: '',
     enableReplayBuffer: true,
     startRecording: false,
     startStreaming: false,
