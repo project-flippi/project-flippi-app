@@ -748,7 +748,11 @@ app
   .whenReady()
   .then(() => {
     // Initialize SLP metadata cache database
-    initDatabase();
+    try {
+      initDatabase();
+    } catch (err) {
+      log.error('[main] Failed to initialize database:', err);
+    }
 
     // Handle local-file:// requests by reading the file from disk
     protocol.handle('local-file', (request) => {

@@ -187,7 +187,7 @@
     "productName": "Project Flippi",
     "appId": "org.projectflippi.app",
     "asar": true,
-    "npmRebuild": false,
+    "npmRebuild": true,
     "asarUnpack": "**/*.{node,dll,dylib,so}",
     "files": [
       "dist",
@@ -227,6 +227,11 @@
       "target": [
         "nsis"
       ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false
     },
     "linux": {
       "target": [
