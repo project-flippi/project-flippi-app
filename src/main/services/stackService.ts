@@ -158,6 +158,17 @@ export async function startStack(params: {
     startStreaming: obsSettings.startStreaming,
   });
 
+  // Sync Clippi combodata config regardless of OBS connection result,
+  // so Clippi has the OBS WebSocket details it needs to connect on its own.
+  const clippiSync = await syncClippiComboData(params.eventName, {
+    host: obsSettings.host,
+    port: obsSettings.port,
+    password: obsSettings.password,
+  });
+  if (!clippiSync.ok) {
+    log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
+  }
+
   // Update stack state on success
   if (cfg.ok) {
     patchStatus({
@@ -167,16 +178,6 @@ export async function startStack(params: {
         startedAt: Date.now(),
       },
     });
-
-    // Sync Clippi combodata config (non-fatal)
-    const clippiSync = await syncClippiComboData(params.eventName, {
-      host: obsSettings.host,
-      port: obsSettings.port,
-      password: obsSettings.password,
-    });
-    if (!clippiSync.ok) {
-      log.warn('[stack] Clippi combodata sync failed:', clippiSync.message);
-    }
 
     // Start game capture detection polling
     startGameCapturePolling();
