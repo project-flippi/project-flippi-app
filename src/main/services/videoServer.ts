@@ -5,8 +5,15 @@
  * Chromium to hold file handles indefinitely (EBUSY on Windows). With HTTP,
  * Node.js controls the file descriptors via `fs.createReadStream()` and
  * releases them when the response ends or the client disconnects.
+ *
+ * Security measures:
+ * - Binds to 127.0.0.1 only (loopback, no network exposure)
+ * - Per-session secret token required on every request
+ * - Symlink-resolving path validation (realpathSync) to prevent traversal
+ * - Only serves files under ~/project-flippi/Event/
  */
 import http from 'http';
+import crypto from 'crypto';
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
@@ -15,6 +22,7 @@ import log from 'electron-log';
 
 let server: http.Server | null = null;
 let boundPort = 0;
+let sessionToken = '';
 
 /** The root directory that the server is allowed to serve files from. */
 function allowedRoot(): string {
@@ -43,17 +51,6 @@ async function handleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ) {
-  // CORS preflight
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-      'Access-Control-Allow-Headers': 'Range',
-    });
-    res.end();
-    return;
-  }
-
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405);
     res.end('Method Not Allowed');
@@ -68,6 +65,13 @@ async function handleRequest(
     return;
   }
 
+  // Validate per-session secret token
+  if (url.searchParams.get('token') !== sessionToken) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
+
   const requestedPath = url.searchParams.get('path');
   if (!requestedPath) {
     res.writeHead(400);
@@ -75,12 +79,30 @@ async function handleRequest(
     return;
   }
 
-  // Security: resolve to an absolute path and verify it's under the allowed root
-  const resolvedPath = path.resolve(requestedPath);
-  const root = allowedRoot();
-  if (!resolvedPath.startsWith(root + path.sep) && resolvedPath !== root) {
+  // Security: resolve symlinks to get the real path, then verify it's
+  // under the allowed root. realpathSync throws on non-existent paths.
+  let realPath: string;
+  try {
+    realPath = fs.realpathSync(path.resolve(requestedPath));
+  } catch {
+    res.writeHead(404);
+    res.end('Not Found');
+    return;
+  }
+
+  let root: string;
+  try {
+    root = fs.realpathSync(allowedRoot());
+  } catch {
+    // Event directory doesn't exist yet
+    res.writeHead(404);
+    res.end('Not Found');
+    return;
+  }
+
+  if (!realPath.startsWith(root + path.sep)) {
     log.warn(
-      `[videoServer] Blocked request for path outside allowed root: ${resolvedPath}`,
+      `[videoServer] Blocked request for path outside allowed root: ${realPath}`,
     );
     res.writeHead(403);
     res.end('Forbidden');
@@ -90,7 +112,7 @@ async function handleRequest(
   // Stat the file
   let stat: fs.Stats;
   try {
-    stat = await fsPromises.stat(resolvedPath);
+    stat = await fsPromises.stat(realPath);
   } catch (err: any) {
     if (err.code === 'ENOENT') {
       res.writeHead(404);
@@ -110,7 +132,7 @@ async function handleRequest(
   }
 
   const totalSize = stat.size;
-  const contentType = getMimeType(resolvedPath);
+  const contentType = getMimeType(realPath);
   const rangeHeader = req.headers.range;
 
   if (rangeHeader) {
@@ -143,8 +165,6 @@ async function handleRequest(
       'Content-Range': `bytes ${start}-${end}/${totalSize}`,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Expose-Headers': 'Content-Range, Content-Length',
     });
 
     if (req.method === 'HEAD') {
@@ -152,7 +172,7 @@ async function handleRequest(
       return;
     }
 
-    const stream = fs.createReadStream(resolvedPath, { start, end });
+    const stream = fs.createReadStream(realPath, { start, end });
     stream.pipe(res);
 
     // Ensure the file handle is released if the client disconnects
@@ -166,8 +186,6 @@ async function handleRequest(
       'Content-Length': totalSize,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-store',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Expose-Headers': 'Content-Range, Content-Length',
     });
 
     if (req.method === 'HEAD') {
@@ -175,7 +193,7 @@ async function handleRequest(
       return;
     }
 
-    const stream = fs.createReadStream(resolvedPath);
+    const stream = fs.createReadStream(realPath);
     stream.pipe(res);
 
     res.on('close', () => {
@@ -189,6 +207,8 @@ async function handleRequest(
  * Returns the port number.
  */
 export async function startVideoServer(): Promise<number> {
+  sessionToken = crypto.randomBytes(32).toString('hex');
+
   return new Promise((resolve, reject) => {
     server = http.createServer((req, res) => {
       handleRequest(req, res).catch((err) => {
@@ -224,6 +244,7 @@ export function stopVideoServer(): void {
     server.close();
     server = null;
     boundPort = 0;
+    sessionToken = '';
     log.info('[videoServer] Stopped');
   }
 }
@@ -231,4 +252,9 @@ export function stopVideoServer(): void {
 /** Get the port the video server is bound to. */
 export function getVideoServerPort(): number {
   return boundPort;
+}
+
+/** Get the per-session secret token. */
+export function getVideoServerToken(): string {
+  return sessionToken;
 }

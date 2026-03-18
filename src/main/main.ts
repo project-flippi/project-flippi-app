@@ -87,6 +87,7 @@ import {
   startVideoServer,
   stopVideoServer,
   getVideoServerPort,
+  getVideoServerToken,
 } from './services/videoServer';
 
 function broadcastStatus() {
@@ -813,7 +814,10 @@ app
       log.error('[main] Failed to start video server:', err);
     }
 
-    ipcMain.handle('video:serverPort', () => getVideoServerPort());
+    ipcMain.handle('video:serverInfo', () => ({
+      port: getVideoServerPort(),
+      token: getVideoServerToken(),
+    }));
 
     createWindow();
     startObsProcessPolling();

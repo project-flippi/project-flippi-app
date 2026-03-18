@@ -51,7 +51,7 @@ declare global {
       selectFolder: () => Promise<{ ok: boolean; path: string }>;
     };
     flippiVideo: {
-      getServerPort: () => Promise<number>;
+      getServerInfo: () => Promise<{ port: number; token: string }>;
       getClips: (eventName: string) => Promise<VideoDataEntry[]>;
       getCompilations: (eventName: string) => Promise<CompilationEntry[]>;
       generateClipData: (

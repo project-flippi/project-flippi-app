@@ -22,18 +22,21 @@ export function formatTimestamp(iso: string): string {
 }
 
 /**
- * Port of the local HTTP video server started by the main process.
+ * Connection info for the local HTTP video server started by the main process.
  * Fetched once on first use via IPC, then cached.
  */
 let videoServerPort: number | null = null;
+let videoServerToken: string | null = null;
 
 /**
- * Initialize the video server port. Call early in the app lifecycle
+ * Initialize the video server connection info. Call early in the app lifecycle
  * (e.g., when the video management panel mounts).
  */
 export async function initVideoServerPort(): Promise<void> {
   if (videoServerPort == null) {
-    videoServerPort = await window.flippiVideo.getServerPort();
+    const info = await window.flippiVideo.getServerInfo();
+    videoServerPort = info.port;
+    videoServerToken = info.token;
   }
 }
 
@@ -41,12 +44,13 @@ export async function initVideoServerPort(): Promise<void> {
  * Convert an absolute file path to an HTTP URL served by the local video server.
  * The server streams the file and properly releases file handles when done,
  * avoiding the EBUSY issue that the old local-file:// protocol had.
+ * Includes a per-session secret token for authentication.
  */
 export function localFileUrl(filePath: string): string {
-  if (!videoServerPort) {
-    throw new Error('Video server port not initialized');
+  if (!videoServerPort || !videoServerToken) {
+    throw new Error('Video server info not initialized');
   }
-  return `http://127.0.0.1:${videoServerPort}/video?path=${encodeURIComponent(filePath)}`;
+  return `http://127.0.0.1:${videoServerPort}/video?token=${videoServerToken}&path=${encodeURIComponent(filePath)}`;
 }
 
 interface VideoPlayerModalProps {
