@@ -86,6 +86,8 @@ import {
   deleteSet,
   findSetForVideo,
 } from './services/setService';
+import { compileSetVideo } from './services/setCompilationService';
+import { computeSetTitle } from '../common/setUtils';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -627,6 +629,31 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  'sets:compile',
+  async (evt, args: { eventName: string; setId: string }) => {
+    const settings = await getSettings();
+    const entries = await getSetEntries(args.eventName, settings.slpDataFolder);
+    const entry = entries.find((e) => e.set.id === args.setId);
+    if (!entry) throw new Error('Set not found');
+
+    const title = computeSetTitle(entry.set, entry.games, args.eventName);
+    const outputPath = await compileSetVideo(
+      args.eventName,
+      args.setId,
+      title,
+      entry.set.gameVideoFilePaths,
+      (progress) => {
+        evt.sender.send('sets:compile-progress', progress);
+      },
+    );
+    await updateSet(args.eventName, args.setId, {
+      compiledVideoPath: outputPath,
+    });
+    return outputPath;
+  },
+);
+
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
   sourceMapSupport.install();
@@ -759,7 +786,8 @@ app
       const filePath = decodeURIComponent(
         request.url.replace('local-file://', ''),
       );
-      return net.fetch(`file://${filePath}`);
+      const { pathToFileURL } = require('url');
+      return net.fetch(pathToFileURL(filePath).href);
     });
 
     createWindow();

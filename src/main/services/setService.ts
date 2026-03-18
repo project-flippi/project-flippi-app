@@ -201,6 +201,7 @@ export async function updateSet(
       | 'roundType'
       | 'roundNumber'
       | 'playerOverrides'
+      | 'compiledVideoPath'
     >
   >,
 ): Promise<GameSet> {
@@ -232,6 +233,10 @@ export async function updateSet(
   if (updates.playerOverrides !== undefined) {
     setClauses.push('player_overrides = ?');
     values.push(JSON.stringify(updates.playerOverrides));
+  }
+  if (updates.compiledVideoPath !== undefined) {
+    setClauses.push('compiled_video_path = ?');
+    values.push(updates.compiledVideoPath);
   }
 
   if (setClauses.length > 0) {

@@ -144,6 +144,23 @@ contextBridge.exposeInMainWorld('flippiSets', {
     ipcRenderer.invoke('sets:delete', { eventName, setId }),
   findForVideo: (eventName: string, videoFilePath: string) =>
     ipcRenderer.invoke('sets:findForVideo', { eventName, videoFilePath }),
+  compile: (eventName: string, setId: string) =>
+    ipcRenderer.invoke('sets:compile', { eventName, setId }),
+  onCompileProgress: (
+    handler: (
+      _event: any,
+      progress: {
+        setId: string;
+        percent: number;
+        status: string;
+        filePath?: string;
+        error?: string;
+      },
+    ) => void,
+  ) => {
+    ipcRenderer.on('sets:compile-progress', handler);
+    return () => ipcRenderer.removeListener('sets:compile-progress', handler);
+  },
 });
 
 contextBridge.exposeInMainWorld('flippiStatus', {

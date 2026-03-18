@@ -186,6 +186,8 @@ export interface GameSet {
   playerOverrides: SetPlayerOverride[];
   /** Video file paths belonging to this set (sorted by filename) */
   gameVideoFilePaths: string[];
+  /** Path to the compiled set video, if compiled */
+  compiledVideoPath?: string | null;
   /** ISO timestamp when created */
   createdAt: string;
 }

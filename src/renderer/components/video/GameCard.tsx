@@ -271,7 +271,7 @@ function GameCard({
             >
               <option value="">Add to Set...</option>
               {sets.map((s) => (
-                <option key={s.set.id} value={s.set.id}>
+                <option key={s.set.id} value={s.set.id} title={s.title}>
                   {s.title.length > 50 ? `${s.title.slice(0, 50)}...` : s.title}
                 </option>
               ))}

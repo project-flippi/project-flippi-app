@@ -13,6 +13,20 @@ import GameMatchInfo, { formatDuration } from './GameMatchInfo';
 import { VideoPlayerModal, localFileUrl } from './GameCard';
 import { getStageName } from '../../../common/meleeResources';
 
+/** Animated "Compiling..." indicator with cycling dots. */
+function CompilingIndicator() {
+  const [dots, setDots] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setDots((d) => (d + 1) % 4), 500);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+      Compiling{'.'.repeat(dots)}
+    </span>
+  );
+}
+
 /** Controlled input that saves on blur. Manages its own local state. */
 function PlayerOverrideInput({
   setId,
@@ -141,6 +155,11 @@ function SetCard({
   const [showPlayer, setShowPlayer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [compileProgress, setCompileProgress] = useState<number | null>(null);
+  const [compileStatus, setCompileStatus] = useState<string | null>(null);
+  const [compiledVideoPath, setCompiledVideoPath] = useState<string | null>(
+    set.compiledVideoPath ?? null,
+  );
 
   const resolvedPlayers = useMemo(
     () => getResolvedPlayers(set, games),
@@ -200,6 +219,56 @@ function SetCard({
     } finally {
       setBusy(false);
       setConfirmDelete(false);
+    }
+  }
+
+  // Stable refs for the compile progress callback to avoid re-subscribing
+  const setRef = useRef(set);
+  setRef.current = set;
+  const onSetUpdatedRef = useRef(onSetUpdated);
+  onSetUpdatedRef.current = onSetUpdated;
+
+  // Listen for compile progress events for this set
+  useEffect(() => {
+    const cleanup = window.flippiSets.onCompileProgress((_event, progress) => {
+      if (progress.setId !== set.id) return;
+      setCompileProgress(progress.percent);
+      if (progress.status === 'done') {
+        if (progress.filePath) {
+          setCompiledVideoPath(progress.filePath);
+          onSetUpdatedRef.current({
+            ...setRef.current,
+            compiledVideoPath: progress.filePath,
+          });
+        }
+        setCompileStatus('Done!');
+        setTimeout(() => {
+          setCompileProgress(null);
+          setCompileStatus(null);
+        }, 2000);
+      } else if (progress.status === 'error') {
+        setCompileStatus(progress.error ?? 'Failed');
+        setTimeout(() => {
+          setCompileProgress(null);
+          setCompileStatus(null);
+        }, 5000);
+      }
+    });
+    return cleanup;
+  }, [set.id]);
+
+  async function handleCompile() {
+    if (games.length === 0) return;
+    setCompileProgress(0);
+    setCompileStatus(null);
+    try {
+      await window.flippiSets.compile(eventName, set.id);
+    } catch (err: any) {
+      setCompileStatus(err?.message ?? 'Compilation failed');
+      setTimeout(() => {
+        setCompileProgress(null);
+        setCompileStatus(null);
+      }, 5000);
     }
   }
 
@@ -269,6 +338,61 @@ function SetCard({
             )}
           </>
         )}
+
+        {/* Compile + Delete — pushed to the right */}
+        <span
+          style={{
+            marginLeft: 'auto',
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+          }}
+        >
+          {compileProgress != null && (
+            <span
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: '0.8rem',
+              }}
+            >
+              {compileStatus ? (
+                <span
+                  style={{
+                    color: compileStatus === 'Done!' ? '#4ade80' : '#f87171',
+                  }}
+                >
+                  {compileStatus}
+                </span>
+              ) : (
+                <CompilingIndicator />
+              )}
+            </span>
+          )}
+          {compileProgress == null && compiledVideoPath && (
+            <button
+              type="button"
+              className="pf-play-btn"
+              onClick={() => setShowPlayer(compiledVideoPath)}
+              title="Play compiled set video"
+              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+            >
+              &#9654; Set Video
+            </button>
+          )}
+          {compileProgress == null && !compiledVideoPath && (
+            <button
+              type="button"
+              className="pf-button"
+              onClick={handleCompile}
+              disabled={busy || games.length === 0}
+              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+            >
+              Compile
+            </button>
+          )}
+        </span>
 
         {confirmDelete ? (
           <span

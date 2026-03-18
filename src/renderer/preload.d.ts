@@ -121,6 +121,19 @@ declare global {
         eventName: string,
         videoFilePath: string,
       ) => Promise<string | null>;
+      compile: (eventName: string, setId: string) => Promise<string>;
+      onCompileProgress: (
+        handler: (
+          _event: any,
+          progress: {
+            setId: string;
+            percent: number;
+            status: string;
+            filePath?: string;
+            error?: string;
+          },
+        ) => void,
+      ) => () => void;
     };
   }
 }

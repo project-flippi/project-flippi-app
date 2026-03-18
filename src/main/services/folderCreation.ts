@@ -48,6 +48,7 @@ async function scaffoldEventFolder(dest: string): Promise<void> {
     'thumbnails',
     path.join('videos', 'clips'),
     path.join('videos', 'compilations'),
+    path.join('videos', 'sets'),
   ];
 
   const dataFiles = ['combodata.jsonl'];

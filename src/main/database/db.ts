@@ -97,8 +97,9 @@ CREATE TABLE IF NOT EXISTS sets (
   phase           TEXT NOT NULL DEFAULT '',
   round_type      TEXT NOT NULL DEFAULT '',
   round_number    TEXT NOT NULL DEFAULT '',
-  player_overrides TEXT NOT NULL DEFAULT '[]',
-  created_at      TEXT NOT NULL
+  player_overrides     TEXT NOT NULL DEFAULT '[]',
+  compiled_video_path  TEXT DEFAULT NULL,
+  created_at           TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS set_games (
@@ -157,6 +158,17 @@ export function getEventDb(eventName: string): Database.Database {
 
   edb = new Database(dbPath);
   edb.exec(EVENT_DB_SCHEMA);
+
+  // Schema migrations for existing databases
+  const cols = edb
+    .prepare("PRAGMA table_info('sets')")
+    .all()
+    .map((c: any) => c.name);
+  if (!cols.includes('compiled_video_path')) {
+    edb.exec(
+      'ALTER TABLE sets ADD COLUMN compiled_video_path TEXT DEFAULT NULL',
+    );
+  }
 
   // Run migration from old files if needed
   migrateEventIfNeeded(eventName, edb);
