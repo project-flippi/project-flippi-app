@@ -84,9 +84,13 @@ import {
   removeGameFromSet,
   updateSet,
   deleteSet,
+  deleteSetVideo,
   findSetForVideo,
 } from './services/setService';
-import { compileSetVideo } from './services/setCompilationService';
+import {
+  compileSetVideo,
+  renameSetVideo,
+} from './services/setCompilationService';
 import { computeSetTitle } from '../common/setUtils';
 
 function broadcastStatus() {
@@ -654,6 +658,37 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  'sets:deleteVideo',
+  async (_evt, args: { eventName: string; setId: string }) => {
+    return deleteSetVideo(args.eventName, args.setId);
+  },
+);
+
+ipcMain.handle(
+  'sets:renameVideo',
+  async (_evt, args: { eventName: string; setId: string }) => {
+    const settings = await getSettings();
+    const entries = await getSetEntries(args.eventName, settings.slpDataFolder);
+    const entry = entries.find((e) => e.set.id === args.setId);
+    if (!entry) throw new Error('Set not found');
+    if (!entry.set.compiledVideoPath) {
+      throw new Error('No compiled video to rename');
+    }
+
+    const title = computeSetTitle(entry.set, entry.games, args.eventName);
+    const newPath = await renameSetVideo(entry.set.compiledVideoPath, title);
+    await updateSet(args.eventName, args.setId, {
+      compiledVideoPath: newPath,
+    });
+
+    return {
+      ...entry.set,
+      compiledVideoPath: newPath,
+    };
+  },
+);
+
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
   sourceMapSupport.install();
@@ -781,13 +816,37 @@ app
       log.error('[main] Failed to initialize database:', err);
     }
 
-    // Handle local-file:// requests by reading the file from disk
-    protocol.handle('local-file', (request) => {
-      const filePath = decodeURIComponent(
-        request.url.replace('local-file://', ''),
-      );
+    // Handle local-file:// requests by reading the file from disk.
+    // Cache-Control: no-store prevents Chromium from caching responses,
+    // which avoids stale video playback and EBUSY file locks.
+    protocol.handle('local-file', async (request) => {
+      // Strip query parameters (e.g. cache-busting ?t=...) before resolving path
+      const rawPath = request.url.replace('local-file://', '').split('?')[0];
+      const filePath = decodeURIComponent(rawPath);
       const { pathToFileURL } = require('url');
-      return net.fetch(pathToFileURL(filePath).href);
+      try {
+        // Pass request.signal so that when the <video> element is cleared
+        // (removeAttribute('src') + load()), the abort propagates to the
+        // inner fetch and releases the file handle immediately.
+        const response = await net.fetch(pathToFileURL(filePath).href, {
+          signal: request.signal,
+        });
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: {
+            ...Object.fromEntries(response.headers.entries()),
+            'Cache-Control': 'no-store',
+          },
+        });
+      } catch (err: any) {
+        // When the video element aborts its request, we get an AbortError.
+        // Return an empty response instead of letting the error propagate.
+        if (err.name === 'AbortError') {
+          return new Response(null, { status: 499 });
+        }
+        throw err;
+      }
     });
 
     createWindow();

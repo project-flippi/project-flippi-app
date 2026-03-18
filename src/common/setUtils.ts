@@ -7,6 +7,20 @@ import type { GameSet, GameEntry, SlpPlayerData } from './meleeTypes';
 import { getCharacterName } from './meleeResources';
 
 /**
+ * Sanitize a string for use as a filename.
+ * Removes/replaces characters that are unsafe on Windows/macOS/Linux.
+ */
+export function sanitizeFilename(name: string): string {
+  return (
+    name
+      .replace(/[<>:"/\\|?*]/g, '-')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .trim() || 'set-video'
+  );
+}
+
+/**
  * Resolve the display name for a player side from SLP data across all games.
  * Priority: playerOverride > displayName > nametag > connectCode > "Player N"
  */

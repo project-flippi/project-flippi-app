@@ -122,6 +122,8 @@ declare global {
         videoFilePath: string,
       ) => Promise<string | null>;
       compile: (eventName: string, setId: string) => Promise<string>;
+      deleteVideo: (eventName: string, setId: string) => Promise<GameSet>;
+      renameVideo: (eventName: string, setId: string) => Promise<GameSet>;
       onCompileProgress: (
         handler: (
           _event: any,

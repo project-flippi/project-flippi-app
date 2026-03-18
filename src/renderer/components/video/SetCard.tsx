@@ -8,7 +8,7 @@ import type {
   GameSet,
   SetPlayerOverride,
 } from '../../../common/meleeTypes';
-import { getResolvedPlayers } from '../../../common/setUtils';
+import { getResolvedPlayers, sanitizeFilename } from '../../../common/setUtils';
 import GameMatchInfo, { formatDuration } from './GameMatchInfo';
 import { VideoPlayerModal, localFileUrl } from './GameCard';
 import { getStageName } from '../../../common/meleeResources';
@@ -155,6 +155,7 @@ function SetCard({
   const [showPlayer, setShowPlayer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDeleteVideo, setConfirmDeleteVideo] = useState(false);
   const [compileProgress, setCompileProgress] = useState<number | null>(null);
   const [compileStatus, setCompileStatus] = useState<string | null>(null);
   const [compiledVideoPath, setCompiledVideoPath] = useState<string | null>(
@@ -219,6 +220,45 @@ function SetCard({
     } finally {
       setBusy(false);
       setConfirmDelete(false);
+    }
+  }
+
+  async function handleDeleteVideo() {
+    setBusy(true);
+    try {
+      const updated = await window.flippiSets.deleteVideo(eventName, set.id);
+      setCompiledVideoPath(null);
+      onSetUpdated(updated);
+    } finally {
+      setBusy(false);
+      setConfirmDeleteVideo(false);
+    }
+  }
+
+  // Detect if the compiled video filename differs from current title
+  const needsRename = useMemo(() => {
+    if (!compiledVideoPath) return false;
+    const expectedFilename = `${sanitizeFilename(title)}.mp4`;
+    // Extract basename from path (works with both / and \)
+    const parts = compiledVideoPath.replace(/\\/g, '/').split('/');
+    const currentFilename = parts[parts.length - 1];
+    return currentFilename !== expectedFilename;
+  }, [compiledVideoPath, title]);
+
+  const [renameStatus, setRenameStatus] = useState<string | null>(null);
+
+  async function handleRenameVideo() {
+    setBusy(true);
+    setRenameStatus(null);
+    try {
+      const updated = await window.flippiSets.renameVideo(eventName, set.id);
+      setCompiledVideoPath(updated.compiledVideoPath ?? null);
+      onSetUpdated(updated);
+    } catch (err: any) {
+      setRenameStatus(err?.message ?? 'Rename failed');
+      setTimeout(() => setRenameStatus(null), 5000);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -371,15 +411,75 @@ function SetCard({
             </span>
           )}
           {compileProgress == null && compiledVideoPath && (
-            <button
-              type="button"
-              className="pf-play-btn"
-              onClick={() => setShowPlayer(compiledVideoPath)}
-              title="Play compiled set video"
-              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-            >
-              &#9654; Set Video
-            </button>
+            <>
+              <button
+                type="button"
+                className="pf-play-btn"
+                onClick={() => setShowPlayer(compiledVideoPath)}
+                title="Play compiled set video"
+                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+              >
+                &#9654; Set Video
+              </button>
+              {confirmDeleteVideo ? (
+                <span
+                  style={{
+                    display: 'flex',
+                    gap: 4,
+                    alignItems: 'center',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  <span style={{ color: '#f87171' }}>Delete video?</span>
+                  <button
+                    type="button"
+                    className="pf-button pf-button-danger"
+                    onClick={handleDeleteVideo}
+                    disabled={busy}
+                    style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                  >
+                    {busy ? 'Deleting...' : 'Yes'}
+                  </button>
+                  <button
+                    type="button"
+                    className="pf-button"
+                    onClick={() => setConfirmDeleteVideo(false)}
+                    disabled={busy}
+                    style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                  >
+                    No
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="pf-button pf-button-danger"
+                  onClick={() => setConfirmDeleteVideo(true)}
+                  disabled={busy}
+                  style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                  title="Delete the compiled video to unlock game editing"
+                >
+                  Delete Video
+                </button>
+              )}
+              {needsRename && (
+                <button
+                  type="button"
+                  className="pf-button"
+                  onClick={handleRenameVideo}
+                  disabled={busy}
+                  style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+                  title="Rename the video file to match the updated set title"
+                >
+                  Rename Video
+                </button>
+              )}
+              {renameStatus && (
+                <span style={{ color: '#f87171', fontSize: '0.75rem' }}>
+                  {renameStatus}
+                </span>
+              )}
+            </>
           )}
           {compileProgress == null && !compiledVideoPath && (
             <button
@@ -404,7 +504,11 @@ function SetCard({
               fontSize: '0.8rem',
             }}
           >
-            <span style={{ color: '#f87171' }}>Delete this set?</span>
+            <span style={{ color: '#f87171' }}>
+              {compiledVideoPath
+                ? 'Delete this set and its video file (.mp4)?'
+                : 'Delete this set?'}
+            </span>
             <button
               type="button"
               className="pf-button pf-button-danger"
@@ -525,15 +629,17 @@ function SetCard({
                   >
                     &#9654;
                   </button>
-                  <button
-                    type="button"
-                    className="pf-set-remove-btn"
-                    onClick={() => handleRemoveGame(game.video.filePath)}
-                    disabled={busy}
-                    title="Remove from set"
-                  >
-                    &times;
-                  </button>
+                  {!compiledVideoPath && (
+                    <button
+                      type="button"
+                      className="pf-set-remove-btn"
+                      onClick={() => handleRemoveGame(game.video.filePath)}
+                      disabled={busy}
+                      title="Remove from set"
+                    >
+                      &times;
+                    </button>
+                  )}
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 // src/main/services/setService.ts
 // CRUD operations for tournament sets — backed by per-event SQLite
 import path from 'path';
+import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import log from 'electron-log';
 import type {
@@ -116,6 +117,11 @@ export async function addGameToSet(
     .prepare<[string], any>('SELECT * FROM sets WHERE id = ?')
     .get(setId);
   if (!setRow) throw new Error(`Set ${setId} not found`);
+  if (setRow.compiled_video_path) {
+    throw new Error(
+      'Cannot add games to a compiled set. Delete the set video first.',
+    );
+  }
 
   // Get current games + add new one
   const existingGames = db
@@ -160,6 +166,11 @@ export async function removeGameFromSet(
     .prepare<[string], any>('SELECT * FROM sets WHERE id = ?')
     .get(setId);
   if (!setRow) throw new Error(`Set ${setId} not found`);
+  if (setRow.compiled_video_path) {
+    throw new Error(
+      'Cannot remove games from a compiled set. Delete the set video first.',
+    );
+  }
 
   const result = db.transaction(() => {
     db.prepare(
@@ -262,11 +273,84 @@ export async function updateSet(
   return rowToGameSet(setRow, gamePaths);
 }
 
+export async function deleteSetVideo(
+  eventName: string,
+  setId: string,
+): Promise<GameSet> {
+  const db = getEventDb(eventName);
+  const setRow = db
+    .prepare<[string], any>('SELECT * FROM sets WHERE id = ?')
+    .get(setId);
+  if (!setRow) throw new Error(`Set ${setId} not found`);
+
+  if (setRow.compiled_video_path) {
+    // Retry on EBUSY/EPERM — Chromium may take a moment to release
+    // the file handle after the video element is cleared.
+    // eslint-disable-next-line no-await-in-loop -- sequential retries are intentional
+    await (async () => {
+      const maxRetries = 5;
+      const retryDelayMs = 300;
+      let lastErr: any;
+      for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await fs.unlink(setRow.compiled_video_path);
+          log.info(`[sets] Deleted video file: ${setRow.compiled_video_path}`);
+          return;
+        } catch (err: any) {
+          if (err.code === 'ENOENT') {
+            // File already gone — proceed
+            return;
+          }
+          if (err.code === 'EBUSY' || err.code === 'EPERM') {
+            log.info(
+              `[sets] File busy, retrying delete (${attempt + 1}/${maxRetries})...`,
+            );
+            lastErr = err;
+            // eslint-disable-next-line no-await-in-loop, no-promise-executor-return
+            await new Promise((resolve) => {
+              setTimeout(resolve, retryDelayMs);
+            });
+          } else {
+            throw err;
+          }
+        }
+      }
+      throw new Error(
+        `Video file is in use. Close the video player and try again. (${lastErr?.code})`,
+      );
+    })();
+  }
+
+  return updateSet(eventName, setId, { compiledVideoPath: null });
+}
+
 export async function deleteSet(
   eventName: string,
   setId: string,
 ): Promise<void> {
   const db = getEventDb(eventName);
+
+  // Delete compiled video file if it exists
+  const setRow = db
+    .prepare<[string], any>('SELECT * FROM sets WHERE id = ?')
+    .get(setId);
+  if (setRow?.compiled_video_path) {
+    try {
+      await fs.unlink(setRow.compiled_video_path);
+      log.info(`[sets] Deleted video file: ${setRow.compiled_video_path}`);
+    } catch (err: any) {
+      if (err.code === 'EBUSY' || err.code === 'EPERM') {
+        throw new Error(
+          'Video file is in use. Close the video player and try again.',
+        );
+      }
+      if (err.code !== 'ENOENT') {
+        log.warn(`[sets] Failed to delete video file: ${err.message}`);
+      }
+    }
+  }
+
   // CASCADE deletes set_games automatically
   db.prepare('DELETE FROM sets WHERE id = ?').run(setId);
   log.info(`[sets] Deleted set ${setId}`);

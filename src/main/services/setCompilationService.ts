@@ -2,6 +2,8 @@ import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import log from 'electron-log';
+import { sanitizeFilename } from '../../common/setUtils';
 
 // ffmpeg-static exports the path to the bundled ffmpeg binary
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -9,20 +11,6 @@ const ffmpegPath: string = require('ffmpeg-static');
 
 function repoRootDir(): string {
   return path.join(os.homedir(), 'project-flippi');
-}
-
-/**
- * Sanitize a string for use as a filename.
- * Removes/replaces characters that are unsafe on Windows/macOS/Linux.
- */
-function sanitizeFilename(name: string): string {
-  return (
-    name
-      .replace(/[<>:"/\\|?*]/g, '-')
-      .replace(/-{2,}/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .trim() || 'set-video'
-  );
 }
 
 export interface CompileProgress {
@@ -125,4 +113,70 @@ export async function compileSetVideo(
       // ignore cleanup errors
     }
   }
+}
+
+/**
+ * Rename a compiled set video to match the current set title.
+ * Returns the new file path, or the current path if no rename is needed.
+ */
+export async function renameSetVideo(
+  currentPath: string,
+  newTitle: string,
+): Promise<string> {
+  const newFilename = `${sanitizeFilename(newTitle)}.mp4`;
+  const newPath = path.join(path.dirname(currentPath), newFilename);
+
+  if (newPath === currentPath) {
+    return currentPath;
+  }
+
+  // Check source exists
+  try {
+    await fs.access(currentPath);
+  } catch {
+    throw new Error(`Video file not found: ${currentPath}`);
+  }
+
+  // Check destination doesn't already exist
+  try {
+    await fs.access(newPath);
+    throw new Error(
+      `A video file with this name already exists: ${newFilename}`,
+    );
+  } catch (err: any) {
+    // ENOENT means destination doesn't exist — that's what we want
+    if (err.code !== 'ENOENT') throw err;
+  }
+
+  // Retry on EBUSY/EPERM — Chromium may take a moment to release
+  // the file handle after the video element is cleared.
+  // eslint-disable-next-line no-await-in-loop -- sequential retries are intentional
+  return (async () => {
+    const maxRetries = 5;
+    const retryDelayMs = 300;
+    for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await fs.rename(currentPath, newPath);
+        return newPath;
+      } catch (err: any) {
+        if (
+          (err.code === 'EBUSY' || err.code === 'EPERM') &&
+          attempt < maxRetries - 1
+        ) {
+          log.info(
+            `[sets] File busy, retrying rename (${attempt + 1}/${maxRetries})...`,
+          );
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => {
+            setTimeout(resolve, retryDelayMs);
+          });
+        } else {
+          throw err;
+        }
+      }
+    }
+    // Should never reach here, but satisfy TypeScript
+    return newPath;
+  })();
 }

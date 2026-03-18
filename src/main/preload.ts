@@ -146,6 +146,10 @@ contextBridge.exposeInMainWorld('flippiSets', {
     ipcRenderer.invoke('sets:findForVideo', { eventName, videoFilePath }),
   compile: (eventName: string, setId: string) =>
     ipcRenderer.invoke('sets:compile', { eventName, setId }),
+  deleteVideo: (eventName: string, setId: string) =>
+    ipcRenderer.invoke('sets:deleteVideo', { eventName, setId }),
+  renameVideo: (eventName: string, setId: string) =>
+    ipcRenderer.invoke('sets:renameVideo', { eventName, setId }),
   onCompileProgress: (
     handler: (
       _event: any,

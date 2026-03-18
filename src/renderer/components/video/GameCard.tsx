@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameEntry, SetEntry } from '../../../common/meleeTypes';
 import { getStageName } from '../../../common/meleeResources';
@@ -41,11 +41,32 @@ export function VideoPlayerModal({
   title,
   onClose,
 }: VideoPlayerModalProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Cache-busting: append a unique query param so Chromium doesn't serve a
+  // stale cached response when the same file is opened a second time.
+  const [cacheBuster] = useState(() => Date.now());
+  const videoSrc = `${src}${src.includes('?') ? '&' : '?'}t=${cacheBuster}`;
+
+  console.log('[VideoPlayerModal] mount, src:', videoSrc);
+
+  // Release the file handle before closing so the file is not locked
+  const handleClose = useCallback(() => {
+    console.log('[VideoPlayerModal] handleClose called');
+    const vid = videoRef.current;
+    if (vid) {
+      vid.pause();
+      vid.removeAttribute('src');
+      vid.load();
+    }
+    onClose();
+  }, [onClose]);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') handleClose();
     },
-    [onClose],
+    [handleClose],
   );
 
   useEffect(() => {
@@ -55,7 +76,7 @@ export function VideoPlayerModal({
 
   return createPortal(
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div className="pf-video-modal-overlay" onClick={onClose}>
+    <div className="pf-video-modal-overlay" onClick={handleClose}>
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="pf-video-modal-content"
@@ -66,13 +87,19 @@ export function VideoPlayerModal({
           <button
             type="button"
             className="pf-video-modal-close"
-            onClick={onClose}
+            onClick={handleClose}
           >
             &times;
           </button>
         </div>
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video src={src} controls autoPlay className="pf-video-modal-player" />
+        <video
+          ref={videoRef}
+          src={videoSrc}
+          controls
+          autoPlay
+          className="pf-video-modal-player"
+        />
       </div>
     </div>,
     document.body,
@@ -270,11 +297,15 @@ function GameCard({
               className="pf-add-to-set-select"
             >
               <option value="">Add to Set...</option>
-              {sets.map((s) => (
-                <option key={s.set.id} value={s.set.id} title={s.title}>
-                  {s.title.length > 50 ? `${s.title.slice(0, 50)}...` : s.title}
-                </option>
-              ))}
+              {sets
+                .filter((s) => !s.set.compiledVideoPath)
+                .map((s) => (
+                  <option key={s.set.id} value={s.set.id} title={s.title}>
+                    {s.title.length > 50
+                      ? `${s.title.slice(0, 50)}...`
+                      : s.title}
+                  </option>
+                ))}
               <option value="__new__">+ New Set...</option>
             </select>
           )}
