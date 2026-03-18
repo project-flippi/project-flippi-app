@@ -18,7 +18,7 @@ function buildVideoSetMap(entries: SetEntry[]): Map<string, string> {
   return map;
 }
 
-const GAME_CARD_HEIGHT = 160;
+const GAME_CARD_HEIGHT = 80;
 const SET_CARD_BASE_HEIGHT = 200;
 const SET_CARD_GAME_HEIGHT = 110;
 

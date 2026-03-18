@@ -1,7 +1,7 @@
 /* eslint-disable import/no-self-import, import/no-useless-path-segments */
 import React from 'react';
 import type { SlpGameData } from '../../../common/meleeTypes';
-import { getStageName, portColors } from '../../../common/meleeResources';
+import { portColors } from '../../../common/meleeResources';
 
 // Webpack require.context typings
 type WebpackRequireContext = ((key: string) => string) & {
@@ -42,13 +42,13 @@ function getStockIconPath(
   }
 }
 
-function formatDuration(seconds: number): string {
+export function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function getPlayerIdentity(player: {
+export function getPlayerIdentity(player: {
   displayName: string;
   connectCode: string;
   nametag: string;
@@ -74,29 +74,11 @@ interface GameMatchInfoProps {
 }
 
 function GameMatchInfo({ slpGameData }: GameMatchInfoProps) {
-  const { players, stageId, matchType, durationSeconds, gameComplete } =
-    slpGameData;
+  const { players } = slpGameData;
 
   return (
-    <div className="pf-match-info">
-      {/* Header: match type, stage, duration */}
-      <div className="pf-match-header">
-        <span className="pf-match-badge">{matchType}</span>
-        {stageId != null && (
-          <span className="pf-match-badge">{getStageName(stageId)}</span>
-        )}
-        {durationSeconds != null && (
-          <span className="pf-match-duration">
-            {formatDuration(durationSeconds)}
-          </span>
-        )}
-        {!gameComplete && (
-          <span className="pf-match-incomplete">Incomplete</span>
-        )}
-      </div>
-
-      {/* Player rows */}
-      {players.map((player) => {
+    <div className="pf-match-players-row">
+      {players.map((player, idx) => {
         const identity = getPlayerIdentity(player);
         const iconSrc = getStockIconPath(
           player.characterId,
@@ -104,20 +86,25 @@ function GameMatchInfo({ slpGameData }: GameMatchInfoProps) {
         );
 
         return (
-          <div key={player.playerIndex} className="pf-match-player">
-            <span
-              className="pf-port-indicator"
-              style={{ color: portColors[player.port] || '#999' }}
-            >
-              P{player.port}
-            </span>
-            {iconSrc && <img className="pf-stock-icon" src={iconSrc} alt="" />}
-            <span className="pf-player-identity">{identity.primary}</span>
-            {identity.secondary && (
-              <span className="pf-player-code">({identity.secondary})</span>
-            )}
-            {player.isWinner && <span className="pf-winner-badge">W</span>}
-          </div>
+          <React.Fragment key={player.playerIndex}>
+            {idx > 0 && <span className="pf-player-separator">|</span>}
+            <div className="pf-match-player">
+              <span
+                className="pf-port-indicator"
+                style={{ color: portColors[player.port] || '#999' }}
+              >
+                P{player.port}
+              </span>
+              {iconSrc && (
+                <img className="pf-stock-icon" src={iconSrc} alt="" />
+              )}
+              <span className="pf-player-identity">{identity.primary}</span>
+              {identity.secondary && (
+                <span className="pf-player-code">({identity.secondary})</span>
+              )}
+              {player.isWinner && <span className="pf-winner-badge">W</span>}
+            </div>
+          </React.Fragment>
         );
       })}
     </div>

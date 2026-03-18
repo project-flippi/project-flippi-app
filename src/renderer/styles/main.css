@@ -494,7 +494,20 @@ html, body, #root {
 .pf-match-info {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.pf-match-players-row {
+  display: flex;
+  align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pf-player-separator {
+  color: #475569;
+  font-size: 0.8rem;
+  user-select: none;
 }
 
 .pf-match-header {
@@ -776,6 +789,31 @@ html, body, #root {
   border: 1px solid #334155;
   background: #1e293b;
   color: #e2e8f0;
+}
+
+.pf-add-to-set-select {
+  font-size: 0.75rem;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.pf-play-btn {
+  background: none;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #e2e8f0;
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.pf-play-btn:hover {
+  background: #1e293b;
 }
 
 /* New set form modal */

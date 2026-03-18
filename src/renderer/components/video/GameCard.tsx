@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import type { GameEntry, SetEntry } from '../../../common/meleeTypes';
-import GameMatchInfo from './GameMatchInfo';
+import { getStageName } from '../../../common/meleeResources';
+import GameMatchInfo, { formatDuration } from './GameMatchInfo';
 import NewSetForm from './NewSetForm';
-import LazyVideoThumbnail from './LazyVideoThumbnail';
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -91,6 +91,84 @@ interface GameCardProps {
   currentSetId?: string | null;
 }
 
+function renderMatchMetadata(
+  slp: GameEntry['slpGameData'],
+  slpFile: GameEntry['slpFile'],
+  video: GameEntry['video'],
+) {
+  if (slp) {
+    return (
+      <>
+        <span className="pf-match-badge">{slp.matchType}</span>
+        {slp.stageId != null && (
+          <span className="pf-match-badge">{getStageName(slp.stageId)}</span>
+        )}
+        {slp.durationSeconds != null && (
+          <span className="pf-match-duration">
+            {formatDuration(slp.durationSeconds)}
+          </span>
+        )}
+        {!slp.gameComplete && (
+          <span className="pf-match-incomplete">Incomplete</span>
+        )}
+        {slpFile && (
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: '#666',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={slpFile.filePath}
+          >
+            {slpFile.fileName}
+          </span>
+        )}
+      </>
+    );
+  }
+  if (slpFile) {
+    return (
+      <>
+        <span
+          style={{ fontSize: '0.8rem', fontWeight: 600 }}
+          title={slpFile.filePath}
+        >
+          {slpFile.fileName}
+        </span>
+        <span style={{ fontSize: '0.75rem', color: '#999' }}>
+          {formatTimestamp(slpFile.gameStartedAt)}
+        </span>
+      </>
+    );
+  }
+  return (
+    <>
+      <span
+        style={{
+          fontSize: '0.8rem',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        title={video.filePath}
+      >
+        {video.fileName}
+      </span>
+      <span
+        style={{
+          color: '#777',
+          fontStyle: 'italic',
+          fontSize: '0.8rem',
+        }}
+      >
+        No SLP file paired
+      </span>
+    </>
+  );
+}
+
 function GameCard({
   game,
   sets,
@@ -99,6 +177,7 @@ function GameCard({
   currentSetId,
 }: GameCardProps) {
   const { video, slpFile } = game;
+  const slp = game.slpGameData;
   const [showPlayer, setShowPlayer] = useState(false);
   const [showNewSetForm, setShowNewSetForm] = useState(false);
 
@@ -126,102 +205,84 @@ function GameCard({
       className="pf-card"
       style={{
         display: 'flex',
-        gap: 16,
-        padding: 12,
-        marginBottom: 8,
-        alignItems: 'flex-start',
+        flexDirection: 'column',
+        gap: 4,
+        padding: '8px 12px',
+        marginBottom: 4,
       }}
     >
-      {/* Video preview — click to play */}
-      <div style={{ flexShrink: 0, width: 220 }}>
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-        <div className="pf-video-thumbnail" onClick={() => setShowPlayer(true)}>
-          <LazyVideoThumbnail src={localFileUrl(video.filePath)} width={220} />
-          <div className="pf-video-play-icon">&#9654;</div>
-        </div>
+      {/* Row 1: match info left, actions right */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        }}
+      >
+        {/* Left: match metadata */}
         <div
-          style={{ fontSize: '0.8em', color: '#999', marginTop: 4 }}
-          title={video.filePath}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            minWidth: 0,
+            flex: 1,
+          }}
         >
-          {video.fileName}
+          {renderMatchMetadata(slp, slpFile, video)}
         </div>
-        <div style={{ fontSize: '0.75em', color: '#777' }}>
-          {formatFileSize(video.fileSize)}
-        </div>
-      </div>
 
-      {/* SLP info + set assignment */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {slpFile ? (
-          <>
-            {game.slpGameData ? (
-              <GameMatchInfo slpGameData={game.slpGameData} />
-            ) : (
-              <>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                  SLP Source File
-                </div>
-                <div
-                  style={{ fontSize: '0.9em', wordBreak: 'break-all' }}
-                  title={slpFile.filePath}
-                >
-                  {slpFile.fileName}
-                </div>
-                <div style={{ fontSize: '0.8em', color: '#999', marginTop: 4 }}>
-                  Game started: {formatTimestamp(slpFile.gameStartedAt)}
-                </div>
-                <div style={{ fontSize: '0.8em', color: '#999' }}>
-                  {formatFileSize(slpFile.fileSize)}
-                </div>
-              </>
-            )}
-            <div
-              style={{ fontSize: '0.75em', color: '#666', marginTop: 4 }}
-              title={slpFile.filePath}
+        {/* Right: play button + set dropdown */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
+          <button
+            type="button"
+            className="pf-play-btn"
+            onClick={() => setShowPlayer(true)}
+            title="Play video"
+          >
+            &#9654;
+          </button>
+          {sets && eventName && currentSetId && currentSet && (
+            <span
+              className="pf-match-badge"
+              style={{ fontSize: '0.75rem' }}
+              title={currentSet.title}
             >
-              {slpFile.fileName} &middot; {formatFileSize(slpFile.fileSize)}
-            </div>
-          </>
-        ) : (
-          <div style={{ color: '#777', fontStyle: 'italic', marginTop: 8 }}>
-            No SLP file paired
-          </div>
-        )}
-
-        {/* Add to Set dropdown */}
-        {sets && eventName && (
-          <div className="pf-add-to-set">
-            {currentSetId && currentSet ? (
-              <span
-                className="pf-match-badge"
-                style={{ fontSize: '0.8rem' }}
-                title={currentSet.title}
-              >
-                In set:{' '}
-                {currentSet.title.length > 50
-                  ? `${currentSet.title.slice(0, 50)}...`
-                  : currentSet.title}
-              </span>
-            ) : (
-              <select
-                value=""
-                onChange={(e) => handleSetSelect(e.target.value)}
-                style={{ fontSize: '0.8rem' }}
-              >
-                <option value="">Add to Set...</option>
-                {sets.map((s) => (
-                  <option key={s.set.id} value={s.set.id}>
-                    {s.title.length > 60
-                      ? `${s.title.slice(0, 60)}...`
-                      : s.title}
-                  </option>
-                ))}
-                <option value="__new__">+ New Set...</option>
-              </select>
-            )}
-          </div>
-        )}
+              Set:{' '}
+              {currentSet.title.length > 40
+                ? `${currentSet.title.slice(0, 40)}...`
+                : currentSet.title}
+            </span>
+          )}
+          {sets && eventName && !currentSetId && (
+            <select
+              value=""
+              onChange={(e) => handleSetSelect(e.target.value)}
+              style={{ fontSize: '0.75rem' }}
+              className="pf-add-to-set-select"
+            >
+              <option value="">Add to Set...</option>
+              {sets.map((s) => (
+                <option key={s.set.id} value={s.set.id}>
+                  {s.title.length > 50 ? `${s.title.slice(0, 50)}...` : s.title}
+                </option>
+              ))}
+              <option value="__new__">+ New Set...</option>
+            </select>
+          )}
+        </div>
       </div>
+
+      {/* Row 2: players (horizontal) */}
+      {slp && <GameMatchInfo slpGameData={slp} />}
 
       {/* Video player modal */}
       {showPlayer && (
