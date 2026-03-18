@@ -10,16 +10,7 @@
  */
 import path from 'path';
 import fs from 'fs';
-import {
-  app,
-  BrowserWindow,
-  shell,
-  ipcMain,
-  Menu,
-  dialog,
-  net,
-  protocol,
-} from 'electron';
+import { app, BrowserWindow, shell, ipcMain, Menu, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import { resolveHtmlPath } from './util';
@@ -92,6 +83,11 @@ import {
   renameSetVideo,
 } from './services/setCompilationService';
 import { computeSetTitle } from '../common/setUtils';
+import {
+  startVideoServer,
+  stopVideoServer,
+  getVideoServerPort,
+} from './services/videoServer';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -794,21 +790,13 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  stopVideoServer();
   closeAllEventDbs();
 });
 
-// Register a custom scheme so the renderer can load local files (videos, etc.)
-// even when served from http://localhost in dev mode.
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: 'local-file',
-    privileges: { stream: true, bypassCSP: true },
-  },
-]);
-
 app
   .whenReady()
-  .then(() => {
+  .then(async () => {
     // Initialize SLP metadata cache database
     try {
       initDatabase();
@@ -816,38 +804,16 @@ app
       log.error('[main] Failed to initialize database:', err);
     }
 
-    // Handle local-file:// requests by reading the file from disk.
-    // Cache-Control: no-store prevents Chromium from caching responses,
-    // which avoids stale video playback and EBUSY file locks.
-    protocol.handle('local-file', async (request) => {
-      // Strip query parameters (e.g. cache-busting ?t=...) before resolving path
-      const rawPath = request.url.replace('local-file://', '').split('?')[0];
-      const filePath = decodeURIComponent(rawPath);
-      const { pathToFileURL } = require('url');
-      try {
-        // Pass request.signal so that when the <video> element is cleared
-        // (removeAttribute('src') + load()), the abort propagates to the
-        // inner fetch and releases the file handle immediately.
-        const response = await net.fetch(pathToFileURL(filePath).href, {
-          signal: request.signal,
-        });
-        return new Response(response.body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: {
-            ...Object.fromEntries(response.headers.entries()),
-            'Cache-Control': 'no-store',
-          },
-        });
-      } catch (err: any) {
-        // When the video element aborts its request, we get an AbortError.
-        // Return an empty response instead of letting the error propagate.
-        if (err.name === 'AbortError') {
-          return new Response(null, { status: 499 });
-        }
-        throw err;
-      }
-    });
+    // Start local HTTP server for streaming video files.
+    // This replaces the old local-file:// protocol handler which caused
+    // Chromium to hold file handles indefinitely (EBUSY on Windows).
+    try {
+      await startVideoServer();
+    } catch (err) {
+      log.error('[main] Failed to start video server:', err);
+    }
+
+    ipcMain.handle('video:serverPort', () => getVideoServerPort());
 
     createWindow();
     startObsProcessPolling();

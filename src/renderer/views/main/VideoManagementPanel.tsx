@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GameEntry, GameSet, SetEntry } from '../../../common/meleeTypes';
 import { computeSetTitle } from '../../../common/setUtils';
-import GameCard from '../../components/video/GameCard';
+import GameCard, { initVideoServerPort } from '../../components/video/GameCard';
 import SetCard from '../../components/video/SetCard';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -105,6 +105,9 @@ function VideoManagementPanel() {
   const videoSetMap = useMemo(() => buildVideoSetMap(sets), [sets]);
 
   useEffect(() => {
+    // Fetch the video server port before any video URLs are constructed
+    initVideoServerPort().catch(() => {});
+
     window.flippiEvents
       .list()
       .then((list) => {

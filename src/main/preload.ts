@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('flippiDialog', {
 });
 
 contextBridge.exposeInMainWorld('flippiVideo', {
+  getServerPort: (): Promise<number> => ipcRenderer.invoke('video:serverPort'),
   getClips: (eventName: string) =>
     ipcRenderer.invoke('video:getClips', { eventName }),
   getCompilations: (eventName: string) =>

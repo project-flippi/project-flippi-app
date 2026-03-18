@@ -2,7 +2,6 @@ import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import log from 'electron-log';
 import { sanitizeFilename } from '../../common/setUtils';
 
 // ffmpeg-static exports the path to the bundled ffmpeg binary
@@ -148,35 +147,6 @@ export async function renameSetVideo(
     if (err.code !== 'ENOENT') throw err;
   }
 
-  // Retry on EBUSY/EPERM — Chromium may take a moment to release
-  // the file handle after the video element is cleared.
-  // eslint-disable-next-line no-await-in-loop -- sequential retries are intentional
-  return (async () => {
-    const maxRetries = 5;
-    const retryDelayMs = 300;
-    for (let attempt = 0; attempt < maxRetries; attempt += 1) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await fs.rename(currentPath, newPath);
-        return newPath;
-      } catch (err: any) {
-        if (
-          (err.code === 'EBUSY' || err.code === 'EPERM') &&
-          attempt < maxRetries - 1
-        ) {
-          log.info(
-            `[sets] File busy, retrying rename (${attempt + 1}/${maxRetries})...`,
-          );
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((resolve) => {
-            setTimeout(resolve, retryDelayMs);
-          });
-        } else {
-          throw err;
-        }
-      }
-    }
-    // Should never reach here, but satisfy TypeScript
-    return newPath;
-  })();
+  await fs.rename(currentPath, newPath);
+  return newPath;
 }
