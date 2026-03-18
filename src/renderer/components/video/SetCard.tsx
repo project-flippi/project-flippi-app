@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import type {
+  GameEntry,
   SetEntry,
   SetPhase,
   SetType,
@@ -8,9 +9,9 @@ import type {
   SetPlayerOverride,
 } from '../../../common/meleeTypes';
 import { getResolvedPlayers } from '../../../common/setUtils';
-import GameMatchInfo from './GameMatchInfo';
-import { VideoPlayerModal, localFileUrl, formatFileSize } from './GameCard';
-import LazyVideoThumbnail from './LazyVideoThumbnail';
+import GameMatchInfo, { formatDuration } from './GameMatchInfo';
+import { VideoPlayerModal, localFileUrl } from './GameCard';
+import { getStageName } from '../../../common/meleeResources';
 
 /** Controlled input that saves on blur. Manages its own local state. */
 function PlayerOverrideInput({
@@ -52,6 +53,65 @@ function PlayerOverrideInput({
         />
       </label>
     </div>
+  );
+}
+
+function renderSetGameMetadata(
+  slp: GameEntry['slpGameData'],
+  slpFile: GameEntry['slpFile'],
+) {
+  if (slp) {
+    return (
+      <>
+        <span className="pf-match-badge">{slp.matchType}</span>
+        {slp.stageId != null && (
+          <span className="pf-match-badge">{getStageName(slp.stageId)}</span>
+        )}
+        {slp.durationSeconds != null && (
+          <span className="pf-match-duration">
+            {formatDuration(slp.durationSeconds)}
+          </span>
+        )}
+        {!slp.gameComplete && (
+          <span className="pf-match-incomplete">Incomplete</span>
+        )}
+        {slpFile && (
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: '#666',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={slpFile.filePath}
+          >
+            {slpFile.fileName}
+          </span>
+        )}
+      </>
+    );
+  }
+  if (slpFile) {
+    return (
+      <span
+        style={{ fontSize: '0.8rem', color: '#999' }}
+        title={slpFile.filePath}
+      >
+        {slpFile.fileName}
+      </span>
+    );
+  }
+  return (
+    <span
+      style={{
+        color: '#777',
+        fontStyle: 'italic',
+        fontSize: '0.8rem',
+      }}
+    >
+      No SLP data
+    </span>
   );
 }
 
@@ -282,83 +342,82 @@ function SetCard({
             No games in this set
           </div>
         )}
-        {games.map((game, idx) => (
-          <div key={game.video.filePath} className="pf-set-game-card">
-            <div style={{ flexShrink: 0, width: 140 }}>
-              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
-              <div
-                className="pf-video-thumbnail"
-                onClick={() => setShowPlayer(game.video.filePath)}
-              >
-                <LazyVideoThumbnail
-                  src={localFileUrl(game.video.filePath)}
-                  width={140}
-                />
-                <div
-                  className="pf-video-play-icon"
-                  style={{ fontSize: '1.2rem' }}
-                >
-                  &#9654;
-                </div>
-              </div>
-              <div style={{ fontSize: '0.7em', color: '#999', marginTop: 2 }}>
-                {game.video.fileName}
-              </div>
-              <div style={{ fontSize: '0.7em', color: '#777' }}>
-                {formatFileSize(game.video.fileSize)}
-              </div>
-            </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
+        {games.map((game, idx) => {
+          const slp = game.slpGameData;
+          return (
+            <div
+              key={game.video.filePath}
+              className="pf-set-game-card"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                padding: '6px 10px',
+              }}
+            >
+              {/* Row 1: game label + metadata left, actions right */}
               <div
                 style={{
-                  fontSize: '0.8rem',
-                  color: '#cbd5e1',
-                  marginBottom: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
                 }}
               >
-                Game {idx + 1}
-              </div>
-              {game.slpGameData && (
-                <GameMatchInfo slpGameData={game.slpGameData} />
-              )}
-              {!game.slpGameData && game.slpFile && (
-                <div style={{ fontSize: '0.8em', color: '#999' }}>
-                  {game.slpFile.fileName}
-                </div>
-              )}
-              {!game.slpGameData && !game.slpFile && (
                 <div
                   style={{
-                    fontSize: '0.8em',
-                    color: '#777',
-                    fontStyle: 'italic',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    minWidth: 0,
+                    flex: 1,
                   }}
                 >
-                  No SLP data
+                  <span
+                    style={{
+                      fontSize: '0.8rem',
+                      color: '#cbd5e1',
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    Game {idx + 1}
+                  </span>
+                  {renderSetGameMetadata(slp, game.slpFile)}
                 </div>
-              )}
-              {game.slpFile && (
                 <div
-                  style={{ fontSize: '0.7em', color: '#555', marginTop: 2 }}
-                  title={game.slpFile.filePath}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    flexShrink: 0,
+                  }}
                 >
-                  SLP: {game.slpFile.fileName}
+                  <button
+                    type="button"
+                    className="pf-play-btn"
+                    onClick={() => setShowPlayer(game.video.filePath)}
+                    title="Play video"
+                  >
+                    &#9654;
+                  </button>
+                  <button
+                    type="button"
+                    className="pf-set-remove-btn"
+                    onClick={() => handleRemoveGame(game.video.filePath)}
+                    disabled={busy}
+                    title="Remove from set"
+                  >
+                    &times;
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <button
-              type="button"
-              className="pf-set-remove-btn"
-              onClick={() => handleRemoveGame(game.video.filePath)}
-              disabled={busy}
-              title="Remove from set"
-            >
-              &times;
-            </button>
-          </div>
-        ))}
+              {/* Row 2: players (horizontal) */}
+              {slp && <GameMatchInfo slpGameData={slp} />}
+            </div>
+          );
+        })}
       </div>
 
       {/* Video player modal */}

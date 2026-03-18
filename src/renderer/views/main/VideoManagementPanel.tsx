@@ -20,7 +20,7 @@ function buildVideoSetMap(entries: SetEntry[]): Map<string, string> {
 
 const GAME_CARD_HEIGHT = 80;
 const SET_CARD_BASE_HEIGHT = 200;
-const SET_CARD_GAME_HEIGHT = 110;
+const SET_CARD_GAME_HEIGHT = 60;
 
 interface GameRowProps {
   games: GameEntry[];
