@@ -13,7 +13,6 @@ import {
   deduplicatePlayers,
   formatContext,
 } from '../../common/setUtils';
-import { getCharacterName } from '../../common/meleeResources';
 
 const WIDTH = 1280;
 const HEIGHT = 720;
@@ -152,7 +151,101 @@ function drawPlayerName(
   drawTextWithShadow(ctx, name, x, y, align, color);
 }
 
-/** Draw character render images for one side. */
+/**
+ * Build diagonal clip regions for N characters within a rectangular area.
+ * Returns an array of polygon point arrays, one per character slot.
+ *
+ * The diagonal slant goes from upper-left to lower-right. For the left side
+ * this means earlier characters get the left portion; for the right side
+ * the image is mirrored so earlier characters appear on the outer edge.
+ */
+function buildDiagonalRegions(
+  n: number,
+  areaX: number,
+  areaY: number,
+  areaW: number,
+  areaH: number,
+): { x: number; y: number }[][] {
+  if (n <= 1) {
+    return [
+      [
+        { x: areaX, y: areaY },
+        { x: areaX + areaW, y: areaY },
+        { x: areaX + areaW, y: areaY + areaH },
+        { x: areaX, y: areaY + areaH },
+      ],
+    ];
+  }
+
+  // Skew factor: how far the diagonal shifts between top and bottom edges.
+  // Each strip boundary is offset so the split looks diagonal.
+  const skew = areaW * 0.15;
+  const regions: { x: number; y: number }[][] = [];
+
+  for (let i = 0; i < n; i++) {
+    // Top-edge x positions for left and right boundaries of this strip
+    const topLeft = areaX + (areaW + skew) * (i / n) - (skew * i) / (n - 1);
+    const topRight =
+      areaX + (areaW + skew) * ((i + 1) / n) - (skew * (i + 1)) / (n - 1);
+    // Bottom-edge x positions (shifted by -skew relative to top)
+    const botLeft =
+      areaX + (areaW - skew) * (i / n) + (skew * (n - 1 - i)) / (n - 1);
+    const botRight =
+      areaX +
+      (areaW - skew) * ((i + 1) / n) +
+      (skew * (n - 1 - (i + 1))) / (n - 1);
+
+    // Clamp to area bounds
+    const clamp = (v: number) => Math.max(areaX, Math.min(areaX + areaW, v));
+
+    regions.push([
+      { x: clamp(topLeft), y: areaY },
+      { x: clamp(topRight), y: areaY },
+      { x: clamp(botRight), y: areaY + areaH },
+      { x: clamp(botLeft), y: areaY + areaH },
+    ]);
+  }
+
+  return regions;
+}
+
+/** Compute the centroid of a polygon for centering an image within it. */
+function polygonCenter(points: { x: number; y: number }[]): {
+  x: number;
+  y: number;
+} {
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < points.length; i++) {
+    cx += points[i].x;
+    cy += points[i].y;
+  }
+  return { x: cx / points.length, y: cy / points.length };
+}
+
+/** Compute the bounding box of a polygon. */
+function polygonBounds(points: { x: number; y: number }[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  w: number;
+  h: number;
+} {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].x < minX) minX = points[i].x;
+    if (points[i].y < minY) minY = points[i].y;
+    if (points[i].x > maxX) maxX = points[i].x;
+    if (points[i].y > maxY) maxY = points[i].y;
+  }
+  return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+}
+
+/** Draw character render images for one side with diagonal clipping. */
 async function drawCharacterRenders(
   ctx: CanvasRenderingContext2D,
   chars: { characterId: number; colorId: number }[],
@@ -160,10 +253,12 @@ async function drawCharacterRenders(
 ) {
   if (chars.length === 0) return;
 
-  const maxChars = Math.min(chars.length, 3);
+  const maxChars = Math.min(chars.length, 5);
   const areaX = side === 'left' ? 0 : WIDTH / 2;
   const areaW = WIDTH / 2;
   const areaH = HEIGHT;
+
+  const regions = buildDiagonalRegions(maxChars, areaX, 0, areaW, areaH);
 
   for (let i = 0; i < maxChars; i++) {
     const char = chars[i];
@@ -176,36 +271,46 @@ async function drawCharacterRenders(
       // eslint-disable-next-line no-await-in-loop
       const img = await loadImage(dataUrl);
 
-      const isPrimary = i === 0;
-      const scale = isPrimary
-        ? Math.min((areaW * 0.85) / img.width, (areaH - 120) / img.height, 1.2)
-        : Math.min((areaW * 0.5) / img.width, (areaH - 120) / img.height, 0.7);
+      const region = regions[i];
+      const bounds = polygonBounds(region);
+      const center = polygonCenter(region);
+
+      // Scale character to fit within the clip region with some padding
+      const padFactor = maxChars === 1 ? 0.85 : 0.9;
+      const scale = Math.min(
+        (bounds.w * padFactor) / img.width,
+        (bounds.h * padFactor) / img.height,
+        maxChars === 1 ? 1.2 : 1.0,
+      );
 
       const drawW = img.width * scale;
       const drawH = img.height * scale;
+      const drawX = center.x - drawW / 2;
+      const drawY = center.y - drawH / 2;
 
-      let drawX: number;
-      let drawY: number;
+      ctx.save();
 
-      if (isPrimary) {
-        drawX = areaX + (areaW - drawW) / 2;
-        drawY = (areaH - drawH) / 2 + 20;
-      } else {
-        const offsetX = i === 1 ? -30 : 30;
-        const offsetY = i === 1 ? -20 : 20;
-        drawX = areaX + (areaW - drawW) / 2 + offsetX;
-        drawY = (areaH - drawH) / 2 + 20 + offsetY;
+      // Apply clip region
+      if (maxChars > 1) {
+        ctx.beginPath();
+        ctx.moveTo(region[0].x, region[0].y);
+        for (let j = 1; j < region.length; j++) {
+          ctx.lineTo(region[j].x, region[j].y);
+        }
+        ctx.closePath();
+        ctx.clip();
       }
 
+      // Flip right-side characters horizontally so they face inward
       if (side === 'right') {
-        ctx.save();
         ctx.translate(WIDTH, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(img, WIDTH - drawX - drawW, drawY, drawW, drawH);
-        ctx.restore();
       } else {
         ctx.drawImage(img, drawX, drawY, drawW, drawH);
       }
+
+      ctx.restore();
     } catch {
       // Character render failed to load — skip
     }
@@ -232,7 +337,7 @@ export interface ThumbnailRenderParams {
 export async function renderThumbnail(
   params: ThumbnailRenderParams,
 ): Promise<string> {
-  const { eventName, set, games, settings, serverPort, serverToken } = params;
+  const { set, games, settings, serverPort, serverToken } = params;
 
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
@@ -260,7 +365,7 @@ export async function renderThumbnail(
   const leftChars = getUniqueCharacters(sides[0]);
   const rightChars = getUniqueCharacters(sides[1]);
 
-  // --- 2. Character renders ---
+  // --- 2. Character renders (with diagonal clipping for multi-char) ---
   await drawCharacterRenders(ctx, leftChars, 'left');
   await drawCharacterRenders(ctx, rightChars, 'right');
 
@@ -300,7 +405,7 @@ export async function renderThumbnail(
     settings.textColor,
   );
 
-  // --- 6. Player names ---
+  // --- 6. Player names (centered on their half) ---
   ctx.textBaseline = 'top';
   const maxNameWidth = 500;
 
@@ -333,18 +438,18 @@ export async function renderThumbnail(
     drawPlayerName(
       ctx,
       leftNames,
-      40,
+      WIDTH / 4,
       20,
-      'left',
+      'center',
       maxNameWidth,
       settings.textColor,
     );
     drawPlayerName(
       ctx,
       rightNames,
-      WIDTH - 40,
+      (WIDTH * 3) / 4,
       20,
-      'right',
+      'center',
       maxNameWidth,
       settings.textColor,
     );
@@ -356,74 +461,49 @@ export async function renderThumbnail(
     drawPlayerName(
       ctx,
       leftName,
-      40,
+      WIDTH / 4,
       20,
-      'left',
+      'center',
       maxNameWidth,
       settings.textColor,
     );
     drawPlayerName(
       ctx,
       rightName,
-      WIDTH - 40,
+      (WIDTH * 3) / 4,
       20,
-      'right',
+      'center',
       maxNameWidth,
       settings.textColor,
     );
   }
 
-  // --- 7. Character name badges (below player names) ---
-  ctx.textBaseline = 'top';
-  const leftCharNames = leftChars
-    .map((c) => getCharacterName(c.characterId))
-    .join(' / ');
-  const rightCharNames = rightChars
-    .map((c) => getCharacterName(c.characterId))
-    .join(' / ');
-
-  if (leftCharNames) {
-    const badgeSize = fitText(ctx, leftCharNames, maxNameWidth, 24, 16, false);
-    ctx.font = `${badgeSize}px ${FONT_FAMILY}`;
-    drawTextWithShadow(ctx, leftCharNames, 40, 72, 'left', settings.textColor);
-  }
-  if (rightCharNames) {
-    const badgeSize = fitText(ctx, rightCharNames, maxNameWidth, 24, 16, false);
-    ctx.font = `${badgeSize}px ${FONT_FAMILY}`;
-    drawTextWithShadow(
-      ctx,
-      rightCharNames,
-      WIDTH - 40,
-      72,
-      'right',
-      settings.textColor,
-    );
-  }
-
-  // --- 8. Tournament context (bottom) ---
+  // --- 7. Bottom bar: context (left half) + match type (right half) ---
   const context = formatContext(set);
   const matchLabel = `MELEE ${set.matchType.toUpperCase()}`;
 
   ctx.textBaseline = 'bottom';
 
-  ctx.font = `bold 32px ${FONT_FAMILY}`;
+  // Left half: Phase/Round (tournament) or set type (friendlies/ranked/unranked)
+  const ctxSize = fitText(ctx, context, WIDTH / 2 - 60, 32, 20, true);
+  ctx.font = `bold ${ctxSize}px ${FONT_FAMILY}`;
   drawTextWithShadow(
     ctx,
     context,
-    WIDTH / 2,
-    HEIGHT - 48,
+    WIDTH / 4,
+    HEIGHT - 30,
     'center',
     settings.textColor,
   );
 
-  const bottomLine = `${matchLabel} | ${eventName}`;
-  const bottomSize = fitText(ctx, bottomLine, WIDTH - 80, 24, 16, false);
-  ctx.font = `${bottomSize}px ${FONT_FAMILY}`;
+  // Right half: Match type (MELEE SINGLES / MELEE DOUBLES)
+  const matchSize = fitText(ctx, matchLabel, WIDTH / 2 - 60, 32, 20, true);
+  ctx.font = `bold ${matchSize}px ${FONT_FAMILY}`;
   drawTextWithShadow(
     ctx,
-    bottomLine,
-    WIDTH / 2,
-    HEIGHT - 16,
+    matchLabel,
+    (WIDTH * 3) / 4,
+    HEIGHT - 30,
     'center',
     settings.textColor,
   );
