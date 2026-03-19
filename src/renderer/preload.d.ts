@@ -7,6 +7,7 @@ import type {
   SetEntry,
   GameSet,
   SetPlayerOverride,
+  EventThumbnailSettings,
 } from '../common/meleeTypes';
 
 declare global {
@@ -89,6 +90,27 @@ declare global {
       getGameAndSetEntries: (
         eventName: string,
       ) => Promise<{ games: GameEntry[]; sets: SetEntry[] }>;
+    };
+    flippiThumbnail: {
+      getSettings: (eventName: string) => Promise<EventThumbnailSettings>;
+      updateSettings: (
+        eventName: string,
+        updates: Partial<EventThumbnailSettings>,
+      ) => Promise<EventThumbnailSettings>;
+      selectImage: (
+        eventName: string,
+        purpose: 'logo' | 'canvas',
+      ) => Promise<{ ok: boolean; path: string }>;
+      save: (
+        eventName: string,
+        setId: string,
+        dataUrl: string,
+      ) => Promise<GameSet>;
+      delete: (eventName: string, setId: string) => Promise<GameSet>;
+      getCharacterRender: (
+        characterId: number,
+        colorId: number,
+      ) => Promise<string>;
     };
     flippiSets: {
       getEntries: (eventName: string) => Promise<SetEntry[]>;

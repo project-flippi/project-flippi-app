@@ -169,6 +169,9 @@ export function getEventDb(eventName: string): Database.Database {
       'ALTER TABLE sets ADD COLUMN compiled_video_path TEXT DEFAULT NULL',
     );
   }
+  if (!cols.includes('thumbnail_path')) {
+    edb.exec('ALTER TABLE sets ADD COLUMN thumbnail_path TEXT DEFAULT NULL');
+  }
 
   // Run migration from old files if needed
   migrateEventIfNeeded(eventName, edb);

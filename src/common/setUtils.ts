@@ -24,7 +24,7 @@ export function sanitizeFilename(name: string): string {
  * Resolve the display name for a player side from SLP data across all games.
  * Priority: playerOverride > displayName > nametag > connectCode > "Player N"
  */
-function resolvePlayerName(
+export function resolvePlayerName(
   side: number,
   overrides: GameSet['playerOverrides'],
   players: SlpPlayerData[],
@@ -44,7 +44,7 @@ function resolvePlayerName(
 /**
  * Deduplicate players by first occurrence key.
  */
-function deduplicatePlayers(players: SlpPlayerData[]): SlpPlayerData[] {
+export function deduplicatePlayers(players: SlpPlayerData[]): SlpPlayerData[] {
   const seen = new Set<string>();
   return players.filter((p) => {
     const key = p.connectCode || p.displayName || p.nametag || `port${p.port}`;
@@ -62,7 +62,7 @@ function deduplicatePlayers(players: SlpPlayerData[]): SlpPlayerData[] {
  * For Singles: 2 sides, 1 player each.
  * For Doubles: 2 sides, 2 players each (grouped by teamId).
  */
-function getSidePlayersAcrossGames(
+export function getSidePlayersAcrossGames(
   games: GameEntry[],
   matchType: GameSet['matchType'],
 ): SlpPlayerData[][] {
@@ -140,7 +140,7 @@ function getSidePlayersAcrossGames(
  * Get all unique characters played, ordered by frequency (most played first).
  * Returns a slash-separated string like "Fox/Falco" or "Fox".
  */
-function playedCharacters(players: SlpPlayerData[]): string {
+export function playedCharacters(players: SlpPlayerData[]): string {
   const counts = new Map<number, number>();
   // Track first appearance order for stable tie-breaking
   const firstSeen = new Map<number, number>();
@@ -167,7 +167,7 @@ function playedCharacters(players: SlpPlayerData[]): string {
 /**
  * Format the round display string from roundType + roundNumber.
  */
-function formatRound(set: GameSet): string {
+export function formatRound(set: GameSet): string {
   if (set.roundType === 'Round') {
     return `Round ${set.roundNumber || '1'}`;
   }
@@ -180,7 +180,7 @@ function formatRound(set: GameSet): string {
  * Tournament: "Phase Round" (e.g. "Winners Semis")
  * Others: just the set type (e.g. "Friendlies", "Ranked", "Unranked")
  */
-function formatContext(set: GameSet): string {
+export function formatContext(set: GameSet): string {
   if (set.setType === 'Tournament') {
     return `${set.phase} ${formatRound(set)}`;
   }

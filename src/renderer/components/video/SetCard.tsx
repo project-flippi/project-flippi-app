@@ -10,8 +10,14 @@ import type {
 } from '../../../common/meleeTypes';
 import { getResolvedPlayers, sanitizeFilename } from '../../../common/setUtils';
 import GameMatchInfo, { formatDuration } from './GameMatchInfo';
-import { VideoPlayerModal, localFileUrl } from './GameCard';
+import {
+  VideoPlayerModal,
+  localFileUrl,
+  localImageUrl,
+  getVideoServerInfo,
+} from './GameCard';
 import { getStageName } from '../../../common/meleeResources';
+import { renderThumbnail } from '../../utils/thumbnailRenderer';
 
 /** Animated "Compiling..." indicator with cycling dots. */
 function CompilingIndicator() {
@@ -246,6 +252,52 @@ function SetCard({
   }, [compiledVideoPath, title]);
 
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
+
+  // Thumbnail state
+  const [thumbnailPath, setThumbnailPath] = useState<string | null>(
+    set.thumbnailPath ?? null,
+  );
+  const [thumbnailBusy, setThumbnailBusy] = useState(false);
+  const [confirmDeleteThumbnail, setConfirmDeleteThumbnail] = useState(false);
+
+  async function handleGenerateThumbnail() {
+    setThumbnailBusy(true);
+    try {
+      const settings = await window.flippiThumbnail.getSettings(eventName);
+      const { port, token } = getVideoServerInfo();
+      const dataUrl = await renderThumbnail({
+        eventName,
+        set,
+        games,
+        settings,
+        serverPort: port,
+        serverToken: token,
+      });
+      const updated = await window.flippiThumbnail.save(
+        eventName,
+        set.id,
+        dataUrl,
+      );
+      setThumbnailPath(updated.thumbnailPath ?? null);
+      onSetUpdated(updated);
+    } catch {
+      // ignore
+    } finally {
+      setThumbnailBusy(false);
+    }
+  }
+
+  async function handleDeleteThumbnail() {
+    setThumbnailBusy(true);
+    try {
+      const updated = await window.flippiThumbnail.delete(eventName, set.id);
+      setThumbnailPath(null);
+      onSetUpdated(updated);
+    } finally {
+      setThumbnailBusy(false);
+      setConfirmDeleteThumbnail(false);
+    }
+  }
 
   async function handleRenameVideo() {
     setBusy(true);
@@ -561,6 +613,88 @@ function SetCard({
             />
           );
         })}
+      </div>
+
+      {/* Thumbnail section */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '6px 0',
+          borderTop: '1px solid #333',
+        }}
+      >
+        {thumbnailPath && (
+          <img
+            src={localImageUrl(thumbnailPath)}
+            alt="Thumbnail"
+            style={{
+              width: 160,
+              height: 90,
+              objectFit: 'cover',
+              borderRadius: 4,
+              border: '1px solid #444',
+            }}
+          />
+        )}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="pf-button"
+            onClick={handleGenerateThumbnail}
+            disabled={thumbnailBusy}
+            style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+          >
+            {/* eslint-disable-next-line no-nested-ternary */}
+            {thumbnailBusy
+              ? 'Generating...'
+              : thumbnailPath
+                ? 'Regenerate Thumbnail'
+                : 'Generate Thumbnail'}
+          </button>
+          {thumbnailPath && !confirmDeleteThumbnail && (
+            <button
+              type="button"
+              className="pf-button pf-button-danger"
+              onClick={() => setConfirmDeleteThumbnail(true)}
+              disabled={thumbnailBusy}
+              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+            >
+              Delete Thumbnail
+            </button>
+          )}
+          {confirmDeleteThumbnail && (
+            <span
+              style={{
+                display: 'flex',
+                gap: 4,
+                alignItems: 'center',
+                fontSize: '0.8rem',
+              }}
+            >
+              <span style={{ color: '#f87171' }}>Delete?</span>
+              <button
+                type="button"
+                className="pf-button pf-button-danger"
+                onClick={handleDeleteThumbnail}
+                disabled={thumbnailBusy}
+                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                className="pf-button"
+                onClick={() => setConfirmDeleteThumbnail(false)}
+                disabled={thumbnailBusy}
+                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+              >
+                No
+              </button>
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Games list */}

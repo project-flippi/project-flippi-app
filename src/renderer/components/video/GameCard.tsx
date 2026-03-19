@@ -53,6 +53,25 @@ export function localFileUrl(filePath: string): string {
   return `http://127.0.0.1:${videoServerPort}/video?token=${videoServerToken}&path=${encodeURIComponent(filePath)}`;
 }
 
+/** Like localFileUrl but uses the /file endpoint (for images, thumbnails, etc.) */
+export function localImageUrl(filePath: string): string {
+  if (!videoServerPort || !videoServerToken) {
+    throw new Error('Video server info not initialized');
+  }
+  return `http://127.0.0.1:${videoServerPort}/file?token=${videoServerToken}&path=${encodeURIComponent(filePath)}`;
+}
+
+/** Get the video server port and token for direct use (e.g. thumbnail renderer). */
+export function getVideoServerInfo(): {
+  port: number;
+  token: string;
+} {
+  if (!videoServerPort || !videoServerToken) {
+    throw new Error('Video server info not initialized');
+  }
+  return { port: videoServerPort, token: videoServerToken };
+}
+
 interface VideoPlayerModalProps {
   src: string;
   title: string;

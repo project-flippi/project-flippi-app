@@ -188,8 +188,27 @@ export interface GameSet {
   gameVideoFilePaths: string[];
   /** Path to the compiled set video, if compiled */
   compiledVideoPath?: string | null;
+  /** Path to the generated thumbnail image, if any */
+  thumbnailPath?: string | null;
   /** ISO timestamp when created */
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Thumbnail settings (per-event)
+// ---------------------------------------------------------------------------
+
+export interface EventThumbnailSettings {
+  /** Path to event logo image (displayed below VS text) */
+  eventLogoStampPath: string;
+  /** Path to background image (overrides color backgrounds when set) */
+  thumbnailCanvasPath: string;
+  /** Hex color for text, default '#FFFFFF' */
+  textColor: string;
+  /** Hex color for left player background, default '#1a1a2e' */
+  leftBgColor: string;
+  /** Hex color for right player background, default '#16213e' */
+  rightBgColor: string;
 }
 
 /** Runtime set entry returned to renderer (enriched with game data) */

@@ -1,0 +1,212 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import type { EventThumbnailSettings } from '../../../common/meleeTypes';
+
+interface ThumbnailSettingsBarProps {
+  eventName: string;
+}
+
+function ThumbnailSettingsBar({ eventName }: ThumbnailSettingsBarProps) {
+  const [settings, setSettings] = useState<EventThumbnailSettings | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const loadSettings = useCallback(async () => {
+    if (!eventName) return;
+    try {
+      const s = await window.flippiThumbnail.getSettings(eventName);
+      setSettings(s);
+    } catch {
+      setSettings(null);
+    }
+  }, [eventName]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const updateSetting = useCallback(
+    async (updates: Partial<EventThumbnailSettings>) => {
+      if (!eventName) return;
+      try {
+        const updated = await window.flippiThumbnail.updateSettings(
+          eventName,
+          updates,
+        );
+        setSettings(updated);
+      } catch {
+        // ignore
+      }
+    },
+    [eventName],
+  );
+
+  const handleSelectImage = useCallback(
+    async (purpose: 'logo' | 'canvas') => {
+      if (!eventName) return;
+      const result = await window.flippiThumbnail.selectImage(
+        eventName,
+        purpose,
+      );
+      if (result.ok) {
+        // Settings are updated server-side; reload
+        loadSettings();
+      }
+    },
+    [eventName, loadSettings],
+  );
+
+  const handleClearImage = useCallback(
+    async (purpose: 'logo' | 'canvas') => {
+      const key =
+        purpose === 'logo' ? 'eventLogoStampPath' : 'thumbnailCanvasPath';
+      await updateSetting({ [key]: '' });
+    },
+    [updateSetting],
+  );
+
+  if (!settings || !eventName) return null;
+
+  const logoName = settings.eventLogoStampPath
+    ? settings.eventLogoStampPath.split(/[\\/]/).pop()
+    : '';
+  const canvasName = settings.thumbnailCanvasPath
+    ? settings.thumbnailCanvasPath.split(/[\\/]/).pop()
+    : '';
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <button
+        type="button"
+        style={{
+          background: 'none',
+          border: 'none',
+          color: '#94a3b8',
+          cursor: 'pointer',
+          fontSize: '0.85rem',
+          padding: '4px 0',
+        }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? '\u25BC' : '\u25B6'} Thumbnail Settings
+      </button>
+
+      {expanded && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 12,
+            alignItems: 'center',
+            padding: '8px 0',
+            fontSize: '0.85rem',
+          }}
+        >
+          {/* Event Logo Stamp */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ color: '#94a3b8' }}>Logo:</span>
+            <button
+              type="button"
+              className="pf-button"
+              style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+              onClick={() => handleSelectImage('logo')}
+            >
+              {logoName || 'None'}
+            </button>
+            {logoName && (
+              <button
+                type="button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                }}
+                onClick={() => handleClearImage('logo')}
+              >
+                x
+              </button>
+            )}
+          </div>
+
+          {/* Thumbnail Canvas */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ color: '#94a3b8' }}>Canvas:</span>
+            <button
+              type="button"
+              className="pf-button"
+              style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+              onClick={() => handleSelectImage('canvas')}
+            >
+              {canvasName || 'None'}
+            </button>
+            {canvasName && (
+              <button
+                type="button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                }}
+                onClick={() => handleClearImage('canvas')}
+              >
+                x
+              </button>
+            )}
+          </div>
+
+          {/* Text Color */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ color: '#94a3b8' }}>Text:</span>
+            <input
+              type="color"
+              value={settings.textColor}
+              onChange={(e) => updateSetting({ textColor: e.target.value })}
+              style={{
+                width: 28,
+                height: 22,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            />
+          </div>
+
+          {/* Left BG Color */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ color: '#94a3b8' }}>Left BG:</span>
+            <input
+              type="color"
+              value={settings.leftBgColor}
+              onChange={(e) => updateSetting({ leftBgColor: e.target.value })}
+              style={{
+                width: 28,
+                height: 22,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            />
+          </div>
+
+          {/* Right BG Color */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ color: '#94a3b8' }}>Right BG:</span>
+            <input
+              type="color"
+              value={settings.rightBgColor}
+              onChange={(e) => updateSetting({ rightBgColor: e.target.value })}
+              style={{
+                width: 28,
+                height: 22,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ThumbnailSettingsBar;

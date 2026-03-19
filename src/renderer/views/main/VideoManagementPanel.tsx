@@ -3,6 +3,7 @@ import type { GameEntry, GameSet, SetEntry } from '../../../common/meleeTypes';
 import { computeSetTitle } from '../../../common/setUtils';
 import GameCard, { initVideoServerPort } from '../../components/video/GameCard';
 import SetCard from '../../components/video/SetCard';
+import ThumbnailSettingsBar from '../../components/video/ThumbnailSettingsBar';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { List } = require('react-window');
@@ -19,7 +20,7 @@ function buildVideoSetMap(entries: SetEntry[]): Map<string, string> {
 }
 
 const GAME_CARD_HEIGHT = 80;
-const SET_CARD_BASE_HEIGHT = 200;
+const SET_CARD_BASE_HEIGHT = 310;
 const SET_CARD_GAME_HEIGHT = 60;
 
 interface GameRowProps {
@@ -309,6 +310,8 @@ function VideoManagementPanel() {
             </select>
           </label>
         </div>
+
+        {selectedEvent && <ThumbnailSettingsBar eventName={selectedEvent} />}
 
         <div className="pf-tabs">
           <button

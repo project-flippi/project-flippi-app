@@ -213,6 +213,7 @@ export async function updateSet(
       | 'roundNumber'
       | 'playerOverrides'
       | 'compiledVideoPath'
+      | 'thumbnailPath'
     >
   >,
 ): Promise<GameSet> {
@@ -248,6 +249,10 @@ export async function updateSet(
   if (updates.compiledVideoPath !== undefined) {
     setClauses.push('compiled_video_path = ?');
     values.push(updates.compiledVideoPath);
+  }
+  if (updates.thumbnailPath !== undefined) {
+    setClauses.push('thumbnail_path = ?');
+    values.push(updates.thumbnailPath);
   }
 
   if (setClauses.length > 0) {
@@ -313,6 +318,16 @@ export async function deleteSet(
     } catch (err: any) {
       if (err.code !== 'ENOENT') {
         log.warn(`[sets] Failed to delete video file: ${err.message}`);
+      }
+    }
+  }
+  if (setRow?.thumbnail_path) {
+    try {
+      await fs.unlink(setRow.thumbnail_path);
+      log.info(`[sets] Deleted thumbnail file: ${setRow.thumbnail_path}`);
+    } catch (err: any) {
+      if (err.code !== 'ENOENT') {
+        log.warn(`[sets] Failed to delete thumbnail file: ${err.message}`);
       }
     }
   }

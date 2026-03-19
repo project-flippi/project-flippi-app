@@ -169,6 +169,27 @@ contextBridge.exposeInMainWorld('flippiSets', {
   },
 });
 
+contextBridge.exposeInMainWorld('flippiThumbnail', {
+  getSettings: (eventName: string) =>
+    ipcRenderer.invoke('thumbnail:getSettings', { eventName }),
+  updateSettings: (eventName: string, updates: Record<string, any>) =>
+    ipcRenderer.invoke('thumbnail:updateSettings', { eventName, updates }),
+  selectImage: (
+    eventName: string,
+    purpose: 'logo' | 'canvas',
+  ): Promise<{ ok: boolean; path: string }> =>
+    ipcRenderer.invoke('thumbnail:selectImage', { eventName, purpose }),
+  save: (eventName: string, setId: string, dataUrl: string): Promise<any> =>
+    ipcRenderer.invoke('thumbnail:save', { eventName, setId, dataUrl }),
+  delete: (eventName: string, setId: string): Promise<any> =>
+    ipcRenderer.invoke('thumbnail:delete', { eventName, setId }),
+  getCharacterRender: (characterId: number, colorId: number): Promise<string> =>
+    ipcRenderer.invoke('thumbnail:getCharacterRender', {
+      characterId,
+      colorId,
+    }),
+});
+
 contextBridge.exposeInMainWorld('flippiStatus', {
   get: () => ipcRenderer.invoke('status:get'),
   onChanged: (callback: (status: any) => void) => {

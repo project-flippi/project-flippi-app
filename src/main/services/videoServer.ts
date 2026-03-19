@@ -42,6 +42,15 @@ function getMimeType(filePath: string): string {
       return 'video/x-msvideo';
     case '.mov':
       return 'video/quicktime';
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
     default:
       return 'application/octet-stream';
   }
@@ -59,7 +68,7 @@ async function handleRequest(
 
   // Parse the requested file path from the query string
   const url = new URL(req.url ?? '/', `http://127.0.0.1:${boundPort}`);
-  if (url.pathname !== '/video') {
+  if (url.pathname !== '/video' && url.pathname !== '/file') {
     res.writeHead(404);
     res.end('Not Found');
     return;

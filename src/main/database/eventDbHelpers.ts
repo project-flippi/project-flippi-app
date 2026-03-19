@@ -101,6 +101,7 @@ export function rowToGameSet(row: any, gamePaths: string[]): GameSet {
     playerOverrides: JSON.parse(row.player_overrides),
     gameVideoFilePaths: gamePaths,
     compiledVideoPath: row.compiled_video_path ?? null,
+    thumbnailPath: row.thumbnail_path ?? null,
     createdAt: row.created_at,
   };
 }

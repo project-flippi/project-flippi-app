@@ -9,7 +9,9 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
+import os from 'os';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import { app, BrowserWindow, shell, ipcMain, Menu, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
@@ -89,6 +91,11 @@ import {
   getVideoServerPort,
   getVideoServerToken,
 } from './services/videoServer';
+import {
+  getThumbnailSettings,
+  updateThumbnailSettings,
+} from './services/thumbnailSettingsService';
+import { getCharacterRenderAsDataUrl } from './services/characterAssetService';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -683,6 +690,117 @@ ipcMain.handle(
       ...entry.set,
       compiledVideoPath: newPath,
     };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Thumbnail IPC handlers
+// ---------------------------------------------------------------------------
+
+ipcMain.handle(
+  'thumbnail:getSettings',
+  async (_evt, args: { eventName: string }) => {
+    return getThumbnailSettings(args.eventName);
+  },
+);
+
+ipcMain.handle(
+  'thumbnail:updateSettings',
+  async (_evt, args: { eventName: string; updates: Record<string, any> }) => {
+    return updateThumbnailSettings(args.eventName, args.updates);
+  },
+);
+
+ipcMain.handle(
+  'thumbnail:selectImage',
+  async (_evt, args: { eventName: string; purpose: 'logo' | 'canvas' }) => {
+    const result = await dialog.showOpenDialog({
+      title: `Select ${args.purpose === 'logo' ? 'Event Logo Stamp' : 'Thumbnail Canvas'}`,
+      filters: [
+        {
+          name: 'Images',
+          extensions: ['png', 'jpg', 'jpeg', 'webp'],
+        },
+      ],
+      properties: ['openFile'],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, path: '' };
+    }
+
+    const srcPath = result.filePaths[0];
+    const ext = path.extname(srcPath);
+    const destName = `thumbnail-${args.purpose}${ext}`;
+    const eventDir = path.join(
+      os.homedir(),
+      'project-flippi',
+      'Event',
+      args.eventName,
+      'images',
+    );
+    const destPath = path.join(eventDir, destName);
+
+    await fsPromises.mkdir(eventDir, { recursive: true });
+    await fsPromises.copyFile(srcPath, destPath);
+
+    // Update settings with the new path
+    const settingsKey =
+      args.purpose === 'logo' ? 'eventLogoStampPath' : 'thumbnailCanvasPath';
+    updateThumbnailSettings(args.eventName, { [settingsKey]: destPath });
+
+    return { ok: true, path: destPath };
+  },
+);
+
+ipcMain.handle(
+  'thumbnail:save',
+  async (_evt, args: { eventName: string; setId: string; dataUrl: string }) => {
+    const base64Data = args.dataUrl.replace(/^data:image\/png;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const thumbnailDir = path.join(
+      os.homedir(),
+      'project-flippi',
+      'Event',
+      args.eventName,
+      'thumbnails',
+    );
+    await fsPromises.mkdir(thumbnailDir, { recursive: true });
+    const thumbnailPath = path.join(thumbnailDir, `${args.setId}.png`);
+    await fsPromises.writeFile(thumbnailPath, buffer);
+
+    const updated = await updateSet(args.eventName, args.setId, {
+      thumbnailPath,
+    });
+    log.info(`[thumbnail] Saved thumbnail for set ${args.setId}`);
+    return updated;
+  },
+);
+
+ipcMain.handle(
+  'thumbnail:delete',
+  async (_evt, args: { eventName: string; setId: string }) => {
+    const sets = await readSets(args.eventName);
+    const gameSet = sets.find((s) => s.id === args.setId);
+    if (gameSet?.thumbnailPath) {
+      try {
+        await fsPromises.unlink(gameSet.thumbnailPath);
+        log.info(
+          `[thumbnail] Deleted thumbnail file: ${gameSet.thumbnailPath}`,
+        );
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') throw err;
+      }
+    }
+    return updateSet(args.eventName, args.setId, { thumbnailPath: null });
+  },
+);
+
+ipcMain.handle(
+  'thumbnail:getCharacterRender',
+  async (_evt, args: { characterId: number; colorId: number }) => {
+    return getCharacterRenderAsDataUrl(args.characterId, args.colorId);
   },
 );
 
