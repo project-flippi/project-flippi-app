@@ -172,37 +172,43 @@ function ThumbnailSettingsBar({ eventName }: ThumbnailSettingsBarProps) {
             />
           </div>
 
-          {/* Left BG Color */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ color: '#94a3b8' }}>Left BG:</span>
-            <input
-              type="color"
-              value={settings.leftBgColor}
-              onChange={(e) => updateSetting({ leftBgColor: e.target.value })}
-              style={{
-                width: 28,
-                height: 22,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
+          {/* Left BG Color — hidden when canvas overrides background */}
+          {!settings.thumbnailCanvasPath && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: '#94a3b8' }}>Left BG:</span>
+              <input
+                type="color"
+                value={settings.leftBgColor}
+                onChange={(e) => updateSetting({ leftBgColor: e.target.value })}
+                style={{
+                  width: 28,
+                  height: 22,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
+          )}
 
-          {/* Right BG Color */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ color: '#94a3b8' }}>Right BG:</span>
-            <input
-              type="color"
-              value={settings.rightBgColor}
-              onChange={(e) => updateSetting({ rightBgColor: e.target.value })}
-              style={{
-                width: 28,
-                height: 22,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
+          {/* Right BG Color — hidden when canvas overrides background */}
+          {!settings.thumbnailCanvasPath && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: '#94a3b8' }}>Right BG:</span>
+              <input
+                type="color"
+                value={settings.rightBgColor}
+                onChange={(e) =>
+                  updateSetting({ rightBgColor: e.target.value })
+                }
+                style={{
+                  width: 28,
+                  height: 22,
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

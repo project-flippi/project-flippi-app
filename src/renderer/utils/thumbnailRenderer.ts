@@ -339,6 +339,13 @@ export async function renderThumbnail(
 ): Promise<string> {
   const { set, games, settings, serverPort, serverToken } = params;
 
+  console.log('[thumbnail] Rendering with settings:', {
+    eventLogoStampPath: settings.eventLogoStampPath,
+    thumbnailCanvasPath: settings.thumbnailCanvasPath,
+    textColor: settings.textColor,
+    serverPort,
+  });
+
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
@@ -353,7 +360,8 @@ export async function renderThumbnail(
         serverToken,
       );
       ctx.drawImage(bgImg, 0, 0, WIDTH, HEIGHT);
-    } catch {
+    } catch (err) {
+      console.error('[thumbnail] Failed to load canvas image:', err);
       drawSplitBackground(ctx, settings.leftBgColor, settings.rightBgColor);
     }
   } else {
@@ -388,8 +396,8 @@ export async function renderThumbnail(
       const logoW = logo.width * scale;
       const logoH = logo.height * scale;
       ctx.drawImage(logo, (WIDTH - logoW) / 2, HEIGHT / 2 + 50, logoW, logoH);
-    } catch {
-      // Logo failed to load — skip
+    } catch (err) {
+      console.error('[thumbnail] Failed to load logo image:', err);
     }
   }
 
@@ -421,7 +429,8 @@ export async function renderThumbnail(
         const p = leftUnique[i];
         return p.displayName || p.nametag || p.connectCode || `Player ${i + 1}`;
       })
-      .join(' & ');
+      .join(' & ')
+      .toUpperCase();
 
     const rightNames = Array.from({ length: Math.min(rightUnique.length, 2) })
       .map((_, i) => {
@@ -433,7 +442,8 @@ export async function renderThumbnail(
           p.displayName || p.nametag || p.connectCode || `Player ${oi + 1}`
         );
       })
-      .join(' & ');
+      .join(' & ')
+      .toUpperCase();
 
     drawPlayerName(
       ctx,
@@ -455,8 +465,16 @@ export async function renderThumbnail(
     );
   } else {
     const flatPlayers = sides.map((s) => s[0]).filter(Boolean);
-    const leftName = resolvePlayerName(0, set.playerOverrides, flatPlayers);
-    const rightName = resolvePlayerName(1, set.playerOverrides, flatPlayers);
+    const leftName = resolvePlayerName(
+      0,
+      set.playerOverrides,
+      flatPlayers,
+    ).toUpperCase();
+    const rightName = resolvePlayerName(
+      1,
+      set.playerOverrides,
+      flatPlayers,
+    ).toUpperCase();
 
     drawPlayerName(
       ctx,
@@ -479,7 +497,7 @@ export async function renderThumbnail(
   }
 
   // --- 7. Bottom bar: context (left half) + match type (right half) ---
-  const context = formatContext(set);
+  const context = formatContext(set).toUpperCase();
   const matchLabel = `MELEE ${set.matchType.toUpperCase()}`;
 
   ctx.textBaseline = 'bottom';

@@ -60,6 +60,17 @@ async function handleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
 ) {
+  // Handle CORS preflight for crossOrigin='anonymous' canvas image loads
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+      'Access-Control-Allow-Headers': 'Range',
+    });
+    res.end();
+    return;
+  }
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405);
     res.end('Method Not Allowed');
@@ -174,6 +185,7 @@ async function handleRequest(
       'Content-Range': `bytes ${start}-${end}/${totalSize}`,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*',
     });
 
     if (req.method === 'HEAD') {
@@ -195,6 +207,7 @@ async function handleRequest(
       'Content-Length': totalSize,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*',
     });
 
     if (req.method === 'HEAD') {

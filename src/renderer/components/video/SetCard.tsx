@@ -280,8 +280,8 @@ function SetCard({
       );
       setThumbnailPath(updated.thumbnailPath ?? null);
       onSetUpdated(updated);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[SetCard] Thumbnail generation failed:', err);
     } finally {
       setThumbnailBusy(false);
     }
