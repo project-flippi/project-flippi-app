@@ -23,7 +23,7 @@ const FONT_FAMILY = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 // Helper functions (defined before main export to satisfy no-use-before-define)
 // ---------------------------------------------------------------------------
 
-/** Unique characters played by a side, ordered by frequency. */
+/** Unique characters played by a side, ordered by first appearance. */
 function getUniqueCharacters(
   sidePlayers: SlpPlayerData[],
 ): { characterId: number; colorId: number }[] {
@@ -43,12 +43,9 @@ function getUniqueCharacters(
     }
   });
 
-  return [...counts.entries()]
-    .sort((a, b) => {
-      if (b[1] !== a[1]) return b[1] - a[1];
-      return (firstSeen.get(a[0]) ?? 0) - (firstSeen.get(b[0]) ?? 0);
-    })
-    .map(([charId]) => ({
+  return [...counts.keys()]
+    .sort((a, b) => (firstSeen.get(a) ?? 0) - (firstSeen.get(b) ?? 0))
+    .map((charId) => ({
       characterId: charId,
       colorId: charColor.get(charId) ?? 0,
     }));
@@ -151,13 +148,16 @@ function drawPlayerName(
   drawTextWithShadow(ctx, name, x, y, align, color);
 }
 
+/** Result from building diagonal regions: clip polygons + boundary lines. */
+interface RegionResult {
+  regions: { x: number; y: number }[][];
+  diagonals: { from: { x: number; y: number }; to: { x: number; y: number } }[];
+}
+
 /**
- * Build diagonal clip regions for N characters within a rectangular area.
- * Returns an array of polygon point arrays, one per character slot.
- *
- * The diagonal slant goes from upper-left to lower-right. For the left side
- * this means earlier characters get the left portion; for the right side
- * the image is mirrored so earlier characters appear on the outer edge.
+ * Build triangular clip regions for N characters within a rectangular area.
+ * Regions are ordered by size (largest first = first character played).
+ * Also returns diagonal line segments to draw as boundaries.
  */
 function buildDiagonalRegions(
   n: number,
@@ -165,48 +165,87 @@ function buildDiagonalRegions(
   areaY: number,
   areaW: number,
   areaH: number,
-): { x: number; y: number }[][] {
-  if (n <= 1) {
-    return [
-      [
-        { x: areaX, y: areaY },
-        { x: areaX + areaW, y: areaY },
-        { x: areaX + areaW, y: areaY + areaH },
-        { x: areaX, y: areaY + areaH },
-      ],
-    ];
+): RegionResult {
+  const TL = { x: areaX, y: areaY };
+  const TR = { x: areaX + areaW, y: areaY };
+  const BR = { x: areaX + areaW, y: areaY + areaH };
+  const BL = { x: areaX, y: areaY + areaH };
+  const C = { x: areaX + areaW / 2, y: areaY + areaH / 2 };
+  const BC = { x: areaX + areaW / 2, y: areaY + areaH };
+
+  switch (Math.min(n, 5)) {
+    case 2:
+      return {
+        regions: [
+          [BL, TR, BR], // bottom-right (largest)
+          [BL, TL, TR], // top-left
+        ],
+        diagonals: [{ from: BL, to: TR }],
+      };
+    case 3:
+      return {
+        regions: [
+          [BL, TR, BR], // bottom-right (largest)
+          [TL, TR, C], // top
+          [TL, C, BL], // left
+        ],
+        diagonals: [
+          { from: BL, to: TR },
+          { from: TL, to: C },
+        ],
+      };
+    case 4:
+      return {
+        regions: [
+          [TR, BR, C], // right
+          [BR, BL, C], // bottom
+          [TL, TR, C], // top
+          [BL, TL, C], // left
+        ],
+        diagonals: [
+          { from: BL, to: TR },
+          { from: TL, to: BR },
+        ],
+      };
+    case 5:
+      return {
+        regions: [
+          [TR, BR, C], // right
+          [BR, BC, C], // bottom-right
+          [TL, TR, C], // top
+          [BL, TL, C], // left
+          [BC, BL, C], // bottom-left
+        ],
+        diagonals: [
+          { from: BL, to: TR },
+          { from: TL, to: BR },
+          { from: BC, to: C },
+        ],
+      };
+    default:
+      // N=1 or 0: full rectangle
+      return {
+        regions: [[TL, TR, BR, BL]],
+        diagonals: [],
+      };
   }
+}
 
-  // Skew factor: how far the diagonal shifts between top and bottom edges.
-  // Each strip boundary is offset so the split looks diagonal.
-  const skew = areaW * 0.15;
-  const regions: { x: number; y: number }[][] = [];
-
-  for (let i = 0; i < n; i++) {
-    // Top-edge x positions for left and right boundaries of this strip
-    const topLeft = areaX + (areaW + skew) * (i / n) - (skew * i) / (n - 1);
-    const topRight =
-      areaX + (areaW + skew) * ((i + 1) / n) - (skew * (i + 1)) / (n - 1);
-    // Bottom-edge x positions (shifted by -skew relative to top)
-    const botLeft =
-      areaX + (areaW - skew) * (i / n) + (skew * (n - 1 - i)) / (n - 1);
-    const botRight =
-      areaX +
-      (areaW - skew) * ((i + 1) / n) +
-      (skew * (n - 1 - (i + 1))) / (n - 1);
-
-    // Clamp to area bounds
-    const clamp = (v: number) => Math.max(areaX, Math.min(areaX + areaW, v));
-
-    regions.push([
-      { x: clamp(topLeft), y: areaY },
-      { x: clamp(topRight), y: areaY },
-      { x: clamp(botRight), y: areaY + areaH },
-      { x: clamp(botLeft), y: areaY + areaH },
-    ]);
-  }
-
-  return regions;
+/** Mirror region polygons and diagonals horizontally within an area. */
+function mirrorRegions(
+  result: RegionResult,
+  areaX: number,
+  areaW: number,
+): RegionResult {
+  const mx = (x: number) => 2 * areaX + areaW - x;
+  const mp = (p: { x: number; y: number }) => ({ x: mx(p.x), y: p.y });
+  return {
+    regions: result.regions.map((poly) => poly.map(mp)),
+    diagonals: result.diagonals.map((d) => ({
+      from: mp(d.from),
+      to: mp(d.to),
+    })),
+  };
 }
 
 /** Compute the centroid of a polygon for centering an image within it. */
@@ -223,28 +262,6 @@ function polygonCenter(points: { x: number; y: number }[]): {
   return { x: cx / points.length, y: cy / points.length };
 }
 
-/** Compute the bounding box of a polygon. */
-function polygonBounds(points: { x: number; y: number }[]): {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-  w: number;
-  h: number;
-} {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (let i = 0; i < points.length; i++) {
-    if (points[i].x < minX) minX = points[i].x;
-    if (points[i].y < minY) minY = points[i].y;
-    if (points[i].x > maxX) maxX = points[i].x;
-    if (points[i].y > maxY) maxY = points[i].y;
-  }
-  return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
-}
-
 /** Draw character render images for one side with diagonal clipping. */
 async function drawCharacterRenders(
   ctx: CanvasRenderingContext2D,
@@ -258,7 +275,10 @@ async function drawCharacterRenders(
   const areaW = WIDTH / 2;
   const areaH = HEIGHT;
 
-  const regions = buildDiagonalRegions(maxChars, areaX, 0, areaW, areaH);
+  let result = buildDiagonalRegions(maxChars, areaX, 0, areaW, areaH);
+  if (side === 'right') {
+    result = mirrorRegions(result, areaX, areaW);
+  }
 
   for (let i = 0; i < maxChars; i++) {
     const char = chars[i];
@@ -271,16 +291,15 @@ async function drawCharacterRenders(
       // eslint-disable-next-line no-await-in-loop
       const img = await loadImage(dataUrl);
 
-      const region = regions[i];
-      const bounds = polygonBounds(region);
+      const region = result.regions[i];
       const center = polygonCenter(region);
 
-      // Scale character to fit within the clip region with some padding
-      const padFactor = maxChars === 1 ? 0.85 : 0.9;
+      // Scale character to full-half size (same as single char); clipping handles overflow
+      const padFactor = 0.85;
       const scale = Math.min(
-        (bounds.w * padFactor) / img.width,
-        (bounds.h * padFactor) / img.height,
-        maxChars === 1 ? 1.2 : 1.0,
+        (areaW * padFactor) / img.width,
+        (areaH * padFactor) / img.height,
+        1.2,
       );
 
       const drawW = img.width * scale;
@@ -314,6 +333,22 @@ async function drawCharacterRenders(
     } catch {
       // Character render failed to load — skip
     }
+  }
+
+  // Draw diagonal boundary lines on top of all character renders
+  if (result.diagonals.length > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    for (let d = 0; d < result.diagonals.length; d++) {
+      const diag = result.diagonals[d];
+      ctx.beginPath();
+      ctx.moveTo(diag.from.x, diag.from.y);
+      ctx.lineTo(diag.to.x, diag.to.y);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 }
 
