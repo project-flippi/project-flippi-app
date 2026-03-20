@@ -154,6 +154,9 @@ function ThumbnailSettingsBar({ eventName }: ThumbnailSettingsBarProps) {
                 x
               </button>
             )}
+            <span style={{ color: '#64748b', fontSize: '0.75rem' }}>
+              (16:9 recommended, e.g. 1280×720)
+            </span>
           </div>
 
           {/* Text Color */}

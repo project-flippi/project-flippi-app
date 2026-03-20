@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   GameEntry,
   SetEntry,
@@ -259,6 +260,8 @@ function SetCard({
   );
   const [thumbnailBusy, setThumbnailBusy] = useState(false);
   const [confirmDeleteThumbnail, setConfirmDeleteThumbnail] = useState(false);
+  const [thumbnailVersion, setThumbnailVersion] = useState(0);
+  const [showThumbnailFull, setShowThumbnailFull] = useState(false);
 
   async function handleGenerateThumbnail() {
     setThumbnailBusy(true);
@@ -279,6 +282,7 @@ function SetCard({
         dataUrl,
       );
       setThumbnailPath(updated.thumbnailPath ?? null);
+      setThumbnailVersion((v) => v + 1);
       onSetUpdated(updated);
     } catch (err) {
       console.error('[SetCard] Thumbnail generation failed:', err);
@@ -626,17 +630,55 @@ function SetCard({
         }}
       >
         {thumbnailPath && (
-          <img
-            src={localImageUrl(thumbnailPath)}
-            alt="Thumbnail"
-            style={{
-              width: 160,
-              height: 90,
-              objectFit: 'cover',
-              borderRadius: 4,
-              border: '1px solid #444',
-            }}
-          />
+          <>
+            <img
+              src={`${localImageUrl(thumbnailPath)}&t=${thumbnailVersion}`}
+              alt="Thumbnail"
+              role="presentation"
+              onClick={() => setShowThumbnailFull(true)}
+              style={{
+                width: 160,
+                height: 90,
+                objectFit: 'cover',
+                borderRadius: 4,
+                border: '1px solid #444',
+                cursor: 'pointer',
+              }}
+              title="Click to view full size"
+            />
+            {showThumbnailFull &&
+              createPortal(
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+                <div
+                  onClick={() => setShowThumbnailFull(false)}
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(0,0,0,0.85)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <img
+                    src={`${localImageUrl(thumbnailPath)}&t=${thumbnailVersion}`}
+                    alt="Thumbnail full size"
+                    style={{
+                      maxWidth: '90vw',
+                      maxHeight: '90vh',
+                      borderRadius: 6,
+                      boxShadow: '0 4px 32px rgba(0,0,0,0.6)',
+                    }}
+                  />
+                </div>,
+                document.body,
+              )}
+          </>
         )}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button

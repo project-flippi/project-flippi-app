@@ -382,7 +382,7 @@ export async function renderThumbnail(
   ctx.fillRect(0, 0, WIDTH, 100);
   ctx.fillRect(0, HEIGHT - 90, WIDTH, 90);
 
-  // --- 4. Event logo stamp (centered below VS area) ---
+  // --- 4. Event logo stamp (scaled to fill space between VS and bottom bar) ---
   if (settings.eventLogoStampPath) {
     try {
       const logo = await loadLocalImage(
@@ -390,12 +390,17 @@ export async function renderThumbnail(
         serverPort,
         serverToken,
       );
-      const maxLogoW = 200;
-      const maxLogoH = 80;
-      const scale = Math.min(maxLogoW / logo.width, maxLogoH / logo.height, 1);
+      const logoZoneTop = HEIGHT / 2 + 50; // 10px below VS bottom
+      const logoZoneBottom = HEIGHT - 90 - 10; // 10px above bottom bar
+      const maxLogoH = logoZoneBottom - logoZoneTop;
+      const maxLogoW = WIDTH * 0.4;
+      const scale = Math.min(maxLogoW / logo.width, maxLogoH / logo.height);
       const logoW = logo.width * scale;
       const logoH = logo.height * scale;
-      ctx.drawImage(logo, (WIDTH - logoW) / 2, HEIGHT / 2 + 50, logoW, logoH);
+      // Center within the logo zone
+      const logoX = (WIDTH - logoW) / 2;
+      const logoY = logoZoneTop + (maxLogoH - logoH) / 2;
+      ctx.drawImage(logo, logoX, logoY, logoW, logoH);
     } catch (err) {
       console.error('[thumbnail] Failed to load logo image:', err);
     }
@@ -413,9 +418,10 @@ export async function renderThumbnail(
     settings.textColor,
   );
 
-  // --- 6. Player names (centered on their half) ---
-  ctx.textBaseline = 'top';
+  // --- 6. Player names (vertically centered in top bar) ---
+  ctx.textBaseline = 'middle';
   const maxNameWidth = 500;
+  const topBarCenterY = 50; // center of the 100px top overlay
 
   if (set.matchType === 'Doubles') {
     const leftUnique = deduplicatePlayers(sides[0]);
@@ -449,7 +455,7 @@ export async function renderThumbnail(
       ctx,
       leftNames,
       WIDTH / 4,
-      20,
+      topBarCenterY,
       'center',
       maxNameWidth,
       settings.textColor,
@@ -458,7 +464,7 @@ export async function renderThumbnail(
       ctx,
       rightNames,
       (WIDTH * 3) / 4,
-      20,
+      topBarCenterY,
       'center',
       maxNameWidth,
       settings.textColor,
@@ -480,7 +486,7 @@ export async function renderThumbnail(
       ctx,
       leftName,
       WIDTH / 4,
-      20,
+      topBarCenterY,
       'center',
       maxNameWidth,
       settings.textColor,
@@ -489,7 +495,7 @@ export async function renderThumbnail(
       ctx,
       rightName,
       (WIDTH * 3) / 4,
-      20,
+      topBarCenterY,
       'center',
       maxNameWidth,
       settings.textColor,
@@ -500,28 +506,29 @@ export async function renderThumbnail(
   const context = formatContext(set).toUpperCase();
   const matchLabel = `MELEE ${set.matchType.toUpperCase()}`;
 
-  ctx.textBaseline = 'bottom';
+  ctx.textBaseline = 'middle';
+  const bottomBarCenterY = HEIGHT - 45; // center of the 90px bottom overlay
 
   // Left half: Phase/Round (tournament) or set type (friendlies/ranked/unranked)
-  const ctxSize = fitText(ctx, context, WIDTH / 2 - 60, 32, 20, true);
+  const ctxSize = fitText(ctx, context, WIDTH / 2 - 60, 48, 28, true);
   ctx.font = `bold ${ctxSize}px ${FONT_FAMILY}`;
   drawTextWithShadow(
     ctx,
     context,
     WIDTH / 4,
-    HEIGHT - 30,
+    bottomBarCenterY,
     'center',
     settings.textColor,
   );
 
   // Right half: Match type (MELEE SINGLES / MELEE DOUBLES)
-  const matchSize = fitText(ctx, matchLabel, WIDTH / 2 - 60, 32, 20, true);
+  const matchSize = fitText(ctx, matchLabel, WIDTH / 2 - 60, 48, 28, true);
   ctx.font = `bold ${matchSize}px ${FONT_FAMILY}`;
   drawTextWithShadow(
     ctx,
     matchLabel,
     (WIDTH * 3) / 4,
-    HEIGHT - 30,
+    bottomBarCenterY,
     'center',
     settings.textColor,
   );
