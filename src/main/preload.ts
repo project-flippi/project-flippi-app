@@ -37,9 +37,8 @@ contextBridge.exposeInMainWorld('flippiEvents', {
   list: (): Promise<string[]> => ipcRenderer.invoke('events:list'),
   create: (
     eventTitle: string,
-    venueDesc: string,
   ): Promise<{ eventName: string; eventPath: string }> =>
-    ipcRenderer.invoke('events:create', { eventTitle, venueDesc }),
+    ipcRenderer.invoke('events:create', { eventTitle }),
 });
 
 contextBridge.exposeInMainWorld('flippiStack', {

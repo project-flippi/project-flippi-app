@@ -346,12 +346,9 @@ ipcMain.handle('events:list', async () => {
   return listEventFolders();
 });
 
-ipcMain.handle(
-  'events:create',
-  async (_evt, args: { eventTitle: string; venueDesc: string }) => {
-    return createEventFromTemplate(args);
-  },
-);
+ipcMain.handle('events:create', async (_evt, args: { eventTitle: string }) => {
+  return createEventFromTemplate(args);
+});
 
 ipcMain.handle('stack:start', async (_evt, args: { eventName: string }) => {
   return startStack(args);

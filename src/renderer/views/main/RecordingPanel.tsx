@@ -25,10 +25,9 @@ function RecordingPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>('');
 
-  // NEW: form state
+  // Create-event modal state
   const [showCreate, setShowCreate] = useState(false);
   const [eventTitle, setEventTitle] = useState('');
-  const [venueDesc, setVenueDesc] = useState('');
 
   const [stackStatus, setStackStatus] = useState<string>('');
   const [stackBusy, setStackBusy] = useState(false);
@@ -204,40 +203,29 @@ function RecordingPanel() {
     setError('');
     setShowCreate(true);
     setEventTitle('');
-    setVenueDesc('');
   }
 
   function cancelCreate() {
     setShowCreate(false);
     setEventTitle('');
-    setVenueDesc('');
   }
 
   async function submitCreate() {
     setError('');
 
     const trimmedTitle = eventTitle.trim();
-    const trimmedVenue = venueDesc.trim();
 
     if (!trimmedTitle) {
       setError('Please enter an Event Title.');
       return;
     }
-    if (!trimmedVenue) {
-      setError('Please enter a Venue Description.');
-      return;
-    }
 
     setBusy(true);
     try {
-      const created = await window.flippiEvents.create(
-        trimmedTitle,
-        trimmedVenue,
-      );
+      const created = await window.flippiEvents.create(trimmedTitle);
       await refreshEvents(created.eventName);
       setShowCreate(false);
       setEventTitle('');
-      setVenueDesc('');
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -723,64 +711,63 @@ function RecordingPanel() {
         </div>
 
         {showCreate && (
-          <div className="pf-card" style={{ marginTop: 12 }}>
-            <div className="pf-card-header">
-              <h2>Create Event Folder</h2>
-              <p>
-                Creates a new folder from <code>_EventTemplate</code> and writes
-                event metadata.
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+          <div className="pf-video-modal-overlay" onClick={cancelCreate}>
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+            <div
+              className="pf-new-set-form"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 style={{ margin: '0 0 4px' }}>Create Event Folder</h2>
+              <p
+                style={{
+                  margin: '0 0 16px',
+                  fontSize: 13,
+                  color: '#94a3b8',
+                }}
+              >
+                Creates a new event folder and initializes event metadata.
               </p>
-            </div>
 
-            <div className="pf-field">
-              <label htmlFor="event-title-input">
-                Event Title
-                <input
-                  id="event-title-input"
-                  value={eventTitle}
-                  onChange={(e) => setEventTitle(e.target.value)}
-                  placeholder="Golden Cactus Weeklies"
+              <div className="pf-field">
+                <label htmlFor="event-title-input">
+                  Event Title
+                  <input
+                    id="event-title-input"
+                    value={eventTitle}
+                    onChange={(e) => setEventTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !busy) submitCreate();
+                    }}
+                    placeholder="Golden Cactus Weeklies"
+                    disabled={busy}
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                    autoFocus
+                  />
+                </label>
+              </div>
+
+              <div className="pf-settings-actions" style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="pf-button pf-button-primary"
+                  onClick={submitCreate}
                   disabled={busy}
-                />
-              </label>
-            </div>
+                >
+                  {busy ? 'Creating…' : 'Create'}
+                </button>
 
-            <div className="pf-field">
-              <label htmlFor="venue-desc-input">
-                Venue Description
-                <input
-                  id="venue-desc-input"
-                  value={venueDesc}
-                  onChange={(e) => setVenueDesc(e.target.value)}
-                  placeholder="Golden Cactus Brewery — Monday Night Melee"
+                <button
+                  type="button"
+                  className="pf-button"
+                  onClick={cancelCreate}
                   disabled={busy}
-                />
-                <div className="pf-note">
-                  Used for overlays/thumbnails; keep it short.
-                </div>
-              </label>
-            </div>
+                >
+                  Cancel
+                </button>
 
-            <div className="pf-settings-actions">
-              <button
-                type="button"
-                className="pf-button pf-button-primary"
-                onClick={submitCreate}
-                disabled={busy}
-              >
-                {busy ? 'Creating…' : 'Create'}
-              </button>
-
-              <button
-                type="button"
-                className="pf-button"
-                onClick={cancelCreate}
-                disabled={busy}
-              >
-                Cancel
-              </button>
-
-              {error && <span className="pf-status-message">{error}</span>}
+                {error && <span className="pf-status-message">{error}</span>}
+              </div>
             </div>
           </div>
         )}

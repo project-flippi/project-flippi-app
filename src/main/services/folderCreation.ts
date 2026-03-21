@@ -64,9 +64,8 @@ async function scaffoldEventFolder(dest: string): Promise<void> {
 
 export async function createEventFromTemplate(params: {
   eventTitle: string;
-  venueDesc: string;
 }): Promise<{ eventName: string; eventPath: string }> {
-  const { eventTitle, venueDesc } = params;
+  const { eventTitle } = params;
 
   const sanitized = sanitizeEventFolderName(eventTitle);
   const dest = path.join(eventsDir(), sanitized);
@@ -86,9 +85,6 @@ export async function createEventFromTemplate(params: {
   db.prepare(
     'INSERT OR REPLACE INTO event_metadata (key, value) VALUES (?, ?)',
   ).run('event_title', eventTitle);
-  db.prepare(
-    'INSERT OR REPLACE INTO event_metadata (key, value) VALUES (?, ?)',
-  ).run('venue_desc', venueDesc ?? '');
   // Mark as not needing file migration (fresh event)
   db.prepare(
     'INSERT OR REPLACE INTO event_metadata (key, value) VALUES (?, ?)',

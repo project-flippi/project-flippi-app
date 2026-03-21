@@ -27,7 +27,6 @@ declare global {
       list: () => Promise<string[]>;
       create: (
         eventTitle: string,
-        venueDesc: string,
       ) => Promise<{ eventName: string; eventPath: string }>;
     };
     flippiStatus: {
