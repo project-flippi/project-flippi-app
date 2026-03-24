@@ -296,15 +296,7 @@ function VideoManagementPanel() {
     <section className="pf-section">
       <h1>Video Management</h1>
 
-      <div
-        className="pf-card"
-        style={{
-          maxWidth: 900,
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: 'calc(100vh - 140px)',
-        }}
-      >
+      <div className="pf-card" style={{ maxWidth: 900 }}>
         <div className="pf-field">
           <label htmlFor="video-event-select">
             Event

@@ -186,6 +186,22 @@ html, body, #root {
   box-sizing: border-box;
   overflow-y: scroll;
   background: radial-gradient(circle at top left, var(--pf-bg-elevated) 0, var(--pf-bg-base) 60%);
+  display: flex;
+  flex-direction: column;
+}
+
+.pf-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pf-section > .pf-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Always-visible scrollbar (macOS overlay scrollbars auto-hide on dark backgrounds) */
