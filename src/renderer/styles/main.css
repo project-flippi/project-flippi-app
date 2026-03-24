@@ -991,6 +991,51 @@ html, body, #root {
   color: var(--pf-text-primary);
 }
 
+/* ================================================================
+   Game Card (individual game in virtualized list)
+   ================================================================ */
+.pf-game-card {
+  background: var(--pf-bg-surface);
+  border-radius: var(--pf-radius-xl);
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border: 1px solid var(--pf-border);
+  box-shadow: var(--pf-shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.pf-game-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pf-game-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.pf-game-card-set {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.pf-game-card-set .pf-match-badge {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .pf-play-btn {
   background: none;
   border: 1px solid var(--pf-border-control);

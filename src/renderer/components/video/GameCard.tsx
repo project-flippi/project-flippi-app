@@ -281,91 +281,59 @@ function GameCard({
   }
 
   return (
-    <div
-      className="pf-card"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        padding: '8px 12px',
-        marginBottom: 4,
-      }}
-    >
-      {/* Row 1: match info left, actions right */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-        }}
-      >
-        {/* Left: match metadata */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            minWidth: 0,
-            flex: 1,
-          }}
-        >
+    <div className="pf-game-card">
+      {/* Row 1: match metadata + play button */}
+      <div className="pf-game-card-row">
+        <div className="pf-game-card-meta">
           {renderMatchMetadata(slp, slpFile, video)}
         </div>
-
-        {/* Right: play button + set dropdown */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flexShrink: 0,
-          }}
+        <button
+          type="button"
+          className="pf-play-btn"
+          onClick={() => setShowPlayer(true)}
+          title="Play video"
+          aria-label="Play video"
         >
-          <button
-            type="button"
-            className="pf-play-btn"
-            onClick={() => setShowPlayer(true)}
-            title="Play video"
-            aria-label="Play video"
-          >
-            &#9654;
-          </button>
-          {sets && eventName && currentSetId && currentSet && (
-            <span
-              className="pf-match-badge"
-              style={{ fontSize: '0.75rem' }}
-              title={currentSet.title}
-            >
-              Set:{' '}
-              {currentSet.title.length > 40
-                ? `${currentSet.title.slice(0, 40)}...`
-                : currentSet.title}
-            </span>
-          )}
-          {sets && eventName && !currentSetId && (
-            <select
-              value=""
-              onChange={(e) => handleSetSelect(e.target.value)}
-              style={{ fontSize: '0.75rem' }}
-              className="pf-add-to-set-select"
-              aria-label="Add to set"
-            >
-              <option value="">Add to Set…</option>
-              {sets
-                .filter((s) => !s.set.compiledVideoPath)
-                .map((s) => (
-                  <option key={s.set.id} value={s.set.id} title={s.title}>
-                    {s.title.length > 50
-                      ? `${s.title.slice(0, 50)}...`
-                      : s.title}
-                  </option>
-                ))}
-              <option value="__new__">+ New Set…</option>
-            </select>
-          )}
-        </div>
+          &#9654;
+        </button>
       </div>
+
+      {/* Row 2: set assignment */}
+      {sets && eventName && currentSetId && currentSet && (
+        <div className="pf-game-card-set">
+          <span
+            className="pf-match-badge"
+            style={{ fontSize: '0.75rem' }}
+            title={currentSet.title}
+          >
+            Set:{' '}
+            {currentSet.title.length > 40
+              ? `${currentSet.title.slice(0, 40)}…`
+              : currentSet.title}
+          </span>
+        </div>
+      )}
+      {sets && eventName && !currentSetId && (
+        <div className="pf-game-card-set">
+          <select
+            value=""
+            onChange={(e) => handleSetSelect(e.target.value)}
+            style={{ fontSize: '0.75rem' }}
+            className="pf-add-to-set-select"
+            aria-label="Add to set"
+          >
+            <option value="">Add to Set…</option>
+            {sets
+              .filter((s) => !s.set.compiledVideoPath)
+              .map((s) => (
+                <option key={s.set.id} value={s.set.id} title={s.title}>
+                  {s.title.length > 50 ? `${s.title.slice(0, 50)}…` : s.title}
+                </option>
+              ))}
+            <option value="__new__">+ New Set…</option>
+          </select>
+        </div>
+      )}
 
       {/* Inline error for set operations */}
       {setError && (
