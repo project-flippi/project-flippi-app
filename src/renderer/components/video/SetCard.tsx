@@ -301,7 +301,7 @@ function SetCard({
     }
   }
 
-  async function handleDeleteSet() {
+  const handleDeleteSet = useCallback(async () => {
     setBusy(true);
     try {
       await window.flippiSets.delete(eventName, set.id);
@@ -309,9 +309,9 @@ function SetCard({
     } finally {
       setBusy(false);
     }
-  }
+  }, [eventName, set.id, onSetDeleted]);
 
-  async function handleDeleteVideo() {
+  const handleDeleteVideo = useCallback(async () => {
     setBusy(true);
     try {
       const updated = await window.flippiSets.deleteVideo(eventName, set.id);
@@ -320,7 +320,7 @@ function SetCard({
     } finally {
       setBusy(false);
     }
-  }
+  }, [eventName, set.id, onSetUpdated]);
 
   // Detect if the compiled video filename differs from current title
   const needsRename = useMemo(() => {
@@ -372,7 +372,7 @@ function SetCard({
     }
   }
 
-  async function handleDeleteThumbnail() {
+  const handleDeleteThumbnail = useCallback(async () => {
     setThumbnailBusy(true);
     try {
       const updated = await window.flippiThumbnail.delete(eventName, set.id);
@@ -381,7 +381,7 @@ function SetCard({
     } finally {
       setThumbnailBusy(false);
     }
-  }
+  }, [eventName, set.id, onSetUpdated]);
 
   async function handleRenameVideo() {
     setBusy(true);
