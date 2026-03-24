@@ -4,6 +4,7 @@ import type { GameEntry, SetEntry } from '../../../common/meleeTypes';
 import { getStageName } from '../../../common/meleeResources';
 import GameMatchInfo, { formatDuration } from './GameMatchInfo';
 import NewSetForm from './NewSetForm';
+import useFocusTrap from '../../hooks/useFocusTrap';
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -84,17 +85,15 @@ export function VideoPlayerModal({
   onClose,
 }: VideoPlayerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
 
   // Cache-busting: append a unique query param so Chromium doesn't serve a
   // stale cached response when the same file is opened a second time.
   const [cacheBuster] = useState(() => Date.now());
   const videoSrc = `${src}${src.includes('?') ? '&' : '?'}t=${cacheBuster}`;
 
-  console.log('[VideoPlayerModal] mount, src:', videoSrc);
-
   // Release the file handle before closing so the file is not locked
   const handleClose = useCallback(() => {
-    console.log('[VideoPlayerModal] handleClose called');
     const vid = videoRef.current;
     if (vid) {
       vid.pause();
@@ -117,8 +116,18 @@ export function VideoPlayerModal({
   }, [handleKeyDown]);
 
   return createPortal(
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div className="pf-video-modal-overlay" onClick={handleClose}>
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div
+      className="pf-video-modal-overlay"
+      onClick={handleClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') handleClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Video player: ${title}`}
+      ref={focusTrapRef}
+    >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
         className="pf-video-modal-content"
@@ -130,6 +139,7 @@ export function VideoPlayerModal({
             type="button"
             className="pf-video-modal-close"
             onClick={handleClose}
+            aria-label="Close video player"
           >
             &times;
           </button>
@@ -184,7 +194,7 @@ function renderMatchMetadata(
           <span
             style={{
               fontSize: '0.75rem',
-              color: '#666',
+              color: 'var(--pf-text-faint)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -206,7 +216,7 @@ function renderMatchMetadata(
         >
           {slpFile.fileName}
         </span>
-        <span style={{ fontSize: '0.75rem', color: '#999' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--pf-text-muted)' }}>
           {formatTimestamp(slpFile.gameStartedAt)}
         </span>
       </>
@@ -227,7 +237,7 @@ function renderMatchMetadata(
       </span>
       <span
         style={{
-          color: '#777',
+          color: 'var(--pf-text-muted)',
           fontStyle: 'italic',
           fontSize: '0.8rem',
         }}
@@ -240,15 +250,16 @@ function renderMatchMetadata(
 
 function GameCard({
   game,
-  sets,
-  eventName,
-  onSetChanged,
-  currentSetId,
+  sets = undefined,
+  eventName = undefined,
+  onSetChanged = undefined,
+  currentSetId = null,
 }: GameCardProps) {
   const { video, slpFile } = game;
   const slp = game.slpGameData;
   const [showPlayer, setShowPlayer] = useState(false);
   const [showNewSetForm, setShowNewSetForm] = useState(false);
+  const [setError, setSetError] = useState<string | null>(null);
 
   const currentSet = sets?.find((s) => s.set.id === currentSetId);
 
@@ -259,12 +270,12 @@ function GameCard({
       return;
     }
     if (value && value !== '') {
+      setSetError(null);
       try {
         await window.flippiSets.addGame(eventName, value, video.filePath);
         onSetChanged?.();
       } catch (err: any) {
-        // eslint-disable-next-line no-alert
-        alert(err?.message ?? 'Failed to add to set');
+        setSetError(err?.message ?? 'Failed to add to set');
       }
     }
   }
@@ -316,6 +327,7 @@ function GameCard({
             className="pf-play-btn"
             onClick={() => setShowPlayer(true)}
             title="Play video"
+            aria-label="Play video"
           >
             &#9654;
           </button>
@@ -337,8 +349,9 @@ function GameCard({
               onChange={(e) => handleSetSelect(e.target.value)}
               style={{ fontSize: '0.75rem' }}
               className="pf-add-to-set-select"
+              aria-label="Add to set"
             >
-              <option value="">Add to Set...</option>
+              <option value="">Add to Set…</option>
               {sets
                 .filter((s) => !s.set.compiledVideoPath)
                 .map((s) => (
@@ -348,11 +361,24 @@ function GameCard({
                       : s.title}
                   </option>
                 ))}
-              <option value="__new__">+ New Set...</option>
+              <option value="__new__">+ New Set…</option>
             </select>
           )}
         </div>
       </div>
+
+      {/* Inline error for set operations */}
+      {setError && (
+        <div
+          style={{
+            fontSize: '0.8rem',
+            color: 'var(--pf-danger-light)',
+            marginTop: 2,
+          }}
+        >
+          {setError}
+        </div>
+      )}
 
       {/* Row 2: players (horizontal) */}
       {slp && <GameMatchInfo slpGameData={slp} />}
@@ -382,12 +408,5 @@ function GameCard({
     </div>
   );
 }
-
-GameCard.defaultProps = {
-  sets: undefined,
-  eventName: undefined,
-  onSetChanged: undefined,
-  currentSetId: null,
-};
 
 export default memo(GameCard);

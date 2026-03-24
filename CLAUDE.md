@@ -97,20 +97,41 @@ Registered in `src/main/main.ts`:
 ### Renderer Structure
 
 - `src/renderer/views/main/` — Page-level components (MainPanel with sidebar nav, RecordingPanel, SettingsPanel, VideoManagementPanel)
-- `src/renderer/components/` — StatusBar (service status with logo indicators), settings cards (OBSSettingsCard, YouTubeSettingsCard, TextAISettingsCard, ImageAISettingsCard), SecretInput
+- `src/renderer/components/` — StatusBar (service status with logo indicators), settings cards (OBSSettingsCard, YouTubeSettingsCard, TextAISettingsCard, ImageAISettingsCard), SecretInput, InlineConfirm (reusable confirm/cancel pattern), WarningBanner (alert banner with optional action button)
 - `src/renderer/components/video/` — GameCard (game display + set assignment), SetCard (set display + inline editing), NewSetForm (set creation modal), GameMatchInfo (SLP match details)
-- `src/renderer/hooks/` — `useServiceStatus` (status subscription), `useSettings` (settings CRUD with draft/saved state management)
+- `src/renderer/hooks/` — `useServiceStatus` (status subscription), `useSettings` (settings CRUD with draft/saved state management), `useFocusTrap` (modal focus management), `useAutoReset` (auto-clearing status messages with cleanup), `useContainerHeight` (ResizeObserver-based container measurement)
 
 ### Video Management & Sets
 
 - **VideoManagementPanel** (`src/renderer/views/main/VideoManagementPanel.tsx`) — Games/Sets tabs. Manages optimistic UI updates: `handleSetUpdated` recomputes set titles via `computeSetTitle()` when metadata changes.
-- **SetCard** (`src/renderer/components/video/SetCard.tsx`) — Inline editing of set metadata (dropdowns + player name overrides). All metadata changes route through `handleUpdate()` → `onSetUpdated()` so the parent recomputes titles. Player override inputs use local state with `useEffect` sync to stay in sync with parent props. Deletion uses inline React confirmation (not `window.confirm()`).
+- **SetCard** (`src/renderer/components/video/SetCard.tsx`) — Inline editing of set metadata (dropdowns + player name overrides). All metadata changes route through `handleUpdate()` → `onSetUpdated()` so the parent recomputes titles. Player override inputs use local state with `useEffect` sync to stay in sync with parent props. Destructive actions use `InlineConfirm` for inline confirmation (not `window.confirm()`).
 - **NewSetForm** (`src/renderer/components/video/NewSetForm.tsx`) — Modal for creating new sets with match type, tournament metadata, and optional player name overrides.
 - **Set utilities** (`src/common/setUtils.ts`) — `computeSetTitle()` builds display titles from player names, characters, and set metadata. `getResolvedPlayers()` resolves player identities across games for override fields.
 
+### Design System & Styling
+
+All colors, borders, radii, and shadows are defined as CSS custom properties (design tokens) in `src/renderer/styles/main.css` under `:root`. Components must use `var(--pf-*)` tokens instead of hardcoded color values.
+
+**Token categories:** `--pf-bg-*` (backgrounds), `--pf-border-*` (borders), `--pf-text-*` (text hierarchy: primary > secondary > muted > faint), `--pf-accent` / `--pf-gradient-primary` (interactive accent), `--pf-success` / `--pf-warning` / `--pf-danger` (status colors with `-light` variants), `--pf-radius-*` (border radii), `--pf-shadow-*` / `--pf-overlay` (effects).
+
+**Button variants:** `.pf-button` (default with border), `.pf-button-primary` (gradient accent), `.pf-button-danger` (gradient red). Size modifiers: `.pf-button-sm` (compact), `.pf-button-md` (medium).
+
+**Responsive breakpoints:** `<700px` (sidebar collapses to abbreviations, single-column settings), `700-900px` (narrower sidebar, smaller grid), `>1600px` (wider padding). `prefers-reduced-motion` is respected globally.
+
+### Shared UI Components
+
+- **`InlineConfirm`** (`src/renderer/components/InlineConfirm.tsx`) — Reusable "trigger button → prompt + Yes/No" inline confirmation pattern. Self-manages confirmation state. Use instead of `window.confirm()` or custom confirm state. Props: `triggerLabel`, `prompt`, `onConfirm`, `busy`, `sizeClass`.
+- **`WarningBanner`** (`src/renderer/components/WarningBanner.tsx`) — Warning alert banner with optional async action button. Self-manages action busy state. Uses `.pf-warning-banner` CSS class. Props: `message`, `actionLabel`, `onAction`, `onError`.
+
+### Shared Hooks
+
+- **`useFocusTrap`** (`src/renderer/hooks/useFocusTrap.ts`) — Traps Tab focus within a container, returns focus to previous element on unmount. Attach the returned ref to modal/dialog containers. Used by VideoPlayerModal, NewSetForm, ThumbnailLightbox.
+- **`useAutoReset`** (`src/renderer/hooks/useAutoReset.ts`) — Wraps a state setter to auto-clear after a delay with proper cleanup on unmount. Replaces bare `setTimeout(() => setter(''), N)` patterns that leak on unmount.
+- **`useContainerHeight`** (`src/renderer/hooks/useContainerHeight.ts`) — Measures a container's height via ResizeObserver for dynamic `react-window` List sizing.
+
 ### Electron-Specific Patterns
 
-- **Avoid `window.confirm()` / `window.alert()`** — Native dialogs in Electron block the renderer process and disrupt keyboard event routing to the webview. Text inputs in subsequently-mounted components may not receive keyboard events until focus is naturally re-established. Use inline React confirmation UI instead.
+- **Avoid `window.confirm()` / `window.alert()`** — Native dialogs in Electron block the renderer process and disrupt keyboard event routing to the webview. Text inputs in subsequently-mounted components may not receive keyboard events until focus is naturally re-established. Use the `InlineConfirm` component or inline React UI instead.
 
 ### Shared Types
 

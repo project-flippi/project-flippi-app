@@ -12,7 +12,11 @@ interface LazyVideoThumbnailProps {
  * on mount after a microtask to avoid flooding the browser with
  * simultaneous video metadata requests.
  */
-function LazyVideoThumbnail({ src, width, style }: LazyVideoThumbnailProps) {
+function LazyVideoThumbnail({
+  src,
+  width,
+  style = undefined,
+}: LazyVideoThumbnailProps) {
   const [shouldLoad, setShouldLoad] = useState(false);
   const mountedRef = useRef(true);
 
@@ -40,7 +44,7 @@ function LazyVideoThumbnail({ src, width, style }: LazyVideoThumbnailProps) {
           style={{
             width,
             borderRadius: 4,
-            backgroundColor: '#111',
+            backgroundColor: 'var(--pf-bg-inset)',
             display: 'block',
           }}
           onLoadedMetadata={(e) => {
@@ -54,16 +58,12 @@ function LazyVideoThumbnail({ src, width, style }: LazyVideoThumbnailProps) {
             width,
             height: Math.round(width * 0.5625),
             borderRadius: 4,
-            backgroundColor: '#111',
+            backgroundColor: 'var(--pf-bg-inset)',
           }}
         />
       )}
     </div>
   );
 }
-
-LazyVideoThumbnail.defaultProps = {
-  style: undefined,
-};
 
 export default LazyVideoThumbnail;

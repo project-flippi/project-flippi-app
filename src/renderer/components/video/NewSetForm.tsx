@@ -6,6 +6,7 @@ import type {
   SetType,
   SetRoundType,
 } from '../../../common/meleeTypes';
+import useFocusTrap from '../../hooks/useFocusTrap';
 
 const SET_TYPES: SetType[] = ['Tournament', 'Friendlies', 'Ranked', 'Unranked'];
 const PHASES: SetPhase[] = ['Pools', 'Winners', 'Losers', 'Grand'];
@@ -26,6 +27,7 @@ function NewSetForm({
   onCreated,
   onCancel,
 }: NewSetFormProps) {
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
   const isSingles = !slpGameData || slpGameData.matchType !== 'Doubles';
   const playerCount = isSingles ? 2 : 4;
 
@@ -40,6 +42,7 @@ function NewSetForm({
     Array(playerCount).fill(''),
   );
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const isTournament = setType === 'Tournament';
 
@@ -57,6 +60,7 @@ function NewSetForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setFormError(null);
     try {
       const overrides = playerNames.map((name, idx) => ({
         side: idx,
@@ -74,8 +78,7 @@ function NewSetForm({
       );
       onCreated();
     } catch (err: any) {
-      // eslint-disable-next-line no-alert
-      alert(err?.message ?? 'Failed to create set');
+      setFormError(err?.message ?? 'Failed to create set');
     } finally {
       setBusy(false);
     }
@@ -98,8 +101,18 @@ function NewSetForm({
   }
 
   return createPortal(
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div className="pf-video-modal-overlay" onClick={onCancel}>
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div
+      className="pf-video-modal-overlay"
+      onClick={onCancel}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onCancel();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create new set"
+      ref={focusTrapRef}
+    >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="pf-new-set-form" onClick={(e) => e.stopPropagation()}>
         <h3 style={{ margin: '0 0 12px' }}>New Set</h3>
@@ -203,7 +216,7 @@ function NewSetForm({
             <span
               style={{
                 fontWeight: 400,
-                color: '#9ca3af',
+                color: 'var(--pf-text-muted)',
                 fontSize: '0.8rem',
                 marginLeft: 8,
               }}
@@ -231,13 +244,26 @@ function NewSetForm({
             ),
           )}
 
+          {formError && (
+            <div
+              role="alert"
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--pf-danger-light)',
+                marginTop: 8,
+              }}
+            >
+              {formError}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
             <button
               type="submit"
               className="pf-button pf-button-primary"
               disabled={busy}
             >
-              {busy ? 'Creating...' : 'Create Set'}
+              {busy ? 'Creating\u2026' : 'Create Set'}
             </button>
             <button
               type="button"

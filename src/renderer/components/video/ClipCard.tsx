@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type {
   VideoDataEntry,
   CompilationEntry,
 } from '../../../common/meleeTypes';
+import useAutoReset from '../../hooks/useAutoReset';
 import PlayerInfo from './PlayerInfo';
 
 type Props = {
@@ -17,6 +18,7 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
   const [description, setDescription] = useState(clip.description);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+  const setStatusAuto = useAutoReset(setStatus, '', 3000);
 
   const totalDamage = clip.combo
     ? (clip.combo.endPercent - clip.combo.startPercent).toFixed(1)
@@ -31,13 +33,12 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
         title,
         description,
       });
-      setStatus('Saved');
+      setStatusAuto('Saved');
       onUpdated();
     } catch (err: any) {
-      setStatus(err?.message ?? 'Failed');
+      setStatusAuto(err?.message ?? 'Failed');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus(''), 2000);
     }
   }
 
@@ -47,7 +48,7 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
       return;
     }
     setBusy(true);
-    setStatus('Generating title...');
+    setStatus('Generating title\u2026');
     try {
       const res = await window.flippiVideo.aiGenerateTitle(
         clip.prompt,
@@ -58,16 +59,15 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
         await window.flippiVideo.updateClip(eventName, clip.timestamp, {
           title: res.title,
         });
-        setStatus('Title generated');
+        setStatusAuto('Title generated');
         onUpdated();
       } else {
-        setStatus('Failed to generate title');
+        setStatusAuto('Failed to generate title');
       }
     } catch (err: any) {
-      setStatus(err?.message ?? 'Failed');
+      setStatusAuto(err?.message ?? 'Failed');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus(''), 3000);
     }
   }
 
@@ -77,7 +77,7 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
       return;
     }
     setBusy(true);
-    setStatus('Generating description...');
+    setStatus('Generating description\u2026');
     try {
       const res = await window.flippiVideo.aiGenerateDesc(title);
       if (res.ok && res.description) {
@@ -85,16 +85,15 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
         await window.flippiVideo.updateClip(eventName, clip.timestamp, {
           description: res.description,
         });
-        setStatus('Description generated');
+        setStatusAuto('Description generated');
         onUpdated();
       } else {
-        setStatus('Failed to generate description');
+        setStatusAuto('Failed to generate description');
       }
     } catch (err: any) {
-      setStatus(err?.message ?? 'Failed');
+      setStatusAuto(err?.message ?? 'Failed');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus(''), 3000);
     }
   }
 
@@ -191,6 +190,7 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
           onChange={(e) => onCompilationChange(e.target.value)}
           disabled={busy}
           style={{ fontSize: '0.8rem' }}
+          aria-label="Assign to compilation"
         >
           <option value="">No compilation</option>
           {compilations.map((comp) => (
@@ -205,4 +205,4 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
   );
 }
 
-export default ClipCard;
+export default memo(ClipCard);

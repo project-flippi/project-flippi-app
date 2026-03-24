@@ -11,22 +11,25 @@ import { ReactComponent as ClippiLogo } from '../styles/images/clippi-logo.svg';
 import { ReactComponent as SlippiLogo } from '../styles/images/slippi-logo.svg';
 
 const colorMap: Record<'green' | 'yellow' | 'red' | 'gray', string> = {
-  green: '#2ecc71',
-  yellow: '#f1c40f',
-  red: '#e74c3c',
-  gray: '#7f8c8d',
+  green: 'var(--pf-success-light)',
+  yellow: 'var(--pf-warning-light)',
+  red: 'var(--pf-danger-light)',
+  gray: 'var(--pf-inactive)',
 };
 
 function StatusLight({
   state,
+  label,
 }: {
   state: 'green' | 'yellow' | 'red' | 'gray';
+  label: string;
 }) {
   const color = colorMap[state];
 
   return (
     <span
-      aria-label={`status-${state}`}
+      role="status"
+      aria-label={label}
       style={{
         display: 'inline-block',
         width: 10,
@@ -145,8 +148,8 @@ export default function StatusBar() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <StatusLight state={obsState} />
-        <span title="OBS">
+        <StatusLight state={obsState} label={`OBS: ${obsText}`} />
+        <span title="OBS" aria-hidden="true">
           <ObsLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
         </span>
         <span>{obsText}</span>
@@ -165,16 +168,22 @@ export default function StatusBar() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <StatusLight state={clippiState} />
-        <span title="Clippi">
+        <StatusLight
+          state={clippiState}
+          label={`Clippi: ${getClippiText(status.clippi)}`}
+        />
+        <span title="Clippi" aria-hidden="true">
           <ClippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
         </span>
         <span>{getClippiText(status.clippi)}</span>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <StatusLight state={slippiState} />
-        <span title="Slippi">
+        <StatusLight
+          state={slippiState}
+          label={`Slippi: ${getSlippiText(status.slippi)}`}
+        />
+        <span title="Slippi" aria-hidden="true">
           <SlippiLogo style={{ height: 18, width: 'auto', marginRight: 8 }} />
         </span>
         <span>{getSlippiText(status.slippi)}</span>

@@ -40,6 +40,8 @@ function MainPanel() {
             type="button"
             className={navButtonClass(activeView, 'recording')}
             onClick={() => setActiveView('recording')}
+            data-short="Rec"
+            title="Recording"
           >
             Recording
           </button>
@@ -47,6 +49,8 @@ function MainPanel() {
             type="button"
             className={navButtonClass(activeView, 'videos')}
             onClick={() => setActiveView('videos')}
+            data-short="Vid"
+            title="Video Management"
           >
             Video Management
           </button>
@@ -54,6 +58,8 @@ function MainPanel() {
             type="button"
             className={navButtonClass(activeView, 'schedule')}
             onClick={() => setActiveView('schedule')}
+            data-short="Sch"
+            title="Scheduling"
           >
             Scheduling
           </button>
@@ -61,6 +67,8 @@ function MainPanel() {
             type="button"
             className={navButtonClass(activeView, 'settings')}
             onClick={() => setActiveView('settings')}
+            data-short="Set"
+            title="Settings"
           >
             Settings
           </button>

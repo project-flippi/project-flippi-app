@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { CompilationEntry } from '../../../common/meleeTypes';
+import { localImageUrl } from './GameCard';
+import useAutoReset from '../../hooks/useAutoReset';
 
 type Props = {
   compilation: CompilationEntry;
@@ -12,6 +14,7 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
   const [description, setDescription] = useState(compilation.description);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+  const setStatusAuto = useAutoReset(setStatus, '', 3000);
 
   const fileName = compilation.filePath.split(/[\\/]/).pop() ?? '';
 
@@ -23,19 +26,18 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
         compilation.filePath,
         { title, description },
       );
-      setStatus('Saved');
+      setStatusAuto('Saved');
       onUpdated();
     } catch (err: any) {
-      setStatus(err?.message ?? 'Failed');
+      setStatusAuto(err?.message ?? 'Failed');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus(''), 2000);
     }
   }
 
   async function generateTitleAndDesc() {
     setBusy(true);
-    setStatus('Generating title...');
+    setStatus('Generating title\u2026');
     try {
       const clipTitlesPrompt =
         compilation.clipTitles.length > 0
@@ -49,7 +51,7 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
       if (titleRes.ok && titleRes.title) {
         setTitle(titleRes.title);
 
-        setStatus('Generating description...');
+        setStatus('Generating description\u2026');
         const descRes = await window.flippiVideo.aiGenerateDesc(titleRes.title);
         if (descRes.ok && descRes.description) {
           setDescription(descRes.description);
@@ -63,16 +65,15 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
             description: descRes.ok ? descRes.description : '',
           },
         );
-        setStatus('Generated');
+        setStatusAuto('Generated');
         onUpdated();
       } else {
-        setStatus('Failed to generate');
+        setStatusAuto('Failed to generate');
       }
     } catch (err: any) {
-      setStatus(err?.message ?? 'Failed');
+      setStatusAuto(err?.message ?? 'Failed');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus(''), 3000);
     }
   }
 
@@ -82,7 +83,7 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
       return;
     }
     setBusy(true);
-    setStatus('Generating thumbnail...');
+    setStatus('Generating thumbnail\u2026');
     try {
       const res = await window.flippiVideo.aiGenerateThumbnail(title);
       if (res.ok && res.thumbnailPath) {
@@ -91,16 +92,15 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
           compilation.filePath,
           { thumbnail: res.thumbnailPath },
         );
-        setStatus('Thumbnail generated');
+        setStatusAuto('Thumbnail generated');
         onUpdated();
       } else {
-        setStatus('Failed to generate thumbnail');
+        setStatusAuto('Failed to generate thumbnail');
       }
     } catch (err: any) {
-      setStatus(err?.message ?? 'Failed');
+      setStatusAuto(err?.message ?? 'Failed');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus(''), 3000);
     }
   }
 
@@ -148,8 +148,8 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
       {compilation.thumbnail && (
         <div style={{ marginBottom: 8 }}>
           <img
-            src={`file://${compilation.thumbnail}`}
-            alt="Thumbnail"
+            src={localImageUrl(compilation.thumbnail)}
+            alt="Compilation thumbnail"
             style={{ maxWidth: 200, borderRadius: 6 }}
           />
         </div>
@@ -186,4 +186,4 @@ function CompilationCard({ compilation, eventName, onUpdated }: Props) {
   );
 }
 
-export default CompilationCard;
+export default memo(CompilationCard);

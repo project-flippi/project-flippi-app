@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
+import useFocusTrap from '../../hooks/useFocusTrap';
+import useAutoReset from '../../hooks/useAutoReset';
+import InlineConfirm from '../InlineConfirm';
 import type {
   GameEntry,
   SetEntry,
@@ -20,6 +23,87 @@ import {
 import { getStageName } from '../../../common/meleeResources';
 import { renderThumbnail } from '../../utils/thumbnailRenderer';
 
+/** Fullscreen image lightbox with focus trap and Escape support. */
+function ThumbnailLightbox({
+  src,
+  onClose,
+}: {
+  src: string;
+  onClose: () => void;
+}) {
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  return createPortal(
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Thumbnail preview"
+      ref={focusTrapRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(0,0,0,0.85)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        cursor: 'pointer',
+      }}
+    >
+      <img
+        src={src}
+        alt="Thumbnail full size"
+        style={{
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          borderRadius: 6,
+          boxShadow: '0 4px 32px rgba(0,0,0,0.6)',
+        }}
+      />
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close preview"
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          background: 'rgba(0,0,0,0.6)',
+          border: '1px solid #555',
+          color: '#e5e7eb',
+          fontSize: '1.4rem',
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        &times;
+      </button>
+    </div>,
+    document.body,
+  );
+}
+
 /** Animated "Compiling..." indicator with cycling dots. */
 function CompilingIndicator() {
   const [dots, setDots] = useState(0);
@@ -28,7 +112,7 @@ function CompilingIndicator() {
     return () => clearInterval(id);
   }, []);
   return (
-    <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+    <span style={{ color: 'var(--pf-text-muted)', fontSize: '0.8rem' }}>
       Compiling{'.'.repeat(dots)}
     </span>
   );
@@ -59,7 +143,7 @@ function PlayerOverrideInput({
   return (
     <div className="pf-set-player-override">
       <label htmlFor={`set-${setId}-p${side}`}>
-        <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
+        <span style={{ fontSize: '0.8rem', color: 'var(--pf-text-muted)' }}>
           P{side + 1}
           {port != null ? ` (Port ${port})` : ''}
         </span>
@@ -100,7 +184,7 @@ function renderSetGameMetadata(
           <span
             style={{
               fontSize: '0.75rem',
-              color: '#666',
+              color: 'var(--pf-text-faint)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -116,7 +200,7 @@ function renderSetGameMetadata(
   if (slpFile) {
     return (
       <span
-        style={{ fontSize: '0.8rem', color: '#999' }}
+        style={{ fontSize: '0.8rem', color: 'var(--pf-text-muted)' }}
         title={slpFile.filePath}
       >
         {slpFile.fileName}
@@ -126,7 +210,7 @@ function renderSetGameMetadata(
   return (
     <span
       style={{
-        color: '#777',
+        color: 'var(--pf-text-muted)',
         fontStyle: 'italic',
         fontSize: '0.8rem',
       }}
@@ -161,8 +245,6 @@ function SetCard({
   const { set, games, title } = setEntry;
   const [showPlayer, setShowPlayer] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmDeleteVideo, setConfirmDeleteVideo] = useState(false);
   const [compileProgress, setCompileProgress] = useState<number | null>(null);
   const [compileStatus, setCompileStatus] = useState<string | null>(null);
   const [compiledVideoPath, setCompiledVideoPath] = useState<string | null>(
@@ -226,7 +308,6 @@ function SetCard({
       onSetDeleted(set.id);
     } finally {
       setBusy(false);
-      setConfirmDelete(false);
     }
   }
 
@@ -238,7 +319,6 @@ function SetCard({
       onSetUpdated(updated);
     } finally {
       setBusy(false);
-      setConfirmDeleteVideo(false);
     }
   }
 
@@ -253,13 +333,13 @@ function SetCard({
   }, [compiledVideoPath, title]);
 
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
+  const setRenameStatusAuto = useAutoReset(setRenameStatus, null, 5000);
 
   // Thumbnail state
   const [thumbnailPath, setThumbnailPath] = useState<string | null>(
     set.thumbnailPath ?? null,
   );
   const [thumbnailBusy, setThumbnailBusy] = useState(false);
-  const [confirmDeleteThumbnail, setConfirmDeleteThumbnail] = useState(false);
   const [thumbnailVersion, setThumbnailVersion] = useState(0);
   const [showThumbnailFull, setShowThumbnailFull] = useState(false);
 
@@ -285,6 +365,7 @@ function SetCard({
       setThumbnailVersion((v) => v + 1);
       onSetUpdated(updated);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('[SetCard] Thumbnail generation failed:', err);
     } finally {
       setThumbnailBusy(false);
@@ -299,7 +380,6 @@ function SetCard({
       onSetUpdated(updated);
     } finally {
       setThumbnailBusy(false);
-      setConfirmDeleteThumbnail(false);
     }
   }
 
@@ -311,8 +391,7 @@ function SetCard({
       setCompiledVideoPath(updated.compiledVideoPath ?? null);
       onSetUpdated(updated);
     } catch (err: any) {
-      setRenameStatus(err?.message ?? 'Rename failed');
-      setTimeout(() => setRenameStatus(null), 5000);
+      setRenameStatusAuto(err?.message ?? 'Rename failed');
     } finally {
       setBusy(false);
     }
@@ -323,6 +402,22 @@ function SetCard({
   setRef.current = set;
   const onSetUpdatedRef = useRef(onSetUpdated);
   onSetUpdatedRef.current = onSetUpdated;
+
+  // Timer ref for compile status auto-clear
+  const compileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (compileTimerRef.current) clearTimeout(compileTimerRef.current);
+    };
+  }, []);
+
+  function clearCompileAfter(ms: number) {
+    if (compileTimerRef.current) clearTimeout(compileTimerRef.current);
+    compileTimerRef.current = setTimeout(() => {
+      setCompileProgress(null);
+      setCompileStatus(null);
+    }, ms);
+  }
 
   // Listen for compile progress events for this set
   useEffect(() => {
@@ -338,16 +433,10 @@ function SetCard({
           });
         }
         setCompileStatus('Done!');
-        setTimeout(() => {
-          setCompileProgress(null);
-          setCompileStatus(null);
-        }, 2000);
+        clearCompileAfter(2000);
       } else if (progress.status === 'error') {
         setCompileStatus(progress.error ?? 'Failed');
-        setTimeout(() => {
-          setCompileProgress(null);
-          setCompileStatus(null);
-        }, 5000);
+        clearCompileAfter(5000);
       }
     });
     return cleanup;
@@ -361,10 +450,7 @@ function SetCard({
       await window.flippiSets.compile(eventName, set.id);
     } catch (err: any) {
       setCompileStatus(err?.message ?? 'Compilation failed');
-      setTimeout(() => {
-        setCompileProgress(null);
-        setCompileStatus(null);
-      }, 5000);
+      clearCompileAfter(5000);
     }
   }
 
@@ -379,6 +465,7 @@ function SetCard({
           value={set.matchType}
           onChange={(e) => handleUpdate({ matchType: e.target.value })}
           disabled={busy}
+          aria-label="Match type"
         >
           <option value="Singles">Singles</option>
           <option value="Doubles">Doubles</option>
@@ -388,6 +475,7 @@ function SetCard({
           value={set.setType}
           onChange={(e) => handleUpdate({ setType: e.target.value })}
           disabled={busy}
+          aria-label="Set type"
         >
           {SET_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -402,6 +490,7 @@ function SetCard({
               value={set.phase}
               onChange={(e) => handleUpdate({ phase: e.target.value })}
               disabled={busy}
+              aria-label="Tournament phase"
             >
               {PHASES.map((p) => (
                 <option key={p} value={p}>
@@ -414,6 +503,7 @@ function SetCard({
               value={set.roundType}
               onChange={(e) => handleUpdate({ roundType: e.target.value })}
               disabled={busy}
+              aria-label="Round type"
             >
               {ROUND_TYPES.map((r) => (
                 <option key={r} value={r}>
@@ -430,6 +520,7 @@ function SetCard({
                 onBlur={(e) => handleUpdate({ roundNumber: e.target.value })}
                 disabled={busy}
                 style={{ width: 60 }}
+                aria-label="Round number"
               />
             )}
           </>
@@ -456,7 +547,10 @@ function SetCard({
               {compileStatus ? (
                 <span
                   style={{
-                    color: compileStatus === 'Done!' ? '#4ade80' : '#f87171',
+                    color:
+                      compileStatus === 'Done!'
+                        ? 'var(--pf-success-light)'
+                        : 'var(--pf-danger-light)',
                   }}
                 >
                   {compileStatus}
@@ -470,68 +564,37 @@ function SetCard({
             <>
               <button
                 type="button"
-                className="pf-play-btn"
+                className="pf-play-btn pf-button-md"
                 onClick={() => setShowPlayer(compiledVideoPath)}
                 title="Play compiled set video"
-                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
               >
                 &#9654; Set Video
               </button>
-              {confirmDeleteVideo ? (
-                <span
-                  style={{
-                    display: 'flex',
-                    gap: 4,
-                    alignItems: 'center',
-                    fontSize: '0.8rem',
-                  }}
-                >
-                  <span style={{ color: '#f87171' }}>Delete video?</span>
-                  <button
-                    type="button"
-                    className="pf-button pf-button-danger"
-                    onClick={handleDeleteVideo}
-                    disabled={busy}
-                    style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-                  >
-                    {busy ? 'Deleting...' : 'Yes'}
-                  </button>
-                  <button
-                    type="button"
-                    className="pf-button"
-                    onClick={() => setConfirmDeleteVideo(false)}
-                    disabled={busy}
-                    style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-                  >
-                    No
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="pf-button pf-button-danger"
-                  onClick={() => setConfirmDeleteVideo(true)}
-                  disabled={busy}
-                  style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-                  title="Delete the compiled video to unlock game editing"
-                >
-                  Delete Video
-                </button>
-              )}
+              <InlineConfirm
+                triggerLabel="Delete Video"
+                prompt="Delete video?"
+                onConfirm={handleDeleteVideo}
+                busy={busy}
+                disabled={busy}
+              />
               {needsRename && (
                 <button
                   type="button"
-                  className="pf-button"
+                  className="pf-button pf-button-sm"
                   onClick={handleRenameVideo}
                   disabled={busy}
-                  style={{ fontSize: '0.75rem', padding: '2px 8px' }}
                   title="Rename the video file to match the updated set title"
                 >
                   Rename Video
                 </button>
               )}
               {renameStatus && (
-                <span style={{ color: '#f87171', fontSize: '0.75rem' }}>
+                <span
+                  style={{
+                    color: 'var(--pf-danger-light)',
+                    fontSize: '0.75rem',
+                  }}
+                >
                   {renameStatus}
                 </span>
               )}
@@ -540,65 +603,28 @@ function SetCard({
           {compileProgress == null && !compiledVideoPath && (
             <button
               type="button"
-              className="pf-button"
+              className="pf-button pf-button-md"
               onClick={handleCompile}
               disabled={busy || games.length === 0}
-              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
             >
               Compile
             </button>
           )}
         </span>
 
-        {confirmDelete ? (
-          <span
-            style={{
-              marginLeft: 'auto',
-              display: 'flex',
-              gap: 6,
-              alignItems: 'center',
-              fontSize: '0.8rem',
-            }}
-          >
-            <span style={{ color: '#f87171' }}>
-              {compiledVideoPath
-                ? 'Delete this set and its video file (.mp4)?'
-                : 'Delete this set?'}
-            </span>
-            <button
-              type="button"
-              className="pf-button pf-button-danger"
-              onClick={handleDeleteSet}
-              disabled={busy}
-              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-            >
-              {busy ? 'Deleting...' : 'Yes'}
-            </button>
-            <button
-              type="button"
-              className="pf-button"
-              onClick={() => setConfirmDelete(false)}
-              disabled={busy}
-              style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-            >
-              No
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            className="pf-button pf-button-danger"
-            onClick={() => setConfirmDelete(true)}
-            disabled={busy}
-            style={{
-              marginLeft: 'auto',
-              fontSize: '0.8rem',
-              padding: '4px 10px',
-            }}
-          >
-            Delete Set
-          </button>
-        )}
+        <InlineConfirm
+          triggerLabel="Delete Set"
+          prompt={
+            compiledVideoPath
+              ? 'Delete this set and its video file (.mp4)?'
+              : 'Delete this set?'
+          }
+          onConfirm={handleDeleteSet}
+          busy={busy}
+          disabled={busy}
+          sizeClass="pf-button-md"
+          style={{ marginLeft: 'auto' }}
+        />
       </div>
 
       {/* Player overrides */}
@@ -626,115 +652,66 @@ function SetCard({
           alignItems: 'center',
           gap: 10,
           padding: '6px 0',
-          borderTop: '1px solid #333',
+          borderTop: '1px solid var(--pf-border-control)',
         }}
       >
         {thumbnailPath && (
           <>
-            <img
-              src={`${localImageUrl(thumbnailPath)}&t=${thumbnailVersion}`}
-              alt="Thumbnail"
-              role="presentation"
+            <button
+              type="button"
               onClick={() => setShowThumbnailFull(true)}
+              aria-label="View thumbnail full size"
               style={{
-                width: 160,
-                height: 90,
-                objectFit: 'cover',
+                padding: 0,
+                border: '1px solid var(--pf-border-control)',
                 borderRadius: 4,
-                border: '1px solid #444',
                 cursor: 'pointer',
+                background: 'none',
+                lineHeight: 0,
               }}
-              title="Click to view full size"
-            />
-            {showThumbnailFull &&
-              createPortal(
-                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-                <div
-                  onClick={() => setShowThumbnailFull(false)}
-                  style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'rgba(0,0,0,0.85)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 9999,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <img
-                    src={`${localImageUrl(thumbnailPath)}&t=${thumbnailVersion}`}
-                    alt="Thumbnail full size"
-                    style={{
-                      maxWidth: '90vw',
-                      maxHeight: '90vh',
-                      borderRadius: 6,
-                      boxShadow: '0 4px 32px rgba(0,0,0,0.6)',
-                    }}
-                  />
-                </div>,
-                document.body,
-              )}
+            >
+              <img
+                src={`${localImageUrl(thumbnailPath)}&t=${thumbnailVersion}`}
+                alt="Set thumbnail"
+                style={{
+                  width: 160,
+                  height: 90,
+                  objectFit: 'cover',
+                  borderRadius: 3,
+                  display: 'block',
+                }}
+              />
+            </button>
+            {showThumbnailFull && (
+              <ThumbnailLightbox
+                src={`${localImageUrl(thumbnailPath)}&t=${thumbnailVersion}`}
+                onClose={() => setShowThumbnailFull(false)}
+              />
+            )}
           </>
         )}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <button
             type="button"
-            className="pf-button"
+            className="pf-button pf-button-md"
             onClick={handleGenerateThumbnail}
             disabled={thumbnailBusy}
-            style={{ fontSize: '0.8rem', padding: '4px 10px' }}
           >
             {/* eslint-disable-next-line no-nested-ternary */}
             {thumbnailBusy
-              ? 'Generating...'
+              ? 'Generating\u2026'
               : thumbnailPath
                 ? 'Regenerate Thumbnail'
                 : 'Generate Thumbnail'}
           </button>
-          {thumbnailPath && !confirmDeleteThumbnail && (
-            <button
-              type="button"
-              className="pf-button pf-button-danger"
-              onClick={() => setConfirmDeleteThumbnail(true)}
+          {thumbnailPath && (
+            <InlineConfirm
+              triggerLabel="Delete Thumbnail"
+              prompt="Delete?"
+              onConfirm={handleDeleteThumbnail}
+              busy={thumbnailBusy}
               disabled={thumbnailBusy}
-              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-            >
-              Delete Thumbnail
-            </button>
-          )}
-          {confirmDeleteThumbnail && (
-            <span
-              style={{
-                display: 'flex',
-                gap: 4,
-                alignItems: 'center',
-                fontSize: '0.8rem',
-              }}
-            >
-              <span style={{ color: '#f87171' }}>Delete?</span>
-              <button
-                type="button"
-                className="pf-button pf-button-danger"
-                onClick={handleDeleteThumbnail}
-                disabled={thumbnailBusy}
-                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                className="pf-button"
-                onClick={() => setConfirmDeleteThumbnail(false)}
-                disabled={thumbnailBusy}
-                style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-              >
-                No
-              </button>
-            </span>
+            />
           )}
         </div>
       </div>
@@ -742,7 +719,13 @@ function SetCard({
       {/* Games list */}
       <div className="pf-set-games">
         {games.length === 0 && (
-          <div style={{ color: '#777', fontStyle: 'italic', padding: 8 }}>
+          <div
+            style={{
+              color: 'var(--pf-text-muted)',
+              fontStyle: 'italic',
+              padding: 8,
+            }}
+          >
             No games in this set
           </div>
         )}
@@ -780,7 +763,7 @@ function SetCard({
                   <span
                     style={{
                       fontSize: '0.8rem',
-                      color: '#cbd5e1',
+                      color: 'var(--pf-text-secondary)',
                       fontWeight: 600,
                       flexShrink: 0,
                     }}
@@ -802,6 +785,7 @@ function SetCard({
                     className="pf-play-btn"
                     onClick={() => setShowPlayer(game.video.filePath)}
                     title="Play video"
+                    aria-label={`Play game ${idx + 1} video`}
                   >
                     &#9654;
                   </button>
@@ -812,6 +796,7 @@ function SetCard({
                       onClick={() => handleRemoveGame(game.video.filePath)}
                       disabled={busy}
                       title="Remove from set"
+                      aria-label={`Remove game ${idx + 1} from set`}
                     >
                       &times;
                     </button>

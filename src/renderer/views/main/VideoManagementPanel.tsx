@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import useAutoReset from '../../hooks/useAutoReset';
+import useContainerHeight from '../../hooks/useContainerHeight';
 import type { GameEntry, GameSet, SetEntry } from '../../../common/meleeTypes';
 import { computeSetTitle } from '../../../common/setUtils';
 import GameCard, { initVideoServerPort } from '../../components/video/GameCard';
@@ -100,7 +102,10 @@ function VideoManagementPanel() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
+  const { containerRef: listContainerRef, height: listHeight } =
+    useContainerHeight(500);
   const [actionStatus, setActionStatus] = useState('');
+  const setActionStatusAuto = useAutoReset(setActionStatus, '', 5000);
 
   // Derived video -> set lookup (recalculated when sets change)
   const videoSetMap = useMemo(() => buildVideoSetMap(sets), [sets]);
@@ -233,18 +238,19 @@ function VideoManagementPanel() {
   async function handlePairGameVideos() {
     if (!selectedEvent) return;
     setActionBusy(true);
-    setActionStatus('Pairing game videos with SLP files...');
+    setActionStatus('Pairing game videos with SLP files\u2026');
     try {
       const res = await window.flippiVideo.pairGameVideos(selectedEvent);
-      setActionStatus(res.message);
       if (res.ok) {
+        setActionStatusAuto(res.message);
         loadAll(selectedEvent);
+      } else {
+        setActionStatusAuto(res.message);
       }
     } catch (err: any) {
-      setActionStatus(err?.message ?? 'Failed');
+      setActionStatusAuto(err?.message ?? 'Failed');
     } finally {
       setActionBusy(false);
-      setTimeout(() => setActionStatus(''), 5000);
     }
   }
 
@@ -290,7 +296,15 @@ function VideoManagementPanel() {
     <section className="pf-section">
       <h1>Video Management</h1>
 
-      <div className="pf-card" style={{ maxWidth: 900 }}>
+      <div
+        className="pf-card"
+        style={{
+          maxWidth: 900,
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: 'calc(100vh - 140px)',
+        }}
+      >
         <div className="pf-field">
           <label htmlFor="video-event-select">
             Event
@@ -332,7 +346,7 @@ function VideoManagementPanel() {
 
         {isLoading && (
           <div className="pf-status-message" style={{ marginTop: 8 }}>
-            Loading...
+            Loading\u2026
           </div>
         )}
         {error && (
@@ -341,51 +355,54 @@ function VideoManagementPanel() {
           </div>
         )}
 
-        {/* Games tab */}
-        {activeTab === 'games' && !isLoading && (
-          <>
-            {games.length === 0 && !error && (
-              <div style={{ padding: '16px 0', color: '#777' }}>
-                No video files found for this event.
-              </div>
-            )}
-            {games.length > 0 && (
-              <div style={{ marginTop: 8 }}>
+        {/* List area — measured for dynamic react-window height */}
+        <div ref={listContainerRef} style={{ flex: 1, minHeight: 200 }}>
+          {/* Games tab */}
+          {activeTab === 'games' && !isLoading && (
+            <>
+              {games.length === 0 && !error && (
+                <div
+                  style={{ padding: '16px 0', color: 'var(--pf-text-muted)' }}
+                >
+                  No video files found for this event.
+                </div>
+              )}
+              {games.length > 0 && (
                 <List
-                  style={{ height: 600 }}
+                  style={{ height: listHeight }}
                   rowComponent={GameRow}
                   rowCount={games.length}
                   rowHeight={GAME_CARD_HEIGHT}
                   rowProps={gameRowProps}
                   overscanCount={3}
                 />
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
 
-        {/* Sets tab */}
-        {activeTab === 'sets' && !isLoading && (
-          <>
-            {sets.length === 0 && (
-              <div style={{ padding: '16px 0', color: '#777' }}>
-                No sets created yet. Add games to a set from the Games tab.
-              </div>
-            )}
-            {sets.length > 0 && (
-              <div style={{ marginTop: 8 }}>
+          {/* Sets tab */}
+          {activeTab === 'sets' && !isLoading && (
+            <>
+              {sets.length === 0 && (
+                <div
+                  style={{ padding: '16px 0', color: 'var(--pf-text-muted)' }}
+                >
+                  No sets created yet. Add games to a set from the Games tab.
+                </div>
+              )}
+              {sets.length > 0 && (
                 <List
-                  style={{ height: 600 }}
+                  style={{ height: listHeight }}
                   rowComponent={SetRow}
                   rowCount={sets.length}
                   rowHeight={getSetRowHeight}
                   rowProps={setRowProps}
                   overscanCount={2}
                 />
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
 
         <div style={{ marginTop: 16 }}>
           <button

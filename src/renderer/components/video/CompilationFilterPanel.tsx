@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useAutoReset from '../../hooks/useAutoReset';
 
 type Props = {
   eventName: string;
@@ -11,23 +12,27 @@ function CompilationFilterPanel({ eventName, onCreated }: Props) {
   const [minClips, setMinClips] = useState(3);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+  const setStatusAuto = useAutoReset(setStatus, '', 5000);
 
   async function handleCreate() {
     setBusy(true);
-    setStatus('Creating compilation...');
+    setStatus('Creating compilation\u2026');
     try {
       const res = await window.flippiVideo.createCompilation(eventName, {
         excludeUsed,
         maxClips,
         minClips,
       });
-      setStatus(res.message);
-      if (res.ok) onCreated();
+      if (res.ok) {
+        setStatusAuto(res.message);
+        onCreated();
+      } else {
+        setStatusAuto(res.message);
+      }
     } catch (err: any) {
-      setStatus(err?.message ?? 'Failed');
+      setStatusAuto(err?.message ?? 'Failed');
     } finally {
       setBusy(false);
-      setTimeout(() => setStatus(''), 5000);
     }
   }
 
@@ -86,7 +91,7 @@ function CompilationFilterPanel({ eventName, onCreated }: Props) {
           onClick={handleCreate}
           disabled={busy}
         >
-          {busy ? 'Creating...' : 'Create'}
+          {busy ? 'Creating\u2026' : 'Create'}
         </button>
         {status && <span className="pf-status-message">{status}</span>}
       </div>

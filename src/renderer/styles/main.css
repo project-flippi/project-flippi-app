@@ -1,4 +1,73 @@
-/* Reset */
+/* ================================================================
+   Design Tokens
+   ================================================================
+   All color, spacing, and typography values are defined here as
+   CSS custom properties. Components should reference these tokens
+   instead of hard-coding values.
+   ================================================================ */
+:root {
+  /* ---- Background ---- */
+  --pf-bg-base: #020617;
+  --pf-bg-elevated: #0f172a;
+  --pf-bg-surface: rgba(15, 23, 42, 0.9);
+  --pf-bg-surface-dim: rgba(15, 23, 42, 0.7);
+  --pf-bg-surface-dimmer: rgba(15, 23, 42, 0.5);
+  --pf-bg-surface-dimmest: rgba(15, 23, 42, 0.6);
+  --pf-bg-control: #1e293b;
+  --pf-bg-hover: #111827;
+  --pf-bg-inset: #111;
+
+  /* ---- Border ---- */
+  --pf-border: #1f2937;
+  --pf-border-control: #334155;
+  --pf-border-input: #374151;
+
+  /* ---- Text ---- */
+  --pf-text-primary: #e5e7eb;
+  --pf-text-secondary: #d1d5db;
+  --pf-text-muted: #9ca3af;
+  --pf-text-faint: #6b7280;
+  --pf-text-on-accent: #eff6ff;
+
+  /* ---- Accent ---- */
+  --pf-accent: #0ea5e9;
+  --pf-accent-secondary: #6366f1;
+  --pf-accent-focus: rgba(14, 165, 233, 0.4);
+  --pf-gradient-primary: linear-gradient(135deg, #0ea5e9, #6366f1);
+
+  /* ---- Status ---- */
+  --pf-success: #16a34a;
+  --pf-success-light: #4ade80;
+  --pf-warning: #d97706;
+  --pf-warning-light: #fbbf24;
+  --pf-warning-bg: rgba(234, 179, 8, 0.08);
+  --pf-warning-text: #f59e0b;
+  --pf-danger: #dc2626;
+  --pf-danger-dark: #b91c1c;
+  --pf-danger-light: #f87171;
+  --pf-danger-lighter: #fca5a5;
+  --pf-inactive: #7f8c8d;
+
+  /* ---- Scrollbar ---- */
+  --pf-scrollbar: #374151;
+  --pf-scrollbar-hover: #4b5563;
+
+  /* ---- Overlay ---- */
+  --pf-overlay: rgba(0, 0, 0, 0.85);
+  --pf-shadow-card: 0 10px 30px rgba(15, 23, 42, 0.4);
+  --pf-shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.6);
+
+  /* ---- Radius ---- */
+  --pf-radius-sm: 4px;
+  --pf-radius-md: 8px;
+  --pf-radius-lg: 10px;
+  --pf-radius-xl: 12px;
+  --pf-radius-pill: 999px;
+}
+
+/* ================================================================
+   Reset
+   ================================================================ */
 html, body, #root {
   margin: 0;
   padding: 0;
@@ -6,7 +75,9 @@ html, body, #root {
   overflow: hidden;
 }
 
-/* App shell */
+/* ================================================================
+   App Shell
+   ================================================================ */
 .pf-app-shell {
   display: flex;
   flex-direction: column;
@@ -14,21 +85,23 @@ html, body, #root {
   width: 100vw;
 }
 
-/* Layout */
+/* ================================================================
+   Layout
+   ================================================================ */
 .pf-app-root {
   display: flex;
   flex: 1;
   min-height: 0;
   width: 100vw;
-  background: #020617; /* slate-950-ish */
-  color: #e5e7eb;      /* zinc-200-ish */
+  background: var(--pf-bg-base);
+  color: var(--pf-text-primary);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .pf-sidebar {
   width: 230px;
-  background: #020617;
-  border-right: 1px solid #1f2937;
+  background: var(--pf-bg-base);
+  border-right: 1px solid var(--pf-border);
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
@@ -47,11 +120,13 @@ html, body, #root {
 
 .pf-subtitle {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--pf-text-faint);
   margin-top: 2px;
 }
 
-/* Nav buttons */
+/* ================================================================
+   Navigation
+   ================================================================ */
 .pf-nav {
   display: flex;
   flex-direction: column;
@@ -63,52 +138,54 @@ html, body, #root {
   border: none;
   text-align: left;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--pf-radius-md);
   background: transparent;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
   font-size: 0.9rem;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, transform 0.05s ease;
 }
 
 .pf-nav-button:hover {
-  background: #111827;
-  color: #e5e7eb;
+  background: var(--pf-bg-hover);
+  color: var(--pf-text-primary);
 }
 
 .pf-nav-button--active {
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
-  color: #eff6ff;
+  background: var(--pf-gradient-primary);
+  color: var(--pf-text-on-accent);
   font-weight: 600;
   transform: translateX(1px);
 }
 
 /* Sidebar footer */
 .pf-sidebar-footer {
-  border-top: 1px solid #1f2937;
+  border-top: 1px solid var(--pf-border);
   padding-top: 10px;
   margin-top: 12px;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--pf-text-faint);
 }
 
 .pf-footer-text {
   display: block;
   font-weight: 500;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
 }
 
 .pf-footer-subtext {
   display: block;
 }
 
-/* Main content */
+/* ================================================================
+   Main Content
+   ================================================================ */
 .pf-main {
   flex: 1;
   padding: 20px 24px;
   box-sizing: border-box;
   overflow-y: scroll;
-  background: radial-gradient(circle at top left, #0f172a 0, #020617 60%);
+  background: radial-gradient(circle at top left, var(--pf-bg-elevated) 0, var(--pf-bg-base) 60%);
 }
 
 /* Always-visible scrollbar (macOS overlay scrollbars auto-hide on dark backgrounds) */
@@ -121,12 +198,12 @@ html, body, #root {
 }
 
 .pf-main::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 4px;
+  background: var(--pf-scrollbar);
+  border-radius: var(--pf-radius-sm);
 }
 
 .pf-main::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: var(--pf-scrollbar-hover);
 }
 
 .pf-section h1 {
@@ -136,18 +213,20 @@ html, body, #root {
 
 .pf-section p {
   margin-bottom: 8px;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
 }
 
 .pf-section ul {
   padding-left: 18px;
   margin: 0;
-  color: #e5e7eb;
+  color: var(--pf-text-primary);
 }
 
-/* Settings Layout */
+/* ================================================================
+   Settings Layout
+   ================================================================ */
 .pf-section-description {
-  color: #9ca3af;
+  color: var(--pf-text-muted);
   margin-bottom: 16px;
 }
 
@@ -162,12 +241,12 @@ html, body, #root {
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: #d1d5db;
+  color: var(--pf-text-secondary);
   cursor: pointer;
 }
 
 .pf-checkbox-row input[type="checkbox"] {
-  accent-color: #0ea5e9;
+  accent-color: var(--pf-accent);
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -179,13 +258,15 @@ html, body, #root {
   gap: 16px;
 }
 
-/* Cards */
+/* ================================================================
+   Cards
+   ================================================================ */
 .pf-card {
-  background: rgba(15, 23, 42, 0.9);
-  border-radius: 12px;
+  background: var(--pf-bg-surface);
+  border-radius: var(--pf-radius-xl);
   padding: 12px 14px;
-  border: 1px solid #1f2937;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--pf-border);
+  box-shadow: var(--pf-shadow-card);
 }
 
 .pf-card-header h2 {
@@ -195,11 +276,13 @@ html, body, #root {
 
 .pf-card-header p {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
   margin-bottom: 10px;
 }
 
-/* Form fields */
+/* ================================================================
+   Form Fields
+   ================================================================ */
 .pf-field {
   display: flex;
   flex-direction: column;
@@ -209,30 +292,56 @@ html, body, #root {
 
 .pf-field label {
   font-size: 0.8rem;
-  color: #d1d5db;
+  color: var(--pf-text-secondary);
 }
 
 .pf-field input,
 .pf-field select {
-  background: #020617;
-  border-radius: 8px;
-  border: 1px solid #374151;
+  background: var(--pf-bg-base);
+  border-radius: var(--pf-radius-md);
+  border: 1px solid var(--pf-border-input);
   padding: 6px 8px;
-  color: #e5e7eb;
+  color: var(--pf-text-primary);
   font-size: 0.85rem;
-  outline: none;
 }
 
 .pf-field input:focus,
 .pf-field select:focus {
-  border-color: #0ea5e9;
+  border-color: var(--pf-accent);
 }
 
-/* Notes */
+/* ================================================================
+   Focus Management
+   ================================================================ */
+
+/* Global visible focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--pf-accent);
+  outline-offset: 2px;
+}
+
+/* Override for inputs that already have border-color focus */
+.pf-field input:focus-visible,
+.pf-field select:focus-visible,
+.pf-set-meta select:focus-visible,
+.pf-set-meta input:focus-visible,
+.pf-set-player-override input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--pf-accent-focus);
+}
+
+/* Suppress default outline when not keyboard-navigating */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ================================================================
+   Notes & Help Text
+   ================================================================ */
 .pf-note {
   margin-top: 4px;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
 }
 
 .pf-note ul {
@@ -240,7 +349,9 @@ html, body, #root {
   padding-left: 18px;
 }
 
-/* Buttons / actions */
+/* ================================================================
+   Buttons & Actions
+   ================================================================ */
 .pf-settings-actions {
   display: flex;
   align-items: center;
@@ -249,27 +360,64 @@ html, body, #root {
 }
 
 .pf-button {
-  border-radius: 999px;
+  border-radius: var(--pf-radius-pill);
   padding: 6px 14px;
   font-size: 0.85rem;
-  border: none;
+  border: 1px solid var(--pf-border-control);
+  background: var(--pf-bg-control);
+  color: var(--pf-text-primary);
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+
+.pf-button:hover {
+  background: var(--pf-bg-hover);
+  border-color: var(--pf-border-input);
 }
 
 .pf-button-primary {
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
-  color: #eff6ff;
+  background: var(--pf-gradient-primary);
+  color: var(--pf-text-on-accent);
+  border-color: transparent;
 }
 
 .pf-button-primary:hover {
   filter: brightness(1.1);
 }
 
-.pf-status-message {
-  font-size: 0.8rem;
-  color: #9ca3af;
+.pf-button-danger {
+  background: linear-gradient(135deg, var(--pf-danger), var(--pf-danger-dark));
+  color: #fff;
+  border-color: transparent;
 }
 
+.pf-button-danger:hover {
+  filter: brightness(1.1);
+}
+
+.pf-button-sm {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+}
+
+.pf-button-md {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+}
+
+.pf-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pf-status-message {
+  font-size: 0.8rem;
+  color: var(--pf-text-muted);
+}
+
+/* ================================================================
+   Secret Input
+   ================================================================ */
 .pf-secret-wrap {
   display: flex;
   align-items: center;
@@ -283,10 +431,10 @@ html, body, #root {
 .pf-eye-button {
   width: 34px;
   height: 34px;
-  border-radius: 8px;
-  border: 1px solid #374151;
-  background: #020617;
-  color: #9ca3af;
+  border-radius: var(--pf-radius-md);
+  border: 1px solid var(--pf-border-input);
+  background: var(--pf-bg-base);
+  color: var(--pf-text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -294,15 +442,13 @@ html, body, #root {
 }
 
 .pf-eye-button:hover {
-  color: #e5e7eb;
-  border-color: #0ea5e9;
+  color: var(--pf-text-primary);
+  border-color: var(--pf-accent);
 }
 
-.pf-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
+/* ================================================================
+   Status Bar
+   ================================================================ */
 .pf-status-bar {
   flex-shrink: 0;
   border-radius: 0;
@@ -317,18 +463,20 @@ html, body, #root {
   color: #ffffff;
 }
 
-/* Tabs */
+/* ================================================================
+   Tabs
+   ================================================================ */
 .pf-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid var(--pf-border);
   margin-bottom: 12px;
 }
 
 .pf-tab {
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
   padding: 8px 16px;
   font-size: 0.9rem;
   cursor: pointer;
@@ -337,22 +485,29 @@ html, body, #root {
 }
 
 .pf-tab:hover {
-  color: #e5e7eb;
+  color: var(--pf-text-primary);
 }
 
 .pf-tab--active {
-  color: #eff6ff;
-  border-bottom-color: #0ea5e9;
+  color: var(--pf-text-on-accent);
+  border-bottom-color: var(--pf-accent);
   font-weight: 600;
 }
 
-/* Clip card */
+/* ================================================================
+   Clip Card
+   ================================================================ */
 .pf-clip-card {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid #1f2937;
-  border-radius: 10px;
+  background: var(--pf-bg-surface-dim);
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-lg);
   padding: 12px 14px;
   margin-bottom: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.pf-clip-card:hover {
+  border-color: var(--pf-border-control);
 }
 
 .pf-clip-card-players {
@@ -387,13 +542,20 @@ html, body, #root {
   padding-right: 4px;
 }
 
-/* Compilation card */
+/* ================================================================
+   Compilation Card
+   ================================================================ */
 .pf-comp-card {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid #1f2937;
-  border-radius: 10px;
+  background: var(--pf-bg-surface-dim);
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-lg);
   padding: 12px 14px;
   margin-bottom: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.pf-comp-card:hover {
+  border-color: var(--pf-border-control);
 }
 
 .pf-comp-card-header {
@@ -421,16 +583,18 @@ html, body, #root {
 
 .pf-clips-list::-webkit-scrollbar-thumb,
 .pf-compilations-list::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: var(--pf-scrollbar);
   border-radius: 3px;
 }
 
 .pf-clips-list::-webkit-scrollbar-thumb:hover,
 .pf-compilations-list::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: var(--pf-scrollbar-hover);
 }
 
-/* Player info */
+/* ================================================================
+   Player Info
+   ================================================================ */
 .pf-player-info {
   display: flex;
   align-items: center;
@@ -439,48 +603,52 @@ html, body, #root {
 }
 
 .pf-player-role {
-  background: #1e293b;
-  color: #94a3b8;
+  background: var(--pf-bg-control);
+  color: var(--pf-text-muted);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--pf-radius-sm);
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
 }
 
 .pf-player-character {
-  color: #e5e7eb;
+  color: var(--pf-text-primary);
   font-weight: 500;
 }
 
 .pf-player-tag {
-  color: #9ca3af;
+  color: var(--pf-text-muted);
 }
 
-/* Combo stats */
+/* ================================================================
+   Combo Stats
+   ================================================================ */
 .pf-combo-stats {
   display: flex;
   gap: 12px;
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
   margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
 .pf-ko-badge {
-  background: #dc2626;
+  background: var(--pf-danger);
   color: #fff;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--pf-radius-sm);
   font-size: 0.7rem;
   font-weight: 700;
 }
 
-/* Filter panel */
+/* ================================================================
+   Filter Panel
+   ================================================================ */
 .pf-filter-panel {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid #1f2937;
-  border-radius: 10px;
+  background: var(--pf-bg-surface-dimmer);
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-lg);
   padding: 12px 14px;
   margin-bottom: 12px;
 }
@@ -490,7 +658,9 @@ html, body, #root {
   margin: 0 0 8px 0;
 }
 
-/* Game match info */
+/* ================================================================
+   Game Match Info
+   ================================================================ */
 .pf-match-info {
   display: flex;
   flex-direction: column;
@@ -505,7 +675,7 @@ html, body, #root {
 }
 
 .pf-player-separator {
-  color: #475569;
+  color: var(--pf-border-control);
   font-size: 0.8rem;
   user-select: none;
 }
@@ -519,17 +689,17 @@ html, body, #root {
 }
 
 .pf-match-badge {
-  background: #1e293b;
-  color: #94a3b8;
+  background: var(--pf-bg-control);
+  color: var(--pf-text-muted);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--pf-radius-sm);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .pf-match-duration {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
 }
 
 .pf-match-player {
@@ -553,34 +723,36 @@ html, body, #root {
 }
 
 .pf-winner-badge {
-  background: #16a34a;
+  background: var(--pf-success);
   color: #fff;
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--pf-radius-sm);
   font-size: 0.7rem;
   font-weight: 700;
 }
 
 .pf-player-identity {
-  color: #e5e7eb;
+  color: var(--pf-text-primary);
 }
 
 .pf-player-code {
-  color: #9ca3af;
+  color: var(--pf-text-muted);
   font-size: 0.8rem;
 }
 
 .pf-match-incomplete {
   font-size: 0.75rem;
-  color: #f59e0b;
+  color: var(--pf-warning-text);
   font-style: italic;
 }
 
-/* Video thumbnail */
+/* ================================================================
+   Video Thumbnail
+   ================================================================ */
 .pf-video-thumbnail {
   position: relative;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--pf-radius-sm);
   overflow: hidden;
 }
 
@@ -611,27 +783,29 @@ html, body, #root {
   opacity: 1;
 }
 
-/* Video player modal */
+/* ================================================================
+   Video Player Modal
+   ================================================================ */
 .pf-video-modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--pf-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .pf-video-modal-content {
-  background: #0f172a;
-  border: 1px solid #1f2937;
-  border-radius: 12px;
+  background: var(--pf-bg-elevated);
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-xl);
   overflow: hidden;
   max-width: 90vw;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--pf-shadow-modal);
 }
 
 .pf-video-modal-header {
@@ -639,12 +813,12 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid var(--pf-border);
 }
 
 .pf-video-modal-title {
   font-size: 0.85rem;
-  color: #e5e7eb;
+  color: var(--pf-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -653,7 +827,7 @@ html, body, #root {
 .pf-video-modal-close {
   border: none;
   background: transparent;
-  color: #9ca3af;
+  color: var(--pf-text-muted);
   font-size: 1.4rem;
   cursor: pointer;
   padding: 0 4px;
@@ -661,7 +835,7 @@ html, body, #root {
 }
 
 .pf-video-modal-close:hover {
-  color: #e5e7eb;
+  color: var(--pf-text-primary);
 }
 
 .pf-video-modal-player {
@@ -670,21 +844,30 @@ html, body, #root {
   display: block;
 }
 
-/* Danger button */
-.pf-button-danger {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  color: #fff;
+/* ================================================================
+   Warning Banner (RecordingPanel)
+   ================================================================ */
+.pf-warning-banner {
+  border-left: 4px solid var(--pf-warning);
+  background: var(--pf-warning-bg);
+  padding: 8px 12px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--pf-radius-sm);
+  color: var(--pf-warning-light);
+  font-size: 13px;
 }
 
-/* ------------------------------------------------------------------ */
-/* Set card                                                           */
-/* ------------------------------------------------------------------ */
-
+/* ================================================================
+   Set Card
+   ================================================================ */
 .pf-set-card {
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid #1e293b;
-  border-left: 3px solid #0ea5e9;
-  border-radius: 8px;
+  background: var(--pf-bg-surface-dimmer);
+  border: 1px solid var(--pf-bg-control);
+  border-left: 3px solid var(--pf-accent);
+  border-radius: var(--pf-radius-md);
   padding: 14px;
   margin-bottom: 12px;
 }
@@ -692,7 +875,7 @@ html, body, #root {
 .pf-set-title {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--pf-text-primary);
   margin-bottom: 10px;
   line-height: 1.3;
 }
@@ -709,10 +892,10 @@ html, body, #root {
 .pf-set-meta input {
   font-size: 0.8rem;
   padding: 3px 6px;
-  border-radius: 4px;
-  border: 1px solid #334155;
-  background: #1e293b;
-  color: #e2e8f0;
+  border-radius: var(--pf-radius-sm);
+  border: 1px solid var(--pf-border-control);
+  background: var(--pf-bg-control);
+  color: var(--pf-text-primary);
 }
 
 .pf-set-player-overrides {
@@ -731,10 +914,10 @@ html, body, #root {
 .pf-set-player-override input {
   font-size: 0.85rem;
   padding: 3px 6px;
-  border-radius: 4px;
-  border: 1px solid #334155;
-  background: #1e293b;
-  color: #e2e8f0;
+  border-radius: var(--pf-radius-sm);
+  border: 1px solid var(--pf-border-control);
+  background: var(--pf-bg-control);
+  color: var(--pf-text-primary);
 }
 
 .pf-set-games {
@@ -744,19 +927,19 @@ html, body, #root {
 }
 
 .pf-set-game-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid #1e293b;
+  background: var(--pf-bg-surface-dimmest);
+  border: 1px solid var(--pf-bg-control);
   border-radius: 6px;
 }
 
 .pf-set-remove-btn {
   border: 1px solid rgba(220, 38, 38, 0.4);
   background: none;
-  color: #fca5a5;
+  color: var(--pf-danger-lighter);
   font-size: 0.9rem;
   width: 22px;
   height: 22px;
-  border-radius: 4px;
+  border-radius: var(--pf-radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -777,26 +960,26 @@ html, body, #root {
 .pf-add-to-set select {
   font-size: 0.8rem;
   padding: 3px 6px;
-  border-radius: 4px;
-  border: 1px solid #334155;
-  background: #1e293b;
-  color: #e2e8f0;
+  border-radius: var(--pf-radius-sm);
+  border: 1px solid var(--pf-border-control);
+  background: var(--pf-bg-control);
+  color: var(--pf-text-primary);
 }
 
 .pf-add-to-set-select {
   font-size: 0.75rem;
   padding: 3px 6px;
-  border-radius: 4px;
-  border: 1px solid #334155;
-  background: #1e293b;
-  color: #e2e8f0;
+  border-radius: var(--pf-radius-sm);
+  border: 1px solid var(--pf-border-control);
+  background: var(--pf-bg-control);
+  color: var(--pf-text-primary);
 }
 
 .pf-play-btn {
   background: none;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  color: #e2e8f0;
+  border: 1px solid var(--pf-border-control);
+  border-radius: var(--pf-radius-sm);
+  color: var(--pf-text-primary);
   cursor: pointer;
   padding: 2px 8px;
   font-size: 0.8rem;
@@ -805,17 +988,166 @@ html, body, #root {
 }
 
 .pf-play-btn:hover {
-  background: #1e293b;
+  background: var(--pf-bg-control);
 }
 
 /* New set form modal */
 .pf-new-set-form {
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 10px;
+  background: var(--pf-bg-elevated);
+  border: 1px solid var(--pf-bg-control);
+  border-radius: var(--pf-radius-lg);
   padding: 20px;
   max-width: 420px;
   width: 90vw;
-  color: #e2e8f0;
+  color: var(--pf-text-primary);
 }
 
+/* ================================================================
+   Inline Color Utilities (for TSX inline styles)
+   ================================================================ */
+/* ================================================================
+   Inline Confirm
+   ================================================================ */
+.pf-inline-confirm {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.pf-inline-confirm-prompt {
+  color: var(--pf-danger-light);
+}
+
+/* ================================================================
+   Reduced Motion
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ================================================================
+   Utility Classes
+   ================================================================ */
+.pf-text-muted { color: var(--pf-text-muted); }
+.pf-text-faint { color: var(--pf-text-faint); }
+.pf-text-danger { color: var(--pf-danger-light); }
+.pf-text-success { color: var(--pf-success-light); }
+
+/* ================================================================
+   Sidebar Collapse Toggle
+   ================================================================ */
+.pf-sidebar-toggle {
+  display: none; /* hidden by default, shown at narrow widths */
+  border: none;
+  background: var(--pf-bg-hover);
+  color: var(--pf-text-muted);
+  padding: 6px 10px;
+  border-radius: var(--pf-radius-md);
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.pf-sidebar-toggle:hover {
+  color: var(--pf-text-primary);
+  background: var(--pf-bg-control);
+}
+
+/* ================================================================
+   Responsive: Narrow Windows (< 700px)
+   ================================================================ */
+@media (max-width: 700px) {
+  /* Sidebar: collapse to narrow strip */
+  .pf-sidebar {
+    width: 56px;
+    padding: 12px 6px;
+    overflow: hidden;
+  }
+
+  .pf-sidebar-header {
+    margin-bottom: 12px;
+  }
+
+  .pf-logo {
+    font-size: 1rem;
+    text-align: center;
+  }
+
+  .pf-subtitle {
+    display: none;
+  }
+
+  .pf-nav-button {
+    font-size: 0;          /* Hide full text */
+    padding: 10px 8px;
+    text-align: center;
+    line-height: 1;
+  }
+
+  /* Show abbreviated label via data attribute */
+  .pf-nav-button::after {
+    content: attr(data-short);
+    font-size: 0.75rem;
+  }
+
+  /* Main content: reduce padding */
+  .pf-main {
+    padding: 12px 14px;
+  }
+
+  /* Settings: single column */
+  .pf-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Status bar: tighter spacing */
+  .pf-status-bar {
+    gap: 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Warning banners: stack vertically */
+  .pf-warning-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+/* ================================================================
+   Responsive: Medium Windows (700px - 900px)
+   ================================================================ */
+@media (min-width: 701px) and (max-width: 900px) {
+  .pf-sidebar {
+    width: 170px;
+    padding: 14px 10px;
+  }
+
+  .pf-nav-button {
+    font-size: 0.85rem;
+    padding: 7px 8px;
+  }
+
+  .pf-main {
+    padding: 16px 18px;
+  }
+
+  .pf-settings-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+/* ================================================================
+   Responsive: Wide Windows (> 1600px)
+   ================================================================ */
+@media (min-width: 1600px) {
+  .pf-main {
+    padding: 24px 32px;
+  }
+}

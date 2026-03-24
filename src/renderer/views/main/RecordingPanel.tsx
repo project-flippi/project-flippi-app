@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import useServiceStatus from '../../hooks/useServiceStatus';
+import WarningBanner from '../../components/WarningBanner';
 
 function getClippiConnectionWarning(
   obsConnected: boolean | null,
@@ -31,10 +32,6 @@ function RecordingPanel() {
 
   const [stackStatus, setStackStatus] = useState<string>('');
   const [stackBusy, setStackBusy] = useState(false);
-
-  const [relaunchObsBusy, setRelaunchObsBusy] = useState(false);
-  const [relaunchBusy, setRelaunchBusy] = useState(false);
-  const [relaunchSlippiBusy, setRelaunchSlippiBusy] = useState(false);
 
   // Stack options — close apps on stop
   const [closeOnStop, setCloseOnStop] = useState({
@@ -74,7 +71,7 @@ function RecordingPanel() {
     (obs.gameCapture === 'monitoring' || obs.gameCapture === 'inactive');
   const obsConnectedNow = obs.websocket === 'connected';
 
-  async function fetchObsSources(retries = 3) {
+  const fetchObsSources = useCallback(async (retries = 3) => {
     try {
       const sources = await window.flippiObs.getSources();
       if (sources.length === 0 && retries > 0) {
@@ -88,7 +85,7 @@ function RecordingPanel() {
       setObsSources([]);
     }
     return undefined;
-  }
+  }, []);
 
   // Load saved settings on mount
   useEffect(() => {
@@ -118,8 +115,7 @@ function RecordingPanel() {
     } else {
       setObsSources([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [obsConnectedNow]);
+  }, [obsConnectedNow, fetchObsSources]);
 
   async function onSourceChange(value: string) {
     setSelectedSource(value);
@@ -334,174 +330,45 @@ function RecordingPanel() {
               )}
             </div>
             {showObsWarning && (
-              <div
-                style={{
-                  borderLeft: '4px solid #e5a000',
-                  background: '#fef9ec',
-                  padding: '8px 12px',
-                  marginTop: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  borderRadius: 4,
-                  color: '#7a5d00',
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ flex: 1 }}>
-                  OBS is not running — recording, replay buffer, and streaming
-                  are unavailable.
-                </span>
-                <button
-                  type="button"
-                  className="pf-button pf-button-primary"
-                  style={{ whiteSpace: 'nowrap', fontSize: 13 }}
-                  disabled={relaunchObsBusy}
-                  onClick={async () => {
-                    setRelaunchObsBusy(true);
-                    try {
-                      const res = await window.flippiStack.relaunchObs();
-                      if (!res.ok) {
-                        setStackStatus(res.message);
-                      }
-                    } catch (e: any) {
-                      setStackStatus(e?.message ?? String(e));
-                    } finally {
-                      setRelaunchObsBusy(false);
-                    }
-                  }}
-                >
-                  {relaunchObsBusy ? 'Relaunching…' : 'Relaunch OBS'}
-                </button>
-              </div>
+              <WarningBanner
+                message="OBS is not running — recording, replay buffer, and streaming are unavailable."
+                actionLabel="Relaunch OBS"
+                actionBusyLabel="Relaunching…"
+                onAction={() => window.flippiStack.relaunchObs()}
+                onError={setStackStatus}
+              />
             )}
             {showClippiWarning && (
-              <div
-                style={{
-                  borderLeft: '4px solid #e5a000',
-                  background: '#fef9ec',
-                  padding: '8px 12px',
-                  marginTop: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  borderRadius: 4,
-                  color: '#7a5d00',
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ flex: 1 }}>
-                  Project Clippi is not running — combo data and replays are not
-                  being captured.
-                </span>
-                <button
-                  type="button"
-                  className="pf-button pf-button-primary"
-                  style={{ whiteSpace: 'nowrap', fontSize: 13 }}
-                  disabled={relaunchBusy}
-                  onClick={async () => {
-                    setRelaunchBusy(true);
-                    try {
-                      const res = await window.flippiStack.relaunchClippi();
-                      if (!res.ok) {
-                        setStackStatus(res.message);
-                      }
-                    } catch (e: any) {
-                      setStackStatus(e?.message ?? String(e));
-                    } finally {
-                      setRelaunchBusy(false);
-                    }
-                  }}
-                >
-                  {relaunchBusy ? 'Relaunching…' : 'Relaunch Clippi'}
-                </button>
-              </div>
+              <WarningBanner
+                message="Project Clippi is not running — combo data and replays are not being captured."
+                actionLabel="Relaunch Clippi"
+                actionBusyLabel="Relaunching…"
+                onAction={() => window.flippiStack.relaunchClippi()}
+                onError={setStackStatus}
+              />
             )}
             {showClippiConnectionWarning && (
-              <div
-                style={{
-                  borderLeft: '4px solid #e5a000',
-                  background: '#fef9ec',
-                  padding: '8px 12px',
-                  marginTop: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  borderRadius: 4,
-                  color: '#7a5d00',
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ flex: 1 }}>
-                  Clippi is running but{' '}
-                  {getClippiConnectionWarning(
-                    clippi.obsConnected,
-                    clippi.slippiConnected,
-                  )}
-                  {' \u2014 combo data and replays may not be captured.'}
-                </span>
-              </div>
+              <WarningBanner
+                message={`Clippi is running but ${getClippiConnectionWarning(clippi.obsConnected, clippi.slippiConnected)} \u2014 combo data and replays may not be captured.`}
+              />
             )}
             {showSlippiWarning && (
-              <div
-                style={{
-                  borderLeft: '4px solid #e5a000',
-                  background: '#fef9ec',
-                  padding: '8px 12px',
-                  marginTop: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  borderRadius: 4,
-                  color: '#7a5d00',
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ flex: 1 }}>Slippi Launcher is not running.</span>
-                <button
-                  type="button"
-                  className="pf-button pf-button-primary"
-                  style={{ whiteSpace: 'nowrap', fontSize: 13 }}
-                  disabled={relaunchSlippiBusy}
-                  onClick={async () => {
-                    setRelaunchSlippiBusy(true);
-                    try {
-                      const res = await window.flippiStack.relaunchSlippi();
-                      if (!res.ok) {
-                        setStackStatus(res.message);
-                      }
-                    } catch (e: any) {
-                      setStackStatus(e?.message ?? String(e));
-                    } finally {
-                      setRelaunchSlippiBusy(false);
-                    }
-                  }}
-                >
-                  {relaunchSlippiBusy ? 'Relaunching…' : 'Relaunch Slippi'}
-                </button>
-              </div>
+              <WarningBanner
+                message="Slippi Launcher is not running."
+                actionLabel="Relaunch Slippi"
+                actionBusyLabel="Relaunching…"
+                onAction={() => window.flippiStack.relaunchSlippi()}
+                onError={setStackStatus}
+              />
             )}
             {showGameCaptureWarning && (
-              <div
-                style={{
-                  borderLeft: '4px solid #e5a000',
-                  background: '#fef9ec',
-                  padding: '8px 12px',
-                  marginTop: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  borderRadius: 4,
-                  color: '#7a5d00',
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ flex: 1 }}>
-                  {obs.gameCapture === 'inactive'
+              <WarningBanner
+                message={
+                  obs.gameCapture === 'inactive'
                     ? 'Game capture signal lost — check Slippi Dolphin and OBS.'
-                    : 'Awaiting game capture — ensure game capture source is correct and restart Slippi Dolphin.'}
-                </span>
-              </div>
+                    : 'Awaiting game capture — ensure game capture source is correct and restart Slippi Dolphin.'
+                }
+              />
             )}
             <div className="pf-note">
               Select the active event folder to use for recording.
