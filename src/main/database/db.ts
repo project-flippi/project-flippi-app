@@ -134,6 +134,22 @@ CREATE TABLE IF NOT EXISTS event_metadata (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT ''
 );
+
+CREATE TABLE IF NOT EXISTS replay_clips (
+  id              TEXT PRIMARY KEY,
+  import_file     TEXT NOT NULL,
+  slp_path        TEXT NOT NULL,
+  video_path      TEXT,
+  start_frame     INTEGER NOT NULL,
+  end_frame       INTEGER NOT NULL,
+  start_seconds   REAL NOT NULL,
+  end_seconds     REAL NOT NULL,
+  title           TEXT NOT NULL DEFAULT '',
+  description     TEXT NOT NULL DEFAULT '',
+  output_path     TEXT,
+  removed         INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL
+);
 `;
 
 const eventDbPool = new Map<string, Database.Database>();

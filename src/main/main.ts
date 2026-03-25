@@ -96,6 +96,16 @@ import {
   updateThumbnailSettings,
 } from './services/thumbnailSettingsService';
 import { getCharacterRenderAsDataUrl } from './services/characterAssetService';
+import {
+  importReplayClips,
+  getReplayClipEntries,
+  updateReplayClip,
+  removeReplayClip,
+  restoreReplayClip,
+  deleteReplayClip,
+  createClipVideos,
+  createSingleClipVideo,
+} from './services/replayClipService';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -798,6 +808,89 @@ ipcMain.handle(
   'thumbnail:getCharacterRender',
   async (_evt, args: { characterId: number; colorId: number }) => {
     return getCharacterRenderAsDataUrl(args.characterId, args.colorId);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Replay Clips IPC handlers
+// ---------------------------------------------------------------------------
+
+ipcMain.handle('replayClips:selectFile', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Select Clippi Replay Processor JSON',
+    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { ok: false, filePath: '' };
+  }
+
+  return { ok: true, filePath: result.filePaths[0] };
+});
+
+ipcMain.handle(
+  'replayClips:import',
+  async (_evt, args: { eventName: string; jsonFilePath: string }) => {
+    return importReplayClips(args.eventName, args.jsonFilePath);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:getEntries',
+  async (_evt, args: { eventName: string }) => {
+    return getReplayClipEntries(args.eventName);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:update',
+  async (
+    _evt,
+    args: {
+      eventName: string;
+      clipId: string;
+      updates: { title?: string; description?: string };
+    },
+  ) => {
+    return updateReplayClip(args.eventName, args.clipId, args.updates);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:remove',
+  async (_evt, args: { eventName: string; clipId: string }) => {
+    removeReplayClip(args.eventName, args.clipId);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:restore',
+  async (_evt, args: { eventName: string; clipId: string }) => {
+    restoreReplayClip(args.eventName, args.clipId);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:delete',
+  async (_evt, args: { eventName: string; clipId: string }) => {
+    await deleteReplayClip(args.eventName, args.clipId);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:createVideos',
+  async (evt, args: { eventName: string }) => {
+    return createClipVideos(args.eventName, (progress) => {
+      evt.sender.send('replayClips:create-progress', progress);
+    });
+  },
+);
+
+ipcMain.handle(
+  'replayClips:createVideo',
+  async (_evt, args: { eventName: string; clipId: string }) => {
+    return createSingleClipVideo(args.eventName, args.clipId);
   },
 );
 

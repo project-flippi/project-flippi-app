@@ -8,6 +8,7 @@ import type {
   GameSet,
   SetPlayerOverride,
   EventThumbnailSettings,
+  ReplayClipEntry,
 } from '../common/meleeTypes';
 
 declare global {
@@ -110,6 +111,45 @@ declare global {
         characterId: number,
         colorId: number,
       ) => Promise<string>;
+    };
+    flippiReplayClips: {
+      selectFile: () => Promise<{ ok: boolean; filePath: string }>;
+      import: (
+        eventName: string,
+        jsonFilePath: string,
+      ) => Promise<{
+        ok: boolean;
+        imported: number;
+        unresolved: number;
+        duplicateSkipped: number;
+        message: string;
+      }>;
+      getEntries: (eventName: string) => Promise<ReplayClipEntry[]>;
+      update: (
+        eventName: string,
+        clipId: string,
+        updates: { title?: string; description?: string },
+      ) => Promise<{ ok: boolean }>;
+      remove: (eventName: string, clipId: string) => Promise<void>;
+      restore: (eventName: string, clipId: string) => Promise<void>;
+      delete: (eventName: string, clipId: string) => Promise<void>;
+      createVideos: (
+        eventName: string,
+      ) => Promise<{ created: number; skipped: number; failed: number }>;
+      createVideo: (eventName: string, clipId: string) => Promise<string>;
+      onCreateProgress: (
+        handler: (
+          _event: any,
+          progress: {
+            clipId: string;
+            current: number;
+            total: number;
+            status: string;
+            outputPath?: string;
+            error?: string;
+          },
+        ) => void,
+      ) => () => void;
     };
     flippiSets: {
       getEntries: (eventName: string) => Promise<SetEntry[]>;

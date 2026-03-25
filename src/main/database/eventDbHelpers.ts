@@ -4,6 +4,7 @@ import type {
   VideoDataEntry,
   CompilationEntry,
   GameSet,
+  ReplayClip,
 } from '../../common/meleeTypes';
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,32 @@ export function rowToCompilationEntry(row: any): CompilationEntry {
     clipTitles: JSON.parse(row.clip_titles),
     clipFiles: JSON.parse(row.clip_files),
     thumbnail: row.thumbnail,
+    createdAt: row.created_at,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sets
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Replay clips
+// ---------------------------------------------------------------------------
+
+export function rowToReplayClip(row: any): ReplayClip {
+  return {
+    id: row.id,
+    importFile: row.import_file,
+    slpPath: row.slp_path,
+    videoPath: row.video_path ?? null,
+    startFrame: row.start_frame,
+    endFrame: row.end_frame,
+    startSeconds: row.start_seconds,
+    endSeconds: row.end_seconds,
+    title: row.title,
+    description: row.description,
+    outputPath: row.output_path ?? null,
+    removed: Boolean(row.removed),
     createdAt: row.created_at,
   };
 }

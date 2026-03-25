@@ -219,3 +219,60 @@ export interface SetEntry {
   /** Computed display title */
   title: string;
 }
+
+// ---------------------------------------------------------------------------
+// Replay clips (from Clippi replay processor JSON)
+// ---------------------------------------------------------------------------
+
+/** A single queue entry from the replay processor JSON */
+export interface ReplayProcessorQueueItem {
+  /** Absolute SLP file path */
+  path: string;
+  /** Human-readable game start time */
+  gameStartAt: string;
+  /** Clip start frame (60fps, can be negative) */
+  startFrame: number;
+  /** Clip end frame (60fps) */
+  endFrame: number;
+}
+
+/** Clippi replay processor JSON top-level structure */
+export interface ReplayProcessorJson {
+  mode: string;
+  replay: string;
+  isRealTimeMode: boolean;
+  outputOverlayFiles: boolean;
+  queue: ReplayProcessorQueueItem[];
+}
+
+/** A replay clip stored in the database */
+export interface ReplayClip {
+  id: string;
+  /** JSON filename that was imported */
+  importFile: string;
+  /** SLP file path from the JSON */
+  slpPath: string;
+  /** Resolved video file path (null if no pairing found) */
+  videoPath: string | null;
+  startFrame: number;
+  endFrame: number;
+  /** Clamped start time in seconds: max(0, startFrame) / 60 */
+  startSeconds: number;
+  /** End time in seconds: endFrame / 60 */
+  endSeconds: number;
+  /** User-editable title (for YouTube) */
+  title: string;
+  /** User-editable description (for YouTube) */
+  description: string;
+  /** Path to created clip video file (null until created) */
+  outputPath: string | null;
+  /** Soft-delete: removed clips are excluded from batch creation */
+  removed: boolean;
+  createdAt: string;
+}
+
+/** Enriched replay clip with parsed SLP game data for display */
+export interface ReplayClipEntry {
+  clip: ReplayClip;
+  slpGameData: SlpGameData | null;
+}

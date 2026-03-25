@@ -1,11 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import useAutoReset from '../../hooks/useAutoReset';
 import useContainerHeight from '../../hooks/useContainerHeight';
-import type { GameEntry, GameSet, SetEntry } from '../../../common/meleeTypes';
+import type {
+  GameEntry,
+  GameSet,
+  SetEntry,
+  ReplayClipEntry,
+} from '../../../common/meleeTypes';
 import { computeSetTitle } from '../../../common/setUtils';
 import GameCard, { initVideoServerPort } from '../../components/video/GameCard';
 import SetCard from '../../components/video/SetCard';
 import ThumbnailSettingsBar from '../../components/video/ThumbnailSettingsBar';
+import ReplayClipList from '../../components/video/ReplayClipList';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { List } = require('react-window');
@@ -98,7 +104,10 @@ function VideoManagementPanel() {
   const [selectedEvent, setSelectedEvent] = useState('');
   const [games, setGames] = useState<GameEntry[]>([]);
   const [sets, setSets] = useState<SetEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'games' | 'sets'>('games');
+  const [replayClips, setReplayClips] = useState<ReplayClipEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<'games' | 'sets' | 'clips'>(
+    'games',
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
@@ -127,19 +136,24 @@ function VideoManagementPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Combined loader: loads games and sets in a single IPC call
+  // Combined loader: loads games, sets, and replay clips
   const loadAll = useCallback(async (eventName: string) => {
     if (!eventName) return;
     setIsLoading(true);
     setError('');
     try {
-      const result = await window.flippiVideo.getGameAndSetEntries(eventName);
+      const [result, clips] = await Promise.all([
+        window.flippiVideo.getGameAndSetEntries(eventName),
+        window.flippiReplayClips.getEntries(eventName),
+      ]);
       setGames(result.games);
       setSets(result.sets);
+      setReplayClips(clips);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load games');
       setGames([]);
       setSets([]);
+      setReplayClips([]);
     } finally {
       setIsLoading(false);
     }
@@ -234,6 +248,22 @@ function VideoManagementPanel() {
       loadSets(selectedEvent);
     }
   }, [selectedEvent, loadSets]);
+
+  const loadReplayClips = useCallback(async (eventName: string) => {
+    if (!eventName) return;
+    try {
+      const clips = await window.flippiReplayClips.getEntries(eventName);
+      setReplayClips(clips);
+    } catch {
+      setReplayClips([]);
+    }
+  }, []);
+
+  const handleReplayClipsReload = useCallback(() => {
+    if (selectedEvent) {
+      loadReplayClips(selectedEvent);
+    }
+  }, [selectedEvent, loadReplayClips]);
 
   async function handlePairGameVideos() {
     if (!selectedEvent) return;
@@ -334,6 +364,13 @@ function VideoManagementPanel() {
           >
             Sets ({sets.length})
           </button>
+          <button
+            type="button"
+            className={`pf-tab ${activeTab === 'clips' ? 'pf-tab--active' : ''}`}
+            onClick={() => setActiveTab('clips')}
+          >
+            Clips ({replayClips.length})
+          </button>
         </div>
 
         {isLoading && (
@@ -393,6 +430,15 @@ function VideoManagementPanel() {
                 />
               )}
             </>
+          )}
+
+          {/* Clips tab */}
+          {activeTab === 'clips' && !isLoading && (
+            <ReplayClipList
+              entries={replayClips}
+              eventName={selectedEvent}
+              onReload={handleReplayClipsReload}
+            />
           )}
         </div>
 

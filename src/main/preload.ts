@@ -189,6 +189,55 @@ contextBridge.exposeInMainWorld('flippiThumbnail', {
     }),
 });
 
+contextBridge.exposeInMainWorld('flippiReplayClips', {
+  selectFile: (): Promise<{ ok: boolean; filePath: string }> =>
+    ipcRenderer.invoke('replayClips:selectFile'),
+  import: (
+    eventName: string,
+    jsonFilePath: string,
+  ): Promise<{
+    ok: boolean;
+    imported: number;
+    unresolved: number;
+    duplicateSkipped: number;
+    message: string;
+  }> => ipcRenderer.invoke('replayClips:import', { eventName, jsonFilePath }),
+  getEntries: (eventName: string) =>
+    ipcRenderer.invoke('replayClips:getEntries', { eventName }),
+  update: (
+    eventName: string,
+    clipId: string,
+    updates: { title?: string; description?: string },
+  ) => ipcRenderer.invoke('replayClips:update', { eventName, clipId, updates }),
+  remove: (eventName: string, clipId: string) =>
+    ipcRenderer.invoke('replayClips:remove', { eventName, clipId }),
+  restore: (eventName: string, clipId: string) =>
+    ipcRenderer.invoke('replayClips:restore', { eventName, clipId }),
+  delete: (eventName: string, clipId: string) =>
+    ipcRenderer.invoke('replayClips:delete', { eventName, clipId }),
+  createVideos: (eventName: string) =>
+    ipcRenderer.invoke('replayClips:createVideos', { eventName }),
+  createVideo: (eventName: string, clipId: string) =>
+    ipcRenderer.invoke('replayClips:createVideo', { eventName, clipId }),
+  onCreateProgress: (
+    handler: (
+      _event: any,
+      progress: {
+        clipId: string;
+        current: number;
+        total: number;
+        status: string;
+        outputPath?: string;
+        error?: string;
+      },
+    ) => void,
+  ) => {
+    ipcRenderer.on('replayClips:create-progress', handler);
+    return () =>
+      ipcRenderer.removeListener('replayClips:create-progress', handler);
+  },
+});
+
 contextBridge.exposeInMainWorld('flippiStatus', {
   get: () => ipcRenderer.invoke('status:get'),
   onChanged: (callback: (status: any) => void) => {
