@@ -150,6 +150,12 @@ export default function ReplayClipList({
         {status && <span className="pf-status-message">{status}</span>}
       </div>
 
+      {importing && (
+        <div className="pf-status-message" style={{ padding: '8px 0' }}>
+          Collecting clips&hellip;
+        </div>
+      )}
+
       <div className="pf-replay-clip-container" ref={containerRef}>
         {entries.length === 0 ? (
           <div className="pf-empty-state">

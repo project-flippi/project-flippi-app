@@ -71,9 +71,13 @@ export function getPlayerIdentity(player: {
 
 interface GameMatchInfoProps {
   slpGameData: SlpGameData;
+  hideWinner?: boolean;
 }
 
-function GameMatchInfo({ slpGameData }: GameMatchInfoProps) {
+function GameMatchInfo({
+  slpGameData,
+  hideWinner = false,
+}: GameMatchInfoProps) {
   const { players } = slpGameData;
 
   return (
@@ -102,7 +106,9 @@ function GameMatchInfo({ slpGameData }: GameMatchInfoProps) {
               {identity.secondary && (
                 <span className="pf-player-code">({identity.secondary})</span>
               )}
-              {player.isWinner && <span className="pf-winner-badge">W</span>}
+              {!hideWinner && player.isWinner && (
+                <span className="pf-winner-badge">W</span>
+              )}
             </div>
           </React.Fragment>
         );

@@ -1238,33 +1238,41 @@ html, body, #root {
 
 .pf-replay-clip-card {
   display: flex;
-  gap: 12px;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
   border: 1px solid var(--pf-border);
   border-radius: var(--pf-radius-md);
   background: var(--pf-bg-card);
   margin-bottom: 4px;
-  align-items: flex-start;
 }
 
 .pf-replay-clip-card:hover {
   border-color: var(--pf-border-hover);
 }
 
-.pf-replay-clip-card--removed {
-  opacity: 0.5;
-}
-
 .pf-replay-clip-card--created {
   border-left: 3px solid var(--pf-success);
 }
 
+/* Row 1: metadata + play button */
+.pf-replay-clip-row1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-replay-clip-row1 .pf-play-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .pf-replay-clip-meta {
-  flex: 0 0 240px;
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .pf-replay-clip-details {
@@ -1277,40 +1285,27 @@ html, body, #root {
 
 .pf-replay-clip-files {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 10px;
+  flex-wrap: wrap;
   font-size: 0.72rem;
 }
 
-.pf-replay-clip-fields {
+/* Row 2: title, description, save, delete */
+.pf-replay-clip-row2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pf-replay-clip-input {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.pf-replay-clip-fields .pf-field {
-  margin-bottom: 0;
-}
-
-.pf-replay-clip-fields textarea {
-  width: 100%;
-  resize: vertical;
   font-size: 0.82rem;
   padding: 4px 8px;
   border: 1px solid var(--pf-border);
   border-radius: var(--pf-radius-sm);
   background: var(--pf-bg-input);
   color: var(--pf-text-primary);
-}
-
-.pf-replay-clip-actions {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: stretch;
 }
 
 .pf-clip-badge {
