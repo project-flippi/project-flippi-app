@@ -128,7 +128,12 @@ declare global {
       update: (
         eventName: string,
         clipId: string,
-        updates: { title?: string; description?: string },
+        updates: {
+          title?: string;
+          description?: string;
+          startSeconds?: number;
+          endSeconds?: number;
+        },
       ) => Promise<{ ok: boolean }>;
       remove: (eventName: string, clipId: string) => Promise<void>;
       restore: (eventName: string, clipId: string) => Promise<void>;
