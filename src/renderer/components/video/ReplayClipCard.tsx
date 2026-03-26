@@ -1,4 +1,5 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReplayClipEntry } from '../../../common/meleeTypes';
 import { getStageName } from '../../../common/meleeResources';
 import GameMatchInfo, { formatDuration } from './GameMatchInfo';
@@ -6,6 +7,105 @@ import ClipPreviewModal from './ClipPreviewModal';
 import { VideoPlayerModal, localFileUrl } from './GameCard';
 import InlineConfirm from '../InlineConfirm';
 import useAutoReset from '../../hooks/useAutoReset';
+import useFocusTrap from '../../hooks/useFocusTrap';
+
+// ---------------------------------------------------------------------------
+// Expand modal for title + description
+// ---------------------------------------------------------------------------
+
+interface ClipFieldsExpandModalProps {
+  title: string;
+  description: string;
+  onClose: (newTitle: string, newDescription: string) => void;
+}
+
+function ClipFieldsExpandModal({
+  title,
+  description,
+  onClose,
+}: ClipFieldsExpandModalProps) {
+  const [editTitle, setEditTitle] = useState(title);
+  const [editDescription, setEditDescription] = useState(description);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  const handleClose = useCallback(() => {
+    onClose(editTitle, editDescription);
+  }, [editTitle, editDescription, onClose]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [handleClose]);
+
+  // Focus title input on mount
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  return createPortal(
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div
+      className="pf-video-modal-overlay"
+      onClick={handleClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') handleClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit clip details"
+      ref={focusTrapRef}
+    >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div
+        className="pf-video-modal-content pf-clip-expand-modal pf-clip-expand-modal--wide"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="pf-video-modal-header">
+          <span className="pf-video-modal-title">Edit Clip Details</span>
+          <button
+            type="button"
+            className="pf-video-modal-close"
+            onClick={handleClose}
+            aria-label="Close editor"
+          >
+            &times;
+          </button>
+        </div>
+        <div className="pf-clip-expand-fields">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label className="pf-clip-expand-label">
+            Title
+            <input
+              ref={titleRef}
+              className="pf-clip-expand-input"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+            />
+          </label>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label className="pf-clip-expand-label">
+            Description
+            <textarea
+              className="pf-clip-expand-textarea"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={8}
+            />
+          </label>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ReplayClipCard
+// ---------------------------------------------------------------------------
 
 interface ReplayClipCardProps {
   entry: ReplayClipEntry;
@@ -22,6 +122,7 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
   const [status, setStatus] = useState('');
   const setStatusAuto = useAutoReset(setStatus, '', 3000);
   const [showPlayer, setShowPlayer] = useState(false);
+  const [showExpand, setShowExpand] = useState(false);
 
   const duration = clip.endSeconds - clip.startSeconds;
   const slpFileName = clip.slpPath.split(/[\\/]/).pop() ?? clip.slpPath;
@@ -59,6 +160,15 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
       setBusy(false);
     }
   }, [eventName, clip.id, onUpdated, setStatusAuto]);
+
+  const handleExpandClose = useCallback(
+    (newTitle: string, newDescription: string) => {
+      setTitle(newTitle);
+      setDescription(newDescription);
+      setShowExpand(false);
+    },
+    [],
+  );
 
   const cardClass = [
     'pf-replay-clip-card',
@@ -131,6 +241,16 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
         />
         <button
           type="button"
+          className="pf-clip-expand-btn"
+          onClick={() => setShowExpand(true)}
+          disabled={busy}
+          title="Expand fields"
+          aria-label="Expand title and description"
+        >
+          &#x2922;
+        </button>
+        <button
+          type="button"
           className="pf-button pf-button-primary pf-button-sm"
           onClick={handleSave}
           disabled={busy}
@@ -147,6 +267,15 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
         {status && <span className="pf-status-message">{status}</span>}
       </div>
 
+      {/* Expand modal for title + description */}
+      {showExpand && (
+        <ClipFieldsExpandModal
+          title={title}
+          description={description}
+          onClose={handleExpandClose}
+        />
+      )}
+
       {/* Video player modal */}
       {showPlayer && clip.videoPath && clip.outputPath && (
         <VideoPlayerModal
@@ -161,7 +290,10 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
           title={title || slpFileName}
           startSeconds={clip.startSeconds}
           endSeconds={clip.endSeconds}
+          clipId={clip.id}
+          eventName={eventName}
           onClose={() => setShowPlayer(false)}
+          onTimesUpdated={() => onUpdated()}
         />
       )}
     </div>

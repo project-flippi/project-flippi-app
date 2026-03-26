@@ -1331,14 +1331,196 @@ html, body, #root {
 .pf-clip-preview-info {
   font-size: 0.78rem;
   color: var(--pf-text-muted);
-  margin-left: auto;
-  margin-right: 12px;
+  white-space: nowrap;
 }
 
-.pf-clip-preview-controls {
+/* ---- Custom video controls bar ---- */
+
+.pf-custom-controls {
   display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--pf-bg-elevated);
+  border-top: 1px solid var(--pf-border);
+}
+
+.pf-ctrl-btn {
+  background: transparent;
+  border: none;
+  color: var(--pf-text-secondary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 2px 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pf-ctrl-btn:hover {
+  color: var(--pf-text-primary);
+}
+
+.pf-ctrl-time {
+  font-size: 0.72rem;
+  color: var(--pf-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: center;
+}
+
+.pf-ctrl-volume {
+  width: 60px;
+  flex-shrink: 0;
+  accent-color: var(--pf-accent);
+  cursor: pointer;
+}
+
+/* ---- Unified seek bar (with clip handles) ---- */
+
+.pf-ctrl-seekbar {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: var(--pf-bg-control);
+  border-radius: var(--pf-radius-pill);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.pf-ctrl-seekbar-played {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--pf-text-muted);
+  border-radius: var(--pf-radius-pill);
+  pointer-events: none;
+}
+
+.pf-ctrl-seekbar-head {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pf-text-primary);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ---- Clip region & handles (shared with seek bar) ---- */
+
+.pf-clip-timeline-region {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--pf-accent);
+  opacity: 0.35;
+  border-radius: var(--pf-radius-pill);
+  pointer-events: none;
+}
+
+.pf-clip-timeline-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--pf-accent);
+  color: var(--pf-text-on-accent);
+  font-size: 0.55rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 8px 0 4px;
+  cursor: grab;
+  user-select: none;
+  z-index: 4;
+  border: 2px solid var(--pf-bg-elevated);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.pf-clip-timeline-handle:active {
+  cursor: grabbing;
+}
+
+/* ---- Clip info row below controls ---- */
+
+.pf-clip-timeline-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 8px;
+  font-size: 0.78rem;
+  color: var(--pf-text-secondary);
+}
+
+.pf-clip-expand-btn {
+  background: transparent;
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-sm);
+  color: var(--pf-text-muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 3px 6px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pf-clip-expand-btn:hover {
+  color: var(--pf-text-primary);
+  border-color: var(--pf-border-hover);
+}
+
+.pf-clip-expand-modal {
+  max-width: 600px;
+}
+
+.pf-clip-expand-modal--wide {
+  max-width: 800px;
+  width: 90vw;
+}
+
+.pf-clip-expand-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.pf-clip-expand-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--pf-text-muted);
+}
+
+.pf-clip-expand-input {
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 6px 8px;
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-bg-input);
+  color: var(--pf-text-primary);
+  font-family: inherit;
+}
+
+.pf-clip-expand-textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  font-size: 0.85rem;
+  padding: 8px;
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-sm);
+  background: var(--pf-bg-input);
+  color: var(--pf-text-primary);
+  font-family: inherit;
 }
 
 .pf-warning-text {

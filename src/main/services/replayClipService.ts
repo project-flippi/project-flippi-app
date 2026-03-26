@@ -224,7 +224,12 @@ export async function getReplayClipEntries(
 export function updateReplayClip(
   eventName: string,
   clipId: string,
-  updates: { title?: string; description?: string },
+  updates: {
+    title?: string;
+    description?: string;
+    startSeconds?: number;
+    endSeconds?: number;
+  },
 ): { ok: boolean } {
   const db = getEventDb(eventName);
   const setClauses: string[] = [];
@@ -237,6 +242,14 @@ export function updateReplayClip(
   if (updates.description !== undefined) {
     setClauses.push('description = ?');
     values.push(updates.description);
+  }
+  if (updates.startSeconds !== undefined) {
+    setClauses.push('start_seconds = ?', 'start_frame = ?');
+    values.push(updates.startSeconds, Math.round(updates.startSeconds * 60));
+  }
+  if (updates.endSeconds !== undefined) {
+    setClauses.push('end_seconds = ?', 'end_frame = ?');
+    values.push(updates.endSeconds, Math.round(updates.endSeconds * 60));
   }
 
   if (setClauses.length === 0) return { ok: true };

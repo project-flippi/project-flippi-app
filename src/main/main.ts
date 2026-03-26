@@ -850,7 +850,12 @@ ipcMain.handle(
     args: {
       eventName: string;
       clipId: string;
-      updates: { title?: string; description?: string };
+      updates: {
+        title?: string;
+        description?: string;
+        startSeconds?: number;
+        endSeconds?: number;
+      };
     },
   ) => {
     return updateReplayClip(args.eventName, args.clipId, args.updates);

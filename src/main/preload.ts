@@ -207,7 +207,12 @@ contextBridge.exposeInMainWorld('flippiReplayClips', {
   update: (
     eventName: string,
     clipId: string,
-    updates: { title?: string; description?: string },
+    updates: {
+      title?: string;
+      description?: string;
+      startSeconds?: number;
+      endSeconds?: number;
+    },
   ) => ipcRenderer.invoke('replayClips:update', { eventName, clipId, updates }),
   remove: (eventName: string, clipId: string) =>
     ipcRenderer.invoke('replayClips:remove', { eventName, clipId }),
