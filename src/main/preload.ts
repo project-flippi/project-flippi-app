@@ -220,8 +220,14 @@ contextBridge.exposeInMainWorld('flippiReplayClips', {
     ipcRenderer.invoke('replayClips:restore', { eventName, clipId }),
   delete: (eventName: string, clipId: string) =>
     ipcRenderer.invoke('replayClips:delete', { eventName, clipId }),
-  createVideos: (eventName: string) =>
-    ipcRenderer.invoke('replayClips:createVideos', { eventName }),
+  deleteClipVideo: (eventName: string, clipId: string) =>
+    ipcRenderer.invoke('replayClips:deleteClipVideo', { eventName, clipId }),
+  bulkDelete: (eventName: string, clipIds: string[]) =>
+    ipcRenderer.invoke('replayClips:bulkDelete', { eventName, clipIds }),
+  bulkDeleteVideos: (eventName: string, clipIds: string[]) =>
+    ipcRenderer.invoke('replayClips:bulkDeleteVideos', { eventName, clipIds }),
+  createVideos: (eventName: string, clipIds?: string[]) =>
+    ipcRenderer.invoke('replayClips:createVideos', { eventName, clipIds }),
   createVideo: (eventName: string, clipId: string) =>
     ipcRenderer.invoke('replayClips:createVideo', { eventName, clipId }),
   onCreateProgress: (

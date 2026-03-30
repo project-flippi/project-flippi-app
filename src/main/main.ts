@@ -103,6 +103,9 @@ import {
   removeReplayClip,
   restoreReplayClip,
   deleteReplayClip,
+  deleteReplayClipVideo,
+  bulkDeleteReplayClips,
+  bulkDeleteReplayClipVideos,
   createClipVideos,
   createSingleClipVideo,
 } from './services/replayClipService';
@@ -884,11 +887,36 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  'replayClips:deleteClipVideo',
+  async (_evt, args: { eventName: string; clipId: string }) => {
+    await deleteReplayClipVideo(args.eventName, args.clipId);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:bulkDelete',
+  async (_evt, args: { eventName: string; clipIds: string[] }) => {
+    return bulkDeleteReplayClips(args.eventName, args.clipIds);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:bulkDeleteVideos',
+  async (_evt, args: { eventName: string; clipIds: string[] }) => {
+    return bulkDeleteReplayClipVideos(args.eventName, args.clipIds);
+  },
+);
+
+ipcMain.handle(
   'replayClips:createVideos',
-  async (evt, args: { eventName: string }) => {
-    return createClipVideos(args.eventName, (progress) => {
-      evt.sender.send('replayClips:create-progress', progress);
-    });
+  async (evt, args: { eventName: string; clipIds?: string[] }) => {
+    return createClipVideos(
+      args.eventName,
+      (progress) => {
+        evt.sender.send('replayClips:create-progress', progress);
+      },
+      args.clipIds,
+    );
   },
 );
 

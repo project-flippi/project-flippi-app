@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReplayClipEntry } from '../../../common/meleeTypes';
 import useAutoReset from '../../hooks/useAutoReset';
 import useContainerHeight from '../../hooks/useContainerHeight';
+import InlineConfirm from '../InlineConfirm';
 import ReplayClipCard from './ReplayClipCard';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -12,6 +13,8 @@ const CLIP_CARD_HEIGHT = 180;
 interface ClipRowProps {
   entries: ReplayClipEntry[];
   eventName: string;
+  selectedIds: Set<string>;
+  onToggleSelect: (clipId: string) => void;
   onUpdated: () => void;
 }
 
@@ -20,6 +23,8 @@ function ClipRow({
   style,
   entries,
   eventName,
+  selectedIds,
+  onToggleSelect,
   onUpdated,
 }: {
   index: number;
@@ -31,6 +36,8 @@ function ClipRow({
       <ReplayClipCard
         entry={entry}
         eventName={eventName}
+        selected={selectedIds.has(entry.clip.id)}
+        onToggleSelect={onToggleSelect}
         onUpdated={onUpdated}
       />
     </div>
@@ -57,6 +64,38 @@ export default function ReplayClipList({
     total: number;
   } | null>(null);
   const { containerRef, height: containerHeight } = useContainerHeight();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  // Clear stale selections when entries change
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const entryIds = new Set(entries.map((e) => e.clip.id));
+      const next = new Set([...prev].filter((id) => entryIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [entries]);
+
+  const onToggleSelect = useCallback((clipId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(clipId)) {
+        next.delete(clipId);
+      } else {
+        next.add(clipId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === entries.length) {
+        return new Set();
+      }
+      return new Set(entries.map((e) => e.clip.id));
+    });
+  }, [entries]);
 
   // Subscribe to creation progress events
   useEffect(() => {
@@ -92,14 +131,32 @@ export default function ReplayClipList({
     }
   }, [eventName, onReload, setStatusAuto]);
 
-  const handleCreateAll = useCallback(async () => {
+  // Count selected clips that are eligible for video creation
+  const selectedPendingCount = useMemo(
+    () =>
+      entries.filter(
+        (e) =>
+          selectedIds.has(e.clip.id) &&
+          !e.clip.removed &&
+          !e.clip.outputPath &&
+          e.clip.videoPath,
+      ).length,
+    [entries, selectedIds],
+  );
+
+  const handleCreateSelected = useCallback(async () => {
+    const ids = [...selectedIds];
     setCreating(true);
     setProgress(null);
     try {
-      const result = await window.flippiReplayClips.createVideos(eventName);
+      const result = await window.flippiReplayClips.createVideos(
+        eventName,
+        ids,
+      );
       setStatusAuto(
         `Created ${result.created} clips. ${result.skipped > 0 ? `${result.skipped} already existed.` : ''} ${result.failed > 0 ? `${result.failed} failed.` : ''}`.trim(),
       );
+      setSelectedIds(new Set());
       onReload();
     } catch (err: any) {
       setStatusAuto(err?.message ?? 'Creation failed');
@@ -107,16 +164,65 @@ export default function ReplayClipList({
       setCreating(false);
       setProgress(null);
     }
-  }, [eventName, onReload, setStatusAuto]);
+  }, [eventName, selectedIds, onReload, setStatusAuto]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = [...selectedIds];
+    setBulkBusy(true);
+    try {
+      const result = await window.flippiReplayClips.bulkDelete(eventName, ids);
+      setStatusAuto(`Deleted ${result.deleted} clip(s)`);
+      setSelectedIds(new Set());
+      onReload();
+    } catch (err: any) {
+      setStatusAuto(err?.message ?? 'Delete failed');
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [eventName, selectedIds, onReload, setStatusAuto]);
+
+  // Count selected clips that have a created video
+  const selectedWithVideoCount = useMemo(
+    () =>
+      entries.filter((e) => selectedIds.has(e.clip.id) && e.clip.outputPath)
+        .length,
+    [entries, selectedIds],
+  );
+
+  const handleBulkDeleteVideos = useCallback(async () => {
+    const ids = [...selectedIds].filter((id) => {
+      const e = entries.find((en) => en.clip.id === id);
+      return e?.clip.outputPath;
+    });
+    setBulkBusy(true);
+    try {
+      const result = await window.flippiReplayClips.bulkDeleteVideos(
+        eventName,
+        ids,
+      );
+      setStatusAuto(`Deleted ${result.deleted} clip video(s)`);
+      setSelectedIds(new Set());
+      onReload();
+    } catch (err: any) {
+      setStatusAuto(err?.message ?? 'Delete failed');
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [eventName, selectedIds, entries, onReload, setStatusAuto]);
 
   const unresolvedCount = entries.filter(
     (e) => !e.clip.videoPath && !e.clip.removed,
   ).length;
-  const pendingCount = entries.filter(
-    (e) => !e.clip.removed && !e.clip.outputPath && e.clip.videoPath,
-  ).length;
 
-  const rowProps: ClipRowProps = { entries, eventName, onUpdated: onReload };
+  const rowProps: ClipRowProps = {
+    entries,
+    eventName,
+    selectedIds,
+    onToggleSelect,
+    onUpdated: onReload,
+  };
+
+  const anyBusy = importing || creating || bulkBusy;
 
   return (
     <div className="pf-replay-clip-list">
@@ -125,21 +231,58 @@ export default function ReplayClipList({
           type="button"
           className="pf-button"
           onClick={handleImport}
-          disabled={importing || creating}
+          disabled={anyBusy}
         >
           {importing ? 'Importing...' : 'Import JSON'}
         </button>
-        {pendingCount > 0 && (
+        {entries.length > 0 && (
+          <label className="pf-select-all-label" htmlFor="pf-select-all-clips">
+            <input
+              id="pf-select-all-clips"
+              type="checkbox"
+              checked={
+                selectedIds.size > 0 && selectedIds.size === entries.length
+              }
+              ref={(el) => {
+                if (el) {
+                  el.indeterminate =
+                    selectedIds.size > 0 && selectedIds.size < entries.length;
+                }
+              }}
+              onChange={handleSelectAll}
+            />
+            Select All
+          </label>
+        )}
+        {selectedPendingCount > 0 && (
           <button
             type="button"
             className="pf-button pf-button-primary"
-            onClick={handleCreateAll}
-            disabled={importing || creating}
+            onClick={handleCreateSelected}
+            disabled={anyBusy}
           >
             {creating
               ? `Creating${progress ? ` (${progress.current}/${progress.total})` : '...'}`
-              : `Create All Clip Videos (${pendingCount})`}
+              : `Create Selected Clip Videos (${selectedPendingCount})`}
           </button>
+        )}
+        {selectedIds.size > 0 && (
+          <InlineConfirm
+            triggerLabel={`Delete Selected Clips (${selectedIds.size})`}
+            prompt={`Delete ${selectedIds.size} clip(s) and their videos?`}
+            onConfirm={handleBulkDelete}
+            busy={anyBusy}
+            sizeClass="pf-button-sm"
+          />
+        )}
+        {selectedWithVideoCount > 0 && (
+          <InlineConfirm
+            triggerLabel={`Delete Selected Clip Videos (${selectedWithVideoCount})`}
+            prompt={`Delete ${selectedWithVideoCount} clip video(s)? Clip data will be kept.`}
+            onConfirm={handleBulkDeleteVideos}
+            busy={anyBusy}
+            sizeClass="pf-button-sm"
+          />
         )}
         {unresolvedCount > 0 && (
           <span className="pf-warning-text">

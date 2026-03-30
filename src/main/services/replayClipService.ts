@@ -301,6 +301,61 @@ export async function deleteReplayClip(
   db.prepare('DELETE FROM replay_clips WHERE id = ?').run(clipId);
 }
 
+export async function deleteReplayClipVideo(
+  eventName: string,
+  clipId: string,
+): Promise<void> {
+  const db = getEventDb(eventName);
+  const row = db
+    .prepare<
+      [string],
+      { output_path: string | null }
+    >('SELECT output_path FROM replay_clips WHERE id = ?')
+    .get(clipId);
+
+  if (row?.output_path) {
+    try {
+      await fs.unlink(row.output_path);
+    } catch (err: any) {
+      if (err.code !== 'ENOENT') {
+        log.warn(`[replayClips] Could not delete clip video: ${err.message}`);
+      }
+    }
+  }
+
+  db.prepare('UPDATE replay_clips SET output_path = NULL WHERE id = ?').run(
+    clipId,
+  );
+}
+
+export async function bulkDeleteReplayClips(
+  eventName: string,
+  clipIds: string[],
+): Promise<{ deleted: number }> {
+  let deleted = 0;
+  // eslint-disable-next-line no-restricted-syntax
+  for (const id of clipIds) {
+    // eslint-disable-next-line no-await-in-loop
+    await deleteReplayClip(eventName, id);
+    deleted += 1;
+  }
+  return { deleted };
+}
+
+export async function bulkDeleteReplayClipVideos(
+  eventName: string,
+  clipIds: string[],
+): Promise<{ deleted: number }> {
+  let deleted = 0;
+  // eslint-disable-next-line no-restricted-syntax
+  for (const id of clipIds) {
+    // eslint-disable-next-line no-await-in-loop
+    await deleteReplayClipVideo(eventName, id);
+    deleted += 1;
+  }
+  return { deleted };
+}
+
 // ---------------------------------------------------------------------------
 // FFmpeg clip video creation
 // ---------------------------------------------------------------------------
@@ -371,16 +426,26 @@ async function createClipVideoFile(
 export async function createClipVideos(
   eventName: string,
   onProgress: (progress: ClipCreateProgress) => void,
+  clipIds?: string[],
 ): Promise<{ created: number; skipped: number; failed: number }> {
   const db = getEventDb(eventName);
   const clipsDir = getClipsDir(eventName);
 
-  const rows = db
-    .prepare<
-      [],
-      any
-    >('SELECT * FROM replay_clips WHERE removed = 0 AND output_path IS NULL AND video_path IS NOT NULL ORDER BY created_at')
-    .all();
+  let rows: any[];
+  if (clipIds && clipIds.length > 0) {
+    const placeholders = clipIds.map(() => '?').join(', ');
+    rows = db
+      .prepare(
+        `SELECT * FROM replay_clips WHERE removed = 0 AND output_path IS NULL AND video_path IS NOT NULL AND id IN (${placeholders}) ORDER BY created_at`,
+      )
+      .all(...clipIds);
+  } else {
+    rows = db
+      .prepare(
+        'SELECT * FROM replay_clips WHERE removed = 0 AND output_path IS NULL AND video_path IS NOT NULL ORDER BY created_at',
+      )
+      .all();
+  }
   const clips = rows.map(rowToReplayClip);
 
   let created = 0;

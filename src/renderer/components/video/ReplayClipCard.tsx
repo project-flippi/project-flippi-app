@@ -110,10 +110,18 @@ function ClipFieldsExpandModal({
 interface ReplayClipCardProps {
   entry: ReplayClipEntry;
   eventName: string;
+  selected: boolean;
+  onToggleSelect: (clipId: string) => void;
   onUpdated: () => void;
 }
 
-function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
+function ReplayClipCard({
+  entry,
+  eventName,
+  selected,
+  onToggleSelect,
+  onUpdated,
+}: ReplayClipCardProps) {
   const { clip, slpGameData } = entry;
 
   const [title, setTitle] = useState(clip.title);
@@ -179,8 +187,15 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
 
   return (
     <div className={cardClass}>
-      {/* Row 1: metadata + play button */}
+      {/* Row 1: checkbox + metadata + play button */}
       <div className="pf-replay-clip-row1">
+        <input
+          type="checkbox"
+          className="pf-replay-clip-checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(clip.id)}
+          aria-label="Select clip"
+        />
         <div className="pf-replay-clip-meta">
           {slpGameData && (
             <GameMatchInfo slpGameData={slpGameData} hideWinner />
@@ -226,6 +241,7 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
           className="pf-replay-clip-input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onBlur={handleSave}
           disabled={busy}
           placeholder="Title"
           aria-label="Clip title"
@@ -235,6 +251,7 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
           className="pf-replay-clip-input"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          onBlur={handleSave}
           disabled={busy}
           placeholder="Description"
           aria-label="Clip description"
@@ -248,14 +265,6 @@ function ReplayClipCard({ entry, eventName, onUpdated }: ReplayClipCardProps) {
           aria-label="Expand title and description"
         >
           &#x2922;
-        </button>
-        <button
-          type="button"
-          className="pf-button pf-button-primary pf-button-sm"
-          onClick={handleSave}
-          disabled={busy}
-        >
-          Save
         </button>
         <InlineConfirm
           triggerLabel="Delete"

@@ -1231,6 +1231,15 @@ html, body, #root {
   flex-wrap: wrap;
 }
 
+.pf-select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--pf-text-secondary);
+  cursor: pointer;
+}
+
 .pf-replay-clip-container {
   flex: 1;
   min-height: 200px;
@@ -1260,6 +1269,13 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.pf-replay-clip-checkbox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .pf-replay-clip-row1 .pf-play-btn {

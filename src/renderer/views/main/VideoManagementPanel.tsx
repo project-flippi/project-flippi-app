@@ -347,8 +347,6 @@ function VideoManagementPanel() {
           </label>
         </div>
 
-        {selectedEvent && <ThumbnailSettingsBar eventName={selectedEvent} />}
-
         <div className="pf-tabs">
           <button
             type="button"
@@ -389,6 +387,24 @@ function VideoManagementPanel() {
           {/* Games tab */}
           {activeTab === 'games' && !isLoading && (
             <>
+              <div style={{ marginBottom: 16 }}>
+                <button
+                  type="button"
+                  className="pf-button pf-button-primary"
+                  onClick={handlePairGameVideos}
+                  disabled={actionBusy || !selectedEvent}
+                >
+                  Pair Game Videos with SLP data files
+                </button>
+                {actionStatus && (
+                  <span
+                    className="pf-status-message"
+                    style={{ marginLeft: 12 }}
+                  >
+                    {actionStatus}
+                  </span>
+                )}
+              </div>
               {games.length === 0 && !error && (
                 <div
                   style={{ padding: '16px 0', color: 'var(--pf-text-muted)' }}
@@ -412,6 +428,9 @@ function VideoManagementPanel() {
           {/* Sets tab */}
           {activeTab === 'sets' && !isLoading && (
             <>
+              {selectedEvent && (
+                <ThumbnailSettingsBar eventName={selectedEvent} />
+              )}
               {sets.length === 0 && (
                 <div
                   style={{ padding: '16px 0', color: 'var(--pf-text-muted)' }}
@@ -439,22 +458,6 @@ function VideoManagementPanel() {
               eventName={selectedEvent}
               onReload={handleReplayClipsReload}
             />
-          )}
-        </div>
-
-        <div style={{ marginTop: 16 }}>
-          <button
-            type="button"
-            className="pf-button pf-button-primary"
-            onClick={handlePairGameVideos}
-            disabled={actionBusy || !selectedEvent}
-          >
-            Pair Game Videos with SLP data files
-          </button>
-          {actionStatus && (
-            <span className="pf-status-message" style={{ marginLeft: 12 }}>
-              {actionStatus}
-            </span>
           )}
         </div>
       </div>

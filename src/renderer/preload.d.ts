@@ -138,8 +138,18 @@ declare global {
       remove: (eventName: string, clipId: string) => Promise<void>;
       restore: (eventName: string, clipId: string) => Promise<void>;
       delete: (eventName: string, clipId: string) => Promise<void>;
+      deleteClipVideo: (eventName: string, clipId: string) => Promise<void>;
+      bulkDelete: (
+        eventName: string,
+        clipIds: string[],
+      ) => Promise<{ deleted: number }>;
+      bulkDeleteVideos: (
+        eventName: string,
+        clipIds: string[],
+      ) => Promise<{ deleted: number }>;
       createVideos: (
         eventName: string,
+        clipIds?: string[],
       ) => Promise<{ created: number; skipped: number; failed: number }>;
       createVideo: (eventName: string, clipId: string) => Promise<string>;
       onCreateProgress: (
