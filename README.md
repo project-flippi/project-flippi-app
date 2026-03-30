@@ -17,9 +17,7 @@ Built with Electron, React, and TypeScript.
 
 The following external applications must be installed and configured:
 
-- **[OBS Studio](https://obsproject.com/)** with the OBS WebSocket plugin:
-  - OBS 27 or earlier: Install [obs-websocket 4.9.x](https://github.com/obsproject/obs-websocket/releases/tag/4.9.1)
-  - OBS 28+: Install [obs-websocket 4.9.1-compat (Qt6)](https://github.com/obsproject/obs-websocket/releases/tag/4.9.1-compat)
+- **[OBS Studio](https://obsproject.com/)** (v28+) — Uses the built-in OBS WebSocket v5 server (no additional plugins required)
 - **[Project Clippi (Flippi Fork)](https://github.com/project-flippi/project-clippi)** — The Flippi-specific fork of Project Clippi is required
 - **[Slippi Launcher](https://slippi.gg/)** — For Slippi Dolphin replay and live game integration
 
