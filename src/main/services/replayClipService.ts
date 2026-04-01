@@ -18,9 +18,14 @@ import { rowToReplayClip } from '../database/eventDbHelpers';
 import { parseSlpFileAsync } from './slpParserService';
 import { getCached, upsertEntry } from '../database/metadataCache';
 
-// ffmpeg-static exports the path to the bundled ffmpeg binary
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const ffmpegPath: string = require('ffmpeg-static');
+// ffmpeg-static exports the path to the bundled ffmpeg binary.
+// In packaged Electron builds the binary lives in app.asar.unpacked but the
+// resolved path still references app.asar, so we fix it up at runtime.
+// eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+const ffmpegPath: string = (require('ffmpeg-static') as string).replace(
+  'app.asar',
+  'app.asar.unpacked',
+);
 
 // ---------------------------------------------------------------------------
 // Path helpers

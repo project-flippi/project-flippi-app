@@ -373,7 +373,7 @@ function VideoManagementPanel() {
 
         {isLoading && (
           <div className="pf-status-message" style={{ marginTop: 8 }}>
-            Loading\u2026
+            Loading&hellip;
           </div>
         )}
         {error && (
