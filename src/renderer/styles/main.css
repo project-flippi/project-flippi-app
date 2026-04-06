@@ -1240,6 +1240,67 @@ html, body, #root {
   cursor: pointer;
 }
 
+/* Clip action dropdown */
+.pf-clip-action-dropdown {
+  position: relative;
+}
+
+.pf-clip-action-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin-top: 4px;
+  min-width: 260px;
+  background: var(--pf-bg-elevated);
+  border: 1px solid var(--pf-border);
+  border-radius: var(--pf-radius-md);
+  box-shadow: var(--pf-shadow-card);
+  overflow: hidden;
+}
+
+.pf-clip-action-item {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--pf-text-primary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pf-clip-action-item:hover {
+  background: var(--pf-bg-hover);
+}
+
+.pf-clip-action-item--danger {
+  color: var(--pf-danger);
+}
+
+.pf-clip-action-item--danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.pf-clip-action-confirm {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pf-clip-action-confirm-prompt {
+  font-size: 0.85rem;
+  color: var(--pf-text-secondary);
+}
+
+.pf-clip-action-confirm-buttons {
+  display: flex;
+  gap: 6px;
+}
+
 .pf-replay-clip-container {
   flex: 1;
   min-height: 200px;
@@ -1342,6 +1403,11 @@ html, body, #root {
 .pf-clip-badge--created {
   background: var(--pf-success-light);
   color: var(--pf-success);
+}
+
+.pf-clip-badge--portrait {
+  background: var(--pf-accent-light, rgba(99, 102, 241, 0.15));
+  color: var(--pf-accent);
 }
 
 .pf-clip-preview-info {

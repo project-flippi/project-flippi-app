@@ -151,6 +151,10 @@ declare global {
         eventName: string,
         clipIds?: string[],
       ) => Promise<{ created: number; skipped: number; failed: number }>;
+      createPortraitVideos: (
+        eventName: string,
+        clipIds?: string[],
+      ) => Promise<{ created: number; skipped: number; failed: number }>;
       createVideo: (eventName: string, clipId: string) => Promise<string>;
       onCreateProgress: (
         handler: (

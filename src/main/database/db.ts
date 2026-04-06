@@ -189,6 +189,17 @@ export function getEventDb(eventName: string): Database.Database {
     edb.exec('ALTER TABLE sets ADD COLUMN thumbnail_path TEXT DEFAULT NULL');
   }
 
+  // Add output_format column to replay_clips if missing
+  const clipCols = edb
+    .prepare("PRAGMA table_info('replay_clips')")
+    .all()
+    .map((c: any) => c.name);
+  if (!clipCols.includes('output_format')) {
+    edb.exec(
+      'ALTER TABLE replay_clips ADD COLUMN output_format TEXT DEFAULT NULL',
+    );
+  }
+
   // Run migration from old files if needed
   migrateEventIfNeeded(eventName, edb);
 

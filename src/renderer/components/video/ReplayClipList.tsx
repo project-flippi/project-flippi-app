@@ -1,8 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReplayClipEntry } from '../../../common/meleeTypes';
 import useAutoReset from '../../hooks/useAutoReset';
 import useContainerHeight from '../../hooks/useContainerHeight';
-import InlineConfirm from '../InlineConfirm';
 import ReplayClipCard from './ReplayClipCard';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -166,6 +171,28 @@ export default function ReplayClipList({
     }
   }, [eventName, selectedIds, onReload, setStatusAuto]);
 
+  const handleCreatePortraitSelected = useCallback(async () => {
+    const ids = [...selectedIds];
+    setCreating(true);
+    setProgress(null);
+    try {
+      const result = await window.flippiReplayClips.createPortraitVideos(
+        eventName,
+        ids,
+      );
+      setStatusAuto(
+        `Created ${result.created} portrait clips. ${result.skipped > 0 ? `${result.skipped} already existed.` : ''} ${result.failed > 0 ? `${result.failed} failed.` : ''}`.trim(),
+      );
+      setSelectedIds(new Set());
+      onReload();
+    } catch (err: any) {
+      setStatusAuto(err?.message ?? 'Portrait creation failed');
+    } finally {
+      setCreating(false);
+      setProgress(null);
+    }
+  }, [eventName, selectedIds, onReload, setStatusAuto]);
+
   const handleBulkDelete = useCallback(async () => {
     const ids = [...selectedIds];
     setBulkBusy(true);
@@ -224,6 +251,53 @@ export default function ReplayClipList({
 
   const anyBusy = importing || creating || bulkBusy;
 
+  // Dropdown state
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<
+    'deleteVideos' | 'deleteClips' | null
+  >(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click-outside
+  useEffect(() => {
+    if (!dropdownOpen) return undefined;
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setDropdownOpen(false);
+        setConfirmAction(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dropdownOpen]);
+
+  const handleDropdownAction = useCallback(
+    (action: string) => {
+      setDropdownOpen(false);
+      setConfirmAction(null);
+      if (action === 'create') {
+        handleCreateSelected();
+      } else if (action === 'createPortrait') {
+        handleCreatePortraitSelected();
+      }
+    },
+    [handleCreateSelected, handleCreatePortraitSelected],
+  );
+
+  const handleConfirmYes = useCallback(() => {
+    const action = confirmAction;
+    setConfirmAction(null);
+    setDropdownOpen(false);
+    if (action === 'deleteVideos') {
+      handleBulkDeleteVideos();
+    } else if (action === 'deleteClips') {
+      handleBulkDelete();
+    }
+  }, [confirmAction, handleBulkDeleteVideos, handleBulkDelete]);
+
   return (
     <div className="pf-replay-clip-list">
       <div className="pf-replay-clip-toolbar">
@@ -254,35 +328,88 @@ export default function ReplayClipList({
             Select All
           </label>
         )}
-        {selectedPendingCount > 0 && (
-          <button
-            type="button"
-            className="pf-button pf-button-primary"
-            onClick={handleCreateSelected}
-            disabled={anyBusy}
-          >
-            {creating
-              ? `Creating${progress ? ` (${progress.current}/${progress.total})` : '...'}`
-              : `Create Selected Clip Videos (${selectedPendingCount})`}
-          </button>
-        )}
         {selectedIds.size > 0 && (
-          <InlineConfirm
-            triggerLabel={`Delete Selected Clips (${selectedIds.size})`}
-            prompt={`Delete ${selectedIds.size} clip(s) and their videos?`}
-            onConfirm={handleBulkDelete}
-            busy={anyBusy}
-            sizeClass="pf-button-sm"
-          />
-        )}
-        {selectedWithVideoCount > 0 && (
-          <InlineConfirm
-            triggerLabel={`Delete Selected Clip Videos (${selectedWithVideoCount})`}
-            prompt={`Delete ${selectedWithVideoCount} clip video(s)? Clip data will be kept.`}
-            onConfirm={handleBulkDeleteVideos}
-            busy={anyBusy}
-            sizeClass="pf-button-sm"
-          />
+          <div className="pf-clip-action-dropdown" ref={dropdownRef}>
+            <button
+              type="button"
+              className="pf-button pf-button-primary"
+              onClick={() => {
+                setDropdownOpen((prev) => !prev);
+                setConfirmAction(null);
+              }}
+              disabled={anyBusy}
+            >
+              {creating
+                ? `Creating${progress ? ` (${progress.current}/${progress.total})` : '...'}`
+                : `Clip Actions (${selectedIds.size})`}
+            </button>
+            {dropdownOpen && !anyBusy && (
+              <div className="pf-clip-action-menu">
+                {confirmAction ? (
+                  <div className="pf-clip-action-confirm">
+                    <span className="pf-clip-action-confirm-prompt">
+                      {confirmAction === 'deleteVideos'
+                        ? `Delete ${selectedWithVideoCount} clip video(s)? Clip data will be kept.`
+                        : `Delete ${selectedIds.size} clip(s) and their videos?`}
+                    </span>
+                    <div className="pf-clip-action-confirm-buttons">
+                      <button
+                        type="button"
+                        className="pf-button pf-button-danger pf-button-sm"
+                        onClick={handleConfirmYes}
+                      >
+                        Yes
+                      </button>
+                      <button
+                        type="button"
+                        className="pf-button pf-button-sm"
+                        onClick={() => setConfirmAction(null)}
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {selectedPendingCount > 0 && (
+                      <button
+                        type="button"
+                        className="pf-clip-action-item"
+                        onClick={() => handleDropdownAction('create')}
+                      >
+                        Create Clip Videos ({selectedPendingCount})
+                      </button>
+                    )}
+                    {selectedPendingCount > 0 && (
+                      <button
+                        type="button"
+                        className="pf-clip-action-item"
+                        onClick={() => handleDropdownAction('createPortrait')}
+                      >
+                        Create Portrait Clip Videos ({selectedPendingCount})
+                      </button>
+                    )}
+                    {selectedWithVideoCount > 0 && (
+                      <button
+                        type="button"
+                        className="pf-clip-action-item pf-clip-action-item--danger"
+                        onClick={() => setConfirmAction('deleteVideos')}
+                      >
+                        Delete Clip Videos ({selectedWithVideoCount})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="pf-clip-action-item pf-clip-action-item--danger"
+                      onClick={() => setConfirmAction('deleteClips')}
+                    >
+                      Delete Clips and Data ({selectedIds.size})
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         )}
         {unresolvedCount > 0 && (
           <span className="pf-warning-text">

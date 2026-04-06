@@ -209,6 +209,11 @@ function ReplayClipCard({
             >
               {clip.outputPath ? 'Created' : 'Preview'}
             </span>
+            {clip.outputFormat === 'portrait' && (
+              <span className="pf-clip-badge pf-clip-badge--portrait">
+                Portrait
+              </span>
+            )}
           </div>
           <div className="pf-replay-clip-files">
             <span className="pf-text-muted" title={clip.slpPath}>

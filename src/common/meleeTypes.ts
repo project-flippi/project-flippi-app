@@ -266,6 +266,8 @@ export interface ReplayClip {
   description: string;
   /** Path to created clip video file (null until created) */
   outputPath: string | null;
+  /** Format of the created clip video ('standard' or 'portrait') */
+  outputFormat: 'standard' | 'portrait' | null;
   /** Soft-delete: removed clips are excluded from batch creation */
   removed: boolean;
   createdAt: string;

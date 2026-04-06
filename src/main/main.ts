@@ -107,6 +107,7 @@ import {
   bulkDeleteReplayClips,
   bulkDeleteReplayClipVideos,
   createClipVideos,
+  createPortraitClipVideos,
   createSingleClipVideo,
 } from './services/replayClipService';
 
@@ -911,6 +912,19 @@ ipcMain.handle(
   'replayClips:createVideos',
   async (evt, args: { eventName: string; clipIds?: string[] }) => {
     return createClipVideos(
+      args.eventName,
+      (progress) => {
+        evt.sender.send('replayClips:create-progress', progress);
+      },
+      args.clipIds,
+    );
+  },
+);
+
+ipcMain.handle(
+  'replayClips:createPortraitVideos',
+  async (evt, args: { eventName: string; clipIds?: string[] }) => {
+    return createPortraitClipVideos(
       args.eventName,
       (progress) => {
         evt.sender.send('replayClips:create-progress', progress);

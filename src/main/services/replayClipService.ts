@@ -13,6 +13,10 @@ import type {
   ReplayProcessorJson,
   SlpGameData,
 } from '../../common/meleeTypes';
+import type {
+  RecordingTransforms,
+  SourceTransform,
+} from '../../common/obsTransformTypes';
 import { getEventDb } from '../database/db';
 import { rowToReplayClip } from '../database/eventDbHelpers';
 import { parseSlpFileAsync } from './slpParserService';
@@ -37,6 +41,185 @@ function repoRootDir(): string {
 
 function getClipsDir(eventName: string): string {
   return path.join(repoRootDir(), 'Event', eventName, 'videos', 'clips');
+}
+
+// ---------------------------------------------------------------------------
+// Recording transform helpers
+// ---------------------------------------------------------------------------
+
+function getRecordingTransforms(
+  eventName: string,
+  videoPath: string,
+): RecordingTransforms | null {
+  const db = getEventDb(eventName);
+  let row = db
+    .prepare<
+      [string],
+      {
+        scene_name: string;
+        game_capture_source: string;
+        game_capture_transform: string;
+        player_camera_source: string;
+        player_camera_transform: string;
+        captured_at: string;
+      }
+    >('SELECT * FROM recording_transforms WHERE video_path = ?')
+    .get(videoPath);
+
+  // Fallback: match by filename when exact path differs (e.g. different user
+  // profiles, forward vs back slashes, or the DB was copied between machines).
+  if (!row) {
+    const basename = path.basename(videoPath);
+    const allRows = db
+      .prepare<
+        [],
+        {
+          video_path: string;
+          scene_name: string;
+          game_capture_source: string;
+          game_capture_transform: string;
+          player_camera_source: string;
+          player_camera_transform: string;
+          captured_at: string;
+        }
+      >('SELECT * FROM recording_transforms')
+      .all();
+    row = allRows.find(
+      (r) => path.basename(r.video_path.replace(/\//g, path.sep)) === basename,
+    );
+  }
+
+  if (!row) return null;
+
+  const parseTransform = (json: string): SourceTransform | null => {
+    try {
+      const obj = JSON.parse(json);
+      if (!obj || Object.keys(obj).length === 0) return null;
+      return obj as SourceTransform;
+    } catch {
+      return null;
+    }
+  };
+
+  return {
+    sceneName: row.scene_name,
+    gameCaptureSource: row.game_capture_source,
+    gameCaptureTransform: parseTransform(row.game_capture_transform),
+    playerCameraSource: row.player_camera_source,
+    playerCameraTransform: parseTransform(row.player_camera_transform),
+    capturedAt: row.captured_at,
+  };
+}
+
+/** Round down to the nearest even number (FFmpeg requires even dimensions). */
+function roundEven(n: number): number {
+  const v = Math.floor(n);
+  return v % 2 === 0 ? v : v - 1;
+}
+
+/**
+ * Resolve the top-left position on the OBS canvas given a position point and
+ * OBS alignment flags. OBS alignment is a bitfield:
+ *   0 = center, 1 = left, 2 = right, 4 = top, 8 = bottom
+ * The position point is the anchor described by the alignment — e.g.
+ * alignment 5 (top-left) means position IS the top-left corner, while
+ * alignment 0 (center) means position is the center of the bounding box.
+ */
+function resolveTopLeft(
+  posX: number,
+  posY: number,
+  w: number,
+  h: number,
+  alignment: number,
+): { x: number; y: number } {
+  // Horizontal: 1 = left (position is left edge), 2 = right, 0 = center
+  let x = posX;
+  if (alignment & 2) {
+    x = posX - w; // right-aligned
+  } else if (!(alignment & 1)) {
+    x = posX - w / 2; // center
+  }
+
+  // Vertical: 4 = top (position is top edge), 8 = bottom, 0 = center
+  let y = posY;
+  if (alignment & 8) {
+    y = posY - h; // bottom-aligned
+  } else if (!(alignment & 4)) {
+    y = posY - h / 2; // center
+  }
+
+  return { x, y };
+}
+
+/**
+ * Convert an OBS SourceTransform into FFmpeg crop parameters.
+ *
+ * OBS bounds types control how a source is constrained on the canvas:
+ * - OBS_BOUNDS_NONE: raw width/height, no constraining
+ * - OBS_BOUNDS_STRETCH / SCALE_INNER / SCALE_OUTER / SCALE_TO_WIDTH /
+ *   SCALE_TO_HEIGHT / MAX_ONLY: the visible area is the bounds rectangle
+ *   (boundsWidth × boundsHeight) at (positionX, positionY).
+ *
+ * When bounds are active, the raw width/height may exceed the bounds (e.g.
+ * 2568×1440 for a source scaled to fill a 1920×1080 bounding box). The
+ * recorded video only contains canvas pixels, so we use the bounds as the
+ * visible rect when applicable, then clamp to canvas dimensions.
+ *
+ * The alignment field controls which point of the bounding box the position
+ * refers to (top-left, center, etc.).
+ */
+function computeCropRect(
+  t: SourceTransform,
+  canvasW = 1920,
+  canvasH = 1080,
+): {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} {
+  let visibleW: number;
+  let visibleH: number;
+
+  if (t.boundsType && t.boundsType !== 'OBS_BOUNDS_NONE') {
+    // Bounds are active — the visible area on canvas is the bounds rectangle
+    visibleW = t.boundsWidth;
+    visibleH = t.boundsHeight;
+  } else {
+    // No bounds — use raw rendered size, accounting for source-level crops
+    const scaleX = t.sourceWidth > 0 ? t.width / t.sourceWidth : 1;
+    const scaleY = t.sourceHeight > 0 ? t.height / t.sourceHeight : 1;
+    visibleW = t.width - (t.cropLeft + t.cropRight) * scaleX;
+    visibleH = t.height - (t.cropTop + t.cropBottom) * scaleY;
+  }
+
+  // Resolve position to top-left corner based on alignment
+  const topLeft = resolveTopLeft(
+    t.positionX,
+    t.positionY,
+    visibleW,
+    visibleH,
+    t.alignment,
+  );
+
+  // Clamp to canvas — the recorded video only contains canvas pixels
+  const x = Math.max(0, topLeft.x);
+  const y = Math.max(0, topLeft.y);
+  const right = Math.min(canvasW, topLeft.x + visibleW);
+  const bottom = Math.min(canvasH, topLeft.y + visibleH);
+  const w = right - x;
+  const h = bottom - y;
+
+  log.info(
+    `[replayClips] computeCropRect: boundsType=${t.boundsType} align=${t.alignment} visible=${visibleW}x${visibleH} pos=(${t.positionX},${t.positionY}) topLeft=(${topLeft.x},${topLeft.y}) -> crop (${x},${y} ${w}x${h})`,
+  );
+
+  return {
+    x: roundEven(Math.max(0, x)),
+    y: roundEven(Math.max(0, y)),
+    w: roundEven(Math.max(2, w)),
+    h: roundEven(Math.max(2, h)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -328,9 +511,9 @@ export async function deleteReplayClipVideo(
     }
   }
 
-  db.prepare('UPDATE replay_clips SET output_path = NULL WHERE id = ?').run(
-    clipId,
-  );
+  db.prepare(
+    'UPDATE replay_clips SET output_path = NULL, output_format = NULL WHERE id = ?',
+  ).run(clipId);
 }
 
 export async function bulkDeleteReplayClips(
@@ -471,10 +654,9 @@ export async function createClipVideos(
     try {
       // eslint-disable-next-line no-await-in-loop
       const outputPath = await createClipVideoFile(clip, clipsDir);
-      db.prepare('UPDATE replay_clips SET output_path = ? WHERE id = ?').run(
-        outputPath,
-        clip.id,
-      );
+      db.prepare(
+        'UPDATE replay_clips SET output_path = ?, output_format = ? WHERE id = ?',
+      ).run(outputPath, 'standard', clip.id);
       created += 1;
       onProgress({
         clipId: clip.id,
@@ -526,10 +708,209 @@ export async function createSingleClipVideo(
   if (clip.outputPath) return clip.outputPath;
 
   const outputPath = await createClipVideoFile(clip, clipsDir);
-  db.prepare('UPDATE replay_clips SET output_path = ? WHERE id = ?').run(
-    outputPath,
-    clipId,
-  );
+  db.prepare(
+    'UPDATE replay_clips SET output_path = ?, output_format = ? WHERE id = ?',
+  ).run(outputPath, 'standard', clipId);
 
   return outputPath;
+}
+
+// ---------------------------------------------------------------------------
+// Portrait clip video creation (1080×1920)
+// ---------------------------------------------------------------------------
+
+const PORTRAIT_WIDTH = 1080;
+const PORTRAIT_HALF_HEIGHT = 960;
+
+async function createPortraitClipVideoFile(
+  clip: ReplayClip,
+  clipsDir: string,
+  transforms: RecordingTransforms,
+): Promise<string> {
+  if (!clip.videoPath) {
+    throw new Error('No paired video for this clip');
+  }
+  if (!transforms.gameCaptureTransform) {
+    throw new Error('No game capture transform data');
+  }
+  if (!transforms.playerCameraTransform) {
+    throw new Error('No player camera transform data');
+  }
+
+  await fs.access(clip.videoPath);
+  await fs.mkdir(clipsDir, { recursive: true });
+
+  const outputPath = path.join(
+    clipsDir,
+    `clip-${clip.id.slice(0, 8)}-portrait.mp4`,
+  );
+  const duration = clip.endSeconds - clip.startSeconds;
+
+  const gc = computeCropRect(transforms.gameCaptureTransform);
+  const pc = computeCropRect(transforms.playerCameraTransform);
+
+  const W = PORTRAIT_WIDTH;
+  const H = PORTRAIT_HALF_HEIGHT;
+
+  // Build filter graph: crop each source, scale to fit half, pad to center, stack
+  const filterComplex = [
+    `[0:v]split=2[src1][src2]`,
+    `[src1]crop=${gc.w}:${gc.h}:${gc.x}:${gc.y},scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(${W}-iw)/2:(${H}-ih)/2:black[game]`,
+    `[src2]crop=${pc.w}:${pc.h}:${pc.x}:${pc.y},scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(${W}-iw)/2:(${H}-ih)/2:black[cam]`,
+    `[game][cam]vstack=inputs=2[out]`,
+  ].join(';');
+
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(ffmpegPath, [
+      '-y',
+      '-ss',
+      String(clip.startSeconds),
+      '-i',
+      clip.videoPath!,
+      '-t',
+      String(duration),
+      '-filter_complex',
+      filterComplex,
+      '-map',
+      '[out]',
+      '-map',
+      '0:a',
+      '-c:v',
+      'libx264',
+      '-crf',
+      '18',
+      '-preset',
+      'medium',
+      '-pix_fmt',
+      'yuv420p',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '192k',
+      '-movflags',
+      '+faststart',
+      outputPath,
+    ]);
+
+    let stderr = '';
+    proc.stderr.on('data', (d: Buffer) => {
+      stderr += d.toString();
+    });
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        reject(
+          new Error(`FFmpeg failed (code ${code}): ${stderr.slice(-500)}`),
+        );
+      } else {
+        resolve();
+      }
+    });
+
+    proc.on('error', (err) => {
+      reject(new Error(`Failed to start FFmpeg: ${err.message}`));
+    });
+  });
+
+  return outputPath;
+}
+
+export async function createPortraitClipVideos(
+  eventName: string,
+  onProgress: (progress: ClipCreateProgress) => void,
+  clipIds?: string[],
+): Promise<{ created: number; skipped: number; failed: number }> {
+  const db = getEventDb(eventName);
+  const clipsDir = getClipsDir(eventName);
+
+  let rows: any[];
+  if (clipIds && clipIds.length > 0) {
+    const placeholders = clipIds.map(() => '?').join(', ');
+    rows = db
+      .prepare(
+        `SELECT * FROM replay_clips WHERE removed = 0 AND output_path IS NULL AND video_path IS NOT NULL AND id IN (${placeholders}) ORDER BY created_at`,
+      )
+      .all(...clipIds);
+  } else {
+    rows = db
+      .prepare(
+        'SELECT * FROM replay_clips WHERE removed = 0 AND output_path IS NULL AND video_path IS NOT NULL ORDER BY created_at',
+      )
+      .all();
+  }
+  const clips = rows.map(rowToReplayClip);
+
+  let created = 0;
+  let failed = 0;
+  const total = clips.length;
+
+  // Sequential FFmpeg processing
+  // eslint-disable-next-line no-restricted-syntax
+  for (let i = 0; i < clips.length; i += 1) {
+    const clip = clips[i];
+    onProgress({
+      clipId: clip.id,
+      current: i + 1,
+      total,
+      status: 'creating',
+    });
+
+    try {
+      if (!clip.videoPath) throw new Error('No paired video');
+
+      // eslint-disable-next-line no-await-in-loop
+      const transforms = getRecordingTransforms(eventName, clip.videoPath);
+      if (!transforms) {
+        throw new Error(
+          'No OBS transform data found for this recording — record with OBS connected to capture source positions',
+        );
+      }
+      if (!transforms.gameCaptureTransform) {
+        throw new Error('No game capture transform data for this recording');
+      }
+      if (!transforms.playerCameraTransform) {
+        throw new Error('No player camera transform data for this recording');
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      const outputPath = await createPortraitClipVideoFile(
+        clip,
+        clipsDir,
+        transforms,
+      );
+      db.prepare(
+        'UPDATE replay_clips SET output_path = ?, output_format = ? WHERE id = ?',
+      ).run(outputPath, 'portrait', clip.id);
+      created += 1;
+      onProgress({
+        clipId: clip.id,
+        current: i + 1,
+        total,
+        status: 'done',
+        outputPath,
+      });
+    } catch (err: any) {
+      failed += 1;
+      log.error(
+        `[replayClips] Failed to create portrait clip ${clip.id}: ${err.message}`,
+      );
+      onProgress({
+        clipId: clip.id,
+        current: i + 1,
+        total,
+        status: 'error',
+        error: err.message,
+      });
+    }
+  }
+
+  const allCount = db
+    .prepare<
+      [],
+      { cnt: number }
+    >('SELECT COUNT(*) as cnt FROM replay_clips WHERE removed = 0')
+    .get();
+  const skipped = (allCount?.cnt ?? 0) - created - failed;
+
+  return { created, skipped, failed };
 }
