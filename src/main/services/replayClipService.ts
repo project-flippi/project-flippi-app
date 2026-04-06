@@ -133,18 +133,23 @@ function resolveTopLeft(
   alignment: number,
 ): { x: number; y: number } {
   // Horizontal: 1 = left (position is left edge), 2 = right, 0 = center
+  // eslint-disable-next-line no-bitwise
+  const hFlag = alignment & 3; // bits 0-1
+  // eslint-disable-next-line no-bitwise
+  const vFlag = alignment & 12; // bits 2-3
+
   let x = posX;
-  if (alignment & 2) {
+  if (hFlag === 2) {
     x = posX - w; // right-aligned
-  } else if (!(alignment & 1)) {
+  } else if (hFlag === 0) {
     x = posX - w / 2; // center
   }
 
   // Vertical: 4 = top (position is top edge), 8 = bottom, 0 = center
   let y = posY;
-  if (alignment & 8) {
+  if (vFlag === 8) {
     y = posY - h; // bottom-aligned
-  } else if (!(alignment & 4)) {
+  } else if (vFlag === 0) {
     y = posY - h / 2; // center
   }
 
