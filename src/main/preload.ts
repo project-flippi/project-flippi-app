@@ -254,6 +254,83 @@ contextBridge.exposeInMainWorld('flippiReplayClips', {
   },
 });
 
+contextBridge.exposeInMainWorld('flippiClipCompilations', {
+  getEntries: (eventName: string) =>
+    ipcRenderer.invoke('clipCompilations:getEntries', { eventName }),
+  create: (eventName: string, title: string, clipIds: string[]) =>
+    ipcRenderer.invoke('clipCompilations:create', {
+      eventName,
+      title,
+      clipIds,
+    }),
+  addClip: (eventName: string, compilationId: string, clipId: string) =>
+    ipcRenderer.invoke('clipCompilations:addClip', {
+      eventName,
+      compilationId,
+      clipId,
+    }),
+  removeClip: (eventName: string, compilationId: string, clipId: string) =>
+    ipcRenderer.invoke('clipCompilations:removeClip', {
+      eventName,
+      compilationId,
+      clipId,
+    }),
+  update: (
+    eventName: string,
+    compilationId: string,
+    updates: { title?: string; description?: string },
+  ) =>
+    ipcRenderer.invoke('clipCompilations:update', {
+      eventName,
+      compilationId,
+      updates,
+    }),
+  delete: (eventName: string, compilationId: string) =>
+    ipcRenderer.invoke('clipCompilations:delete', {
+      eventName,
+      compilationId,
+    }),
+  deleteVideo: (eventName: string, compilationId: string) =>
+    ipcRenderer.invoke('clipCompilations:deleteVideo', {
+      eventName,
+      compilationId,
+    }),
+  findForClip: (
+    eventName: string,
+    clipId: string,
+  ): Promise<{ id: string; title: string }[]> =>
+    ipcRenderer.invoke('clipCompilations:findForClip', {
+      eventName,
+      clipId,
+    }),
+  compile: (eventName: string, compilationId: string) =>
+    ipcRenderer.invoke('clipCompilations:compile', {
+      eventName,
+      compilationId,
+    }),
+  renameVideo: (eventName: string, compilationId: string) =>
+    ipcRenderer.invoke('clipCompilations:renameVideo', {
+      eventName,
+      compilationId,
+    }),
+  onCompileProgress: (
+    handler: (
+      _event: any,
+      progress: {
+        compilationId: string;
+        percent: number;
+        status: string;
+        filePath?: string;
+        error?: string;
+      },
+    ) => void,
+  ) => {
+    ipcRenderer.on('clipCompilations:compile-progress', handler);
+    return () =>
+      ipcRenderer.removeListener('clipCompilations:compile-progress', handler);
+  },
+});
+
 contextBridge.exposeInMainWorld('flippiStatus', {
   get: () => ipcRenderer.invoke('status:get'),
   onChanged: (callback: (status: any) => void) => {

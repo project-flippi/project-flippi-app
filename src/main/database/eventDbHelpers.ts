@@ -3,6 +3,7 @@
 import type {
   VideoDataEntry,
   CompilationEntry,
+  ClipCompilation,
   GameSet,
   ReplayClip,
 } from '../../common/meleeTypes';
@@ -116,6 +117,28 @@ export function rowToReplayClip(row: any): ReplayClip {
 
 // ---------------------------------------------------------------------------
 // Sets
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Clip compilations
+// ---------------------------------------------------------------------------
+
+export function rowToClipCompilation(
+  row: any,
+  clipIds: string[],
+): ClipCompilation {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    clipIds,
+    compiledVideoPath: row.compiled_video_path ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sets (row mapper)
 // ---------------------------------------------------------------------------
 
 export function rowToGameSet(row: any, gamePaths: string[]): GameSet {

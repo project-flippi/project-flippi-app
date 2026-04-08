@@ -278,3 +278,26 @@ export interface ReplayClipEntry {
   clip: ReplayClip;
   slpGameData: SlpGameData | null;
 }
+
+// ---------------------------------------------------------------------------
+// Clip compilations
+// ---------------------------------------------------------------------------
+
+/** A clip compilation stored in the database */
+export interface ClipCompilation {
+  id: string;
+  title: string;
+  description: string;
+  /** Ordered clip IDs in this compilation */
+  clipIds: string[];
+  /** Path to compiled video file (null until compiled) */
+  compiledVideoPath: string | null;
+  createdAt: string;
+}
+
+/** Enriched compilation entry returned to the renderer */
+export interface ClipCompilationEntry {
+  compilation: ClipCompilation;
+  /** Resolved clip entries (populated at read time) */
+  clips: ReplayClipEntry[];
+}

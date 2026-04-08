@@ -9,6 +9,8 @@ import type {
   SetPlayerOverride,
   EventThumbnailSettings,
   ReplayClipEntry,
+  ClipCompilation,
+  ClipCompilationEntry,
 } from '../common/meleeTypes';
 
 declare global {
@@ -210,6 +212,55 @@ declare global {
           _event: any,
           progress: {
             setId: string;
+            percent: number;
+            status: string;
+            filePath?: string;
+            error?: string;
+          },
+        ) => void,
+      ) => () => void;
+    };
+    flippiClipCompilations: {
+      getEntries: (eventName: string) => Promise<ClipCompilationEntry[]>;
+      create: (
+        eventName: string,
+        title: string,
+        clipIds: string[],
+      ) => Promise<ClipCompilation>;
+      addClip: (
+        eventName: string,
+        compilationId: string,
+        clipId: string,
+      ) => Promise<ClipCompilation>;
+      removeClip: (
+        eventName: string,
+        compilationId: string,
+        clipId: string,
+      ) => Promise<ClipCompilation | null>;
+      update: (
+        eventName: string,
+        compilationId: string,
+        updates: { title?: string; description?: string },
+      ) => Promise<ClipCompilation>;
+      delete: (eventName: string, compilationId: string) => Promise<void>;
+      deleteVideo: (
+        eventName: string,
+        compilationId: string,
+      ) => Promise<ClipCompilation>;
+      findForClip: (
+        eventName: string,
+        clipId: string,
+      ) => Promise<{ id: string; title: string }[]>;
+      compile: (eventName: string, compilationId: string) => Promise<string>;
+      renameVideo: (
+        eventName: string,
+        compilationId: string,
+      ) => Promise<ClipCompilation>;
+      onCompileProgress: (
+        handler: (
+          _event: any,
+          progress: {
+            compilationId: string;
             percent: number;
             status: string;
             filePath?: string;

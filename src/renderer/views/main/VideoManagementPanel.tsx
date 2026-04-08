@@ -6,10 +6,13 @@ import type {
   GameSet,
   SetEntry,
   ReplayClipEntry,
+  ClipCompilation,
+  ClipCompilationEntry,
 } from '../../../common/meleeTypes';
 import { computeSetTitle } from '../../../common/setUtils';
 import GameCard, { initVideoServerPort } from '../../components/video/GameCard';
 import SetCard from '../../components/video/SetCard';
+import ClipCompilationCard from '../../components/video/ClipCompilationCard';
 import ThumbnailSettingsBar from '../../components/video/ThumbnailSettingsBar';
 import ReplayClipList from '../../components/video/ReplayClipList';
 
@@ -30,6 +33,8 @@ function buildVideoSetMap(entries: SetEntry[]): Map<string, string> {
 const GAME_CARD_HEIGHT = 100;
 const SET_CARD_BASE_HEIGHT = 310;
 const SET_CARD_GAME_HEIGHT = 60;
+const COMPILATION_CARD_BASE_HEIGHT = 200;
+const COMPILATION_CARD_CLIP_HEIGHT = 60;
 
 interface GameRowProps {
   games: GameEntry[];
@@ -99,15 +104,52 @@ function SetRow({
   );
 }
 
+interface CompilationRowProps {
+  compilations: ClipCompilationEntry[];
+  eventName: string;
+  onCompilationUpdated: (updated: ClipCompilation) => void;
+  onClipRemoved: (compilationId: string, clipId: string) => void;
+  onCompilationDeleted: (compilationId: string) => void;
+}
+
+function CompilationRow({
+  index,
+  style,
+  compilations,
+  eventName,
+  onCompilationUpdated,
+  onClipRemoved,
+  onCompilationDeleted,
+}: {
+  index: number;
+  style: React.CSSProperties;
+} & CompilationRowProps) {
+  const entry = compilations[index];
+  return (
+    <div style={style}>
+      <ClipCompilationCard
+        entry={entry}
+        eventName={eventName}
+        onUpdated={onCompilationUpdated}
+        onClipRemoved={onClipRemoved}
+        onDeleted={onCompilationDeleted}
+      />
+    </div>
+  );
+}
+
 function VideoManagementPanel() {
   const [events, setEvents] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [games, setGames] = useState<GameEntry[]>([]);
   const [sets, setSets] = useState<SetEntry[]>([]);
   const [replayClips, setReplayClips] = useState<ReplayClipEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'games' | 'sets' | 'clips'>(
-    'games',
-  );
+  const [clipCompilations, setClipCompilations] = useState<
+    ClipCompilationEntry[]
+  >([]);
+  const [activeTab, setActiveTab] = useState<
+    'games' | 'sets' | 'clips' | 'compilations'
+  >('games');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
@@ -142,18 +184,21 @@ function VideoManagementPanel() {
     setIsLoading(true);
     setError('');
     try {
-      const [result, clips] = await Promise.all([
+      const [result, clips, compEntries] = await Promise.all([
         window.flippiVideo.getGameAndSetEntries(eventName),
         window.flippiReplayClips.getEntries(eventName),
+        window.flippiClipCompilations.getEntries(eventName),
       ]);
       setGames(result.games);
       setSets(result.sets);
       setReplayClips(clips);
+      setClipCompilations(compEntries);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load games');
       setGames([]);
       setSets([]);
       setReplayClips([]);
+      setClipCompilations([]);
     } finally {
       setIsLoading(false);
     }
@@ -265,6 +310,63 @@ function VideoManagementPanel() {
     }
   }, [selectedEvent, loadReplayClips]);
 
+  // -----------------------------------------------------------------------
+  // Clip compilation helpers
+  // -----------------------------------------------------------------------
+
+  const loadClipCompilations = useCallback(async (eventName: string) => {
+    if (!eventName) return;
+    try {
+      const entries = await window.flippiClipCompilations.getEntries(eventName);
+      setClipCompilations(entries);
+    } catch {
+      setClipCompilations([]);
+    }
+  }, []);
+
+  const handleCompilationChanged = useCallback(() => {
+    if (selectedEvent) {
+      loadClipCompilations(selectedEvent);
+    }
+  }, [selectedEvent, loadClipCompilations]);
+
+  const handleCompilationUpdated = useCallback((updated: ClipCompilation) => {
+    setClipCompilations((prev) =>
+      prev.map((entry) =>
+        entry.compilation.id === updated.id
+          ? { ...entry, compilation: updated }
+          : entry,
+      ),
+    );
+  }, []);
+
+  const handleCompilationClipRemoved = useCallback(
+    (compilationId: string, clipId: string) => {
+      setClipCompilations((prev) => {
+        const updated = prev
+          .map((entry) => {
+            if (entry.compilation.id !== compilationId) return entry;
+            const newClips = entry.clips.filter((c) => c.clip.id !== clipId);
+            const newCompilation = {
+              ...entry.compilation,
+              clipIds: entry.compilation.clipIds.filter((id) => id !== clipId),
+            };
+            if (newClips.length === 0) return null;
+            return { compilation: newCompilation, clips: newClips };
+          })
+          .filter((e): e is ClipCompilationEntry => e !== null);
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const handleCompilationDeleted = useCallback((compilationId: string) => {
+    setClipCompilations((prev) =>
+      prev.filter((entry) => entry.compilation.id !== compilationId),
+    );
+  }, []);
+
   async function handlePairGameVideos() {
     if (!selectedEvent) return;
     setActionBusy(true);
@@ -322,6 +424,35 @@ function VideoManagementPanel() {
     ],
   );
 
+  const getCompilationRowHeight = useCallback(
+    (index: number) => {
+      const entry = clipCompilations[index];
+      if (!entry) return COMPILATION_CARD_BASE_HEIGHT;
+      return (
+        COMPILATION_CARD_BASE_HEIGHT +
+        entry.clips.length * COMPILATION_CARD_CLIP_HEIGHT
+      );
+    },
+    [clipCompilations],
+  );
+
+  const compilationRowProps = useMemo(
+    () => ({
+      compilations: clipCompilations,
+      eventName: selectedEvent,
+      onCompilationUpdated: handleCompilationUpdated,
+      onClipRemoved: handleCompilationClipRemoved,
+      onCompilationDeleted: handleCompilationDeleted,
+    }),
+    [
+      clipCompilations,
+      selectedEvent,
+      handleCompilationUpdated,
+      handleCompilationClipRemoved,
+      handleCompilationDeleted,
+    ],
+  );
+
   return (
     <section className="pf-section">
       <h1>Video Management</h1>
@@ -368,6 +499,13 @@ function VideoManagementPanel() {
             onClick={() => setActiveTab('clips')}
           >
             Clips ({replayClips.length})
+          </button>
+          <button
+            type="button"
+            className={`pf-tab ${activeTab === 'compilations' ? 'pf-tab--active' : ''}`}
+            onClick={() => setActiveTab('compilations')}
+          >
+            Compilations ({clipCompilations.length})
           </button>
         </div>
 
@@ -457,7 +595,33 @@ function VideoManagementPanel() {
               entries={replayClips}
               eventName={selectedEvent}
               onReload={handleReplayClipsReload}
+              compilations={clipCompilations}
+              onCompilationChanged={handleCompilationChanged}
             />
+          )}
+
+          {/* Compilations tab */}
+          {activeTab === 'compilations' && !isLoading && (
+            <>
+              {clipCompilations.length === 0 && (
+                <div
+                  style={{ padding: '16px 0', color: 'var(--pf-text-muted)' }}
+                >
+                  No compilations created yet. Add clips to a compilation from
+                  the Clips tab.
+                </div>
+              )}
+              {clipCompilations.length > 0 && (
+                <List
+                  style={{ height: listHeight }}
+                  rowComponent={CompilationRow}
+                  rowCount={clipCompilations.length}
+                  rowHeight={getCompilationRowHeight}
+                  rowProps={compilationRowProps}
+                  overscanCount={2}
+                />
+              )}
+            </>
           )}
         </div>
       </div>

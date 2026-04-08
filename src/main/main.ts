@@ -110,6 +110,20 @@ import {
   createPortraitClipVideos,
   createSingleClipVideo,
 } from './services/replayClipService';
+import {
+  getClipCompilationEntries,
+  createClipCompilation,
+  addClipToCompilation,
+  removeClipFromCompilation,
+  updateClipCompilation,
+  deleteClipCompilation,
+  deleteClipCompilationVideo,
+  findCompilationsForClip,
+} from './services/clipCompilationService';
+import {
+  compileClipCompilationVideo,
+  renameClipCompilationVideo,
+} from './services/clipCompilationCompileService';
 
 function broadcastStatus() {
   const status = getStatus();
@@ -699,6 +713,150 @@ ipcMain.handle(
 
     return {
       ...entry.set,
+      compiledVideoPath: newPath,
+    };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Clip Compilation IPC handlers
+// ---------------------------------------------------------------------------
+
+ipcMain.handle(
+  'clipCompilations:getEntries',
+  async (_evt, args: { eventName: string }) => {
+    return getClipCompilationEntries(args.eventName);
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:create',
+  async (
+    _evt,
+    args: { eventName: string; title: string; clipIds: string[] },
+  ) => {
+    return createClipCompilation(args.eventName, args.title, args.clipIds);
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:addClip',
+  async (
+    _evt,
+    args: { eventName: string; compilationId: string; clipId: string },
+  ) => {
+    return addClipToCompilation(
+      args.eventName,
+      args.compilationId,
+      args.clipId,
+    );
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:removeClip',
+  async (
+    _evt,
+    args: { eventName: string; compilationId: string; clipId: string },
+  ) => {
+    return removeClipFromCompilation(
+      args.eventName,
+      args.compilationId,
+      args.clipId,
+    );
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:update',
+  async (
+    _evt,
+    args: {
+      eventName: string;
+      compilationId: string;
+      updates: { title?: string; description?: string };
+    },
+  ) => {
+    return updateClipCompilation(
+      args.eventName,
+      args.compilationId,
+      args.updates,
+    );
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:delete',
+  async (_evt, args: { eventName: string; compilationId: string }) => {
+    return deleteClipCompilation(args.eventName, args.compilationId);
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:deleteVideo',
+  async (_evt, args: { eventName: string; compilationId: string }) => {
+    return deleteClipCompilationVideo(args.eventName, args.compilationId);
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:findForClip',
+  async (_evt, args: { eventName: string; clipId: string }) => {
+    return findCompilationsForClip(args.eventName, args.clipId);
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:compile',
+  async (evt, args: { eventName: string; compilationId: string }) => {
+    const entries = await getClipCompilationEntries(args.eventName);
+    const entry = entries.find((e) => e.compilation.id === args.compilationId);
+    if (!entry) throw new Error('Compilation not found');
+
+    const clipOutputPaths = entry.clips
+      .map((c) => c.clip.outputPath)
+      .filter((p): p is string => p != null);
+
+    if (clipOutputPaths.length === 0) {
+      throw new Error('No created clip videos in this compilation');
+    }
+
+    const outputPath = await compileClipCompilationVideo(
+      args.eventName,
+      args.compilationId,
+      entry.compilation.title,
+      clipOutputPaths,
+      (progress) => {
+        evt.sender.send('clipCompilations:compile-progress', progress);
+      },
+    );
+    updateClipCompilation(args.eventName, args.compilationId, {
+      compiledVideoPath: outputPath,
+    });
+    return outputPath;
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:renameVideo',
+  async (_evt, args: { eventName: string; compilationId: string }) => {
+    const entries = await getClipCompilationEntries(args.eventName);
+    const entry = entries.find((e) => e.compilation.id === args.compilationId);
+    if (!entry) throw new Error('Compilation not found');
+    if (!entry.compilation.compiledVideoPath) {
+      throw new Error('No compiled video to rename');
+    }
+
+    const newPath = await renameClipCompilationVideo(
+      entry.compilation.compiledVideoPath,
+      entry.compilation.title,
+    );
+    updateClipCompilation(args.eventName, args.compilationId, {
+      compiledVideoPath: newPath,
+    });
+
+    return {
+      ...entry.compilation,
       compiledVideoPath: newPath,
     };
   },

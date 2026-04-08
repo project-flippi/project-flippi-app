@@ -113,6 +113,7 @@ interface ReplayClipCardProps {
   selected: boolean;
   onToggleSelect: (clipId: string) => void;
   onUpdated: () => void;
+  compilationNames?: string[];
 }
 
 function ReplayClipCard({
@@ -121,6 +122,7 @@ function ReplayClipCard({
   selected,
   onToggleSelect,
   onUpdated,
+  compilationNames = undefined,
 }: ReplayClipCardProps) {
   const { clip, slpGameData } = entry;
 
@@ -214,6 +216,16 @@ function ReplayClipCard({
                 Portrait
               </span>
             )}
+            {compilationNames &&
+              compilationNames.map((name) => (
+                <span
+                  key={name}
+                  className="pf-clip-badge pf-clip-badge--compilation"
+                  title={`In compilation: ${name}`}
+                >
+                  {name || 'Untitled'}
+                </span>
+              ))}
           </div>
           <div className="pf-replay-clip-files">
             <span className="pf-text-muted" title={clip.slpPath}>

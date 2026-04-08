@@ -1410,6 +1410,23 @@ html, body, #root {
   color: var(--pf-accent);
 }
 
+.pf-clip-badge--compilation {
+  background: var(--pf-warning-light, rgba(245, 158, 11, 0.15));
+  color: var(--pf-warning, #d97706);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-compilation-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 .pf-clip-preview-info {
   font-size: 0.78rem;
   color: var(--pf-text-muted);

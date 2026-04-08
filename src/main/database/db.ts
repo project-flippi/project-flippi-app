@@ -150,6 +150,21 @@ CREATE TABLE IF NOT EXISTS replay_clips (
   removed         INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS clip_compilations (
+  id                    TEXT PRIMARY KEY,
+  title                 TEXT NOT NULL DEFAULT '',
+  description           TEXT NOT NULL DEFAULT '',
+  compiled_video_path   TEXT DEFAULT NULL,
+  created_at            TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS clip_compilation_clips (
+  compilation_id  TEXT NOT NULL REFERENCES clip_compilations(id) ON DELETE CASCADE,
+  clip_id         TEXT NOT NULL REFERENCES replay_clips(id) ON DELETE CASCADE,
+  sort_order      INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (compilation_id, clip_id)
+);
 `;
 
 const eventDbPool = new Map<string, Database.Database>();
@@ -198,6 +213,29 @@ export function getEventDb(eventName: string): Database.Database {
     edb.exec(
       'ALTER TABLE replay_clips ADD COLUMN output_format TEXT DEFAULT NULL',
     );
+  }
+
+  // Add clip_compilations tables if missing
+  const tableNames = edb
+    .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+    .all()
+    .map((t: any) => t.name);
+  if (!tableNames.includes('clip_compilations')) {
+    edb.exec(`
+      CREATE TABLE IF NOT EXISTS clip_compilations (
+        id                    TEXT PRIMARY KEY,
+        title                 TEXT NOT NULL DEFAULT '',
+        description           TEXT NOT NULL DEFAULT '',
+        compiled_video_path   TEXT DEFAULT NULL,
+        created_at            TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS clip_compilation_clips (
+        compilation_id  TEXT NOT NULL REFERENCES clip_compilations(id) ON DELETE CASCADE,
+        clip_id         TEXT NOT NULL REFERENCES replay_clips(id) ON DELETE CASCADE,
+        sort_order      INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (compilation_id, clip_id)
+      );
+    `);
   }
 
   // Run migration from old files if needed

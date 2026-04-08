@@ -5,7 +5,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import type { ReplayClipEntry } from '../../../common/meleeTypes';
+import type {
+  ReplayClipEntry,
+  ClipCompilationEntry,
+} from '../../../common/meleeTypes';
 import useAutoReset from '../../hooks/useAutoReset';
 import useContainerHeight from '../../hooks/useContainerHeight';
 import ReplayClipCard from './ReplayClipCard';
@@ -21,6 +24,7 @@ interface ClipRowProps {
   selectedIds: Set<string>;
   onToggleSelect: (clipId: string) => void;
   onUpdated: () => void;
+  clipCompilationMap: Map<string, string[]>;
 }
 
 function ClipRow({
@@ -31,6 +35,7 @@ function ClipRow({
   selectedIds,
   onToggleSelect,
   onUpdated,
+  clipCompilationMap,
 }: {
   index: number;
   style: React.CSSProperties;
@@ -44,6 +49,7 @@ function ClipRow({
         selected={selectedIds.has(entry.clip.id)}
         onToggleSelect={onToggleSelect}
         onUpdated={onUpdated}
+        compilationNames={clipCompilationMap.get(entry.clip.id)}
       />
     </div>
   );
@@ -53,12 +59,16 @@ interface ReplayClipListProps {
   entries: ReplayClipEntry[];
   eventName: string;
   onReload: () => void;
+  compilations: ClipCompilationEntry[];
+  onCompilationChanged: () => void;
 }
 
 export default function ReplayClipList({
   entries,
   eventName,
   onReload,
+  compilations,
+  onCompilationChanged,
 }: ReplayClipListProps) {
   const [importing, setImporting] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -237,6 +247,88 @@ export default function ReplayClipList({
     }
   }, [eventName, selectedIds, entries, onReload, setStatusAuto]);
 
+  const anyBusy = importing || creating || bulkBusy;
+
+  // Dropdown state
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<
+    'deleteVideos' | 'deleteClips' | null
+  >(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Count selected clips that have a created video (eligible for compilation)
+  const selectedCreatedCount = useMemo(
+    () =>
+      entries.filter((e) => selectedIds.has(e.clip.id) && e.clip.outputPath)
+        .length,
+    [entries, selectedIds],
+  );
+
+  // Compilation picker state
+  const [compilationPickerOpen, setCompilationPickerOpen] = useState(false);
+
+  const handleAddToNewCompilation = useCallback(async () => {
+    const createdIds = entries
+      .filter((e) => selectedIds.has(e.clip.id) && e.clip.outputPath)
+      .map((e) => e.clip.id);
+    if (createdIds.length === 0) return;
+    setDropdownOpen(false);
+    setCompilationPickerOpen(false);
+    setBulkBusy(true);
+    try {
+      await window.flippiClipCompilations.create(eventName, '', createdIds);
+      setStatusAuto(`Added ${createdIds.length} clip(s) to new compilation`);
+      onCompilationChanged();
+    } catch (err: any) {
+      setStatusAuto(err?.message ?? 'Failed');
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [entries, selectedIds, eventName, onCompilationChanged, setStatusAuto]);
+
+  const handleAddToExistingCompilation = useCallback(
+    async (compilationId: string) => {
+      const createdIds = entries
+        .filter((e) => selectedIds.has(e.clip.id) && e.clip.outputPath)
+        .map((e) => e.clip.id);
+      if (createdIds.length === 0) return;
+      setDropdownOpen(false);
+      setCompilationPickerOpen(false);
+      setBulkBusy(true);
+      try {
+        await Promise.all(
+          createdIds.map((clipId) =>
+            window.flippiClipCompilations.addClip(
+              eventName,
+              compilationId,
+              clipId,
+            ),
+          ),
+        );
+        setStatusAuto(`Added ${createdIds.length} clip(s) to compilation`);
+        onCompilationChanged();
+      } catch (err: any) {
+        setStatusAuto(err?.message ?? 'Failed');
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [entries, selectedIds, eventName, onCompilationChanged, setStatusAuto],
+  );
+
+  // Build clip-to-compilation-names map
+  const clipCompilationMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    compilations.forEach((ce) => {
+      ce.compilation.clipIds.forEach((clipId) => {
+        const names = map.get(clipId) ?? [];
+        names.push(ce.compilation.title || 'Untitled');
+        map.set(clipId, names);
+      });
+    });
+    return map;
+  }, [compilations]);
+
   const unresolvedCount = entries.filter(
     (e) => !e.clip.videoPath && !e.clip.removed,
   ).length;
@@ -247,16 +339,8 @@ export default function ReplayClipList({
     selectedIds,
     onToggleSelect,
     onUpdated: onReload,
+    clipCompilationMap,
   };
-
-  const anyBusy = importing || creating || bulkBusy;
-
-  // Dropdown state
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<
-    'deleteVideos' | 'deleteClips' | null
-  >(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on click-outside
   useEffect(() => {
@@ -268,6 +352,7 @@ export default function ReplayClipList({
       ) {
         setDropdownOpen(false);
         setConfirmAction(null);
+        setCompilationPickerOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -388,6 +473,45 @@ export default function ReplayClipList({
                       >
                         Create Portrait Clip Videos ({selectedPendingCount})
                       </button>
+                    )}
+                    {selectedCreatedCount > 0 && !compilationPickerOpen && (
+                      <button
+                        type="button"
+                        className="pf-clip-action-item"
+                        onClick={() => setCompilationPickerOpen(true)}
+                      >
+                        Add to Compilation ({selectedCreatedCount})
+                      </button>
+                    )}
+                    {compilationPickerOpen && (
+                      <div className="pf-compilation-picker">
+                        <button
+                          type="button"
+                          className="pf-clip-action-item"
+                          onClick={handleAddToNewCompilation}
+                        >
+                          + New Compilation
+                        </button>
+                        {compilations.map((ce) => (
+                          <button
+                            key={ce.compilation.id}
+                            type="button"
+                            className="pf-clip-action-item"
+                            onClick={() =>
+                              handleAddToExistingCompilation(ce.compilation.id)
+                            }
+                          >
+                            {ce.compilation.title || 'Untitled'}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="pf-clip-action-item pf-text-muted"
+                          onClick={() => setCompilationPickerOpen(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     )}
                     {selectedWithVideoCount > 0 && (
                       <button
