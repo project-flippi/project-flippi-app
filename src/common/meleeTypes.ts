@@ -268,6 +268,14 @@ export interface ReplayClip {
   outputPath: string | null;
   /** Format of the created clip video ('standard' or 'portrait') */
   outputFormat: 'standard' | 'portrait' | null;
+  /**
+   * Plain-language description of the longest combo/punish that occurred
+   * within this clip's frame range, generated from SLP stats at import time.
+   * `null` when no combo could be derived (e.g. doubles match, unparseable
+   * SLP, or no conversion overlapped the frame window). Used as input for
+   * AI title/description generation.
+   */
+  comboText: string | null;
   /** Soft-delete: removed clips are excluded from batch creation */
   removed: boolean;
   createdAt: string;

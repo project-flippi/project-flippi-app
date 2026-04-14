@@ -21,6 +21,7 @@ import { getEventDb } from '../database/db';
 import { rowToReplayClip } from '../database/eventDbHelpers';
 import { parseSlpFileAsync } from './slpParserService';
 import { getCached, upsertEntry } from '../database/metadataCache';
+import { generateComboText } from './comboTextService';
 
 // ffmpeg-static exports the path to the bundled ffmpeg binary.
 // In packaged Electron builds the binary lives in app.asar.unpacked but the
@@ -309,6 +310,16 @@ export async function importReplayClips(
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', '', NULL, 0, ?)`,
   );
 
+  // Collect inserted clips so we can generate combo text asynchronously
+  // after the transaction commits (SlippiGame parsing is async and can't
+  // run inside a synchronous better-sqlite3 transaction).
+  const insertedClips: Array<{
+    id: string;
+    slpPath: string;
+    startFrame: number;
+    endFrame: number;
+  }> = [];
+
   const batchInsert = db.transaction(() => {
     json.queue.forEach((item) => {
       // Check duplicate
@@ -326,8 +337,9 @@ export async function importReplayClips(
       const startSeconds = Math.max(0, item.startFrame) / 60;
       const endSeconds = item.endFrame / 60;
 
+      const clipId = randomUUID();
       insert.run(
-        randomUUID(),
+        clipId,
         importFile,
         item.path,
         videoPath,
@@ -337,6 +349,12 @@ export async function importReplayClips(
         endSeconds,
         now,
       );
+      insertedClips.push({
+        id: clipId,
+        slpPath: item.path,
+        startFrame: item.startFrame,
+        endFrame: item.endFrame,
+      });
 
       imported += 1;
     });
@@ -344,8 +362,29 @@ export async function importReplayClips(
 
   batchInsert();
 
+  // Generate combo text for each newly inserted clip. Runs sequentially
+  // to avoid hammering the main process with parallel SlippiGame parses,
+  // and any single failure is swallowed so import always succeeds.
+  const updateComboText = db.prepare(
+    'UPDATE replay_clips SET combo_text = ? WHERE id = ?',
+  );
+  let comboTextCount = 0;
+  // eslint-disable-next-line no-restricted-syntax
+  for (const clip of insertedClips) {
+    // eslint-disable-next-line no-await-in-loop
+    const text = await generateComboText(
+      clip.slpPath,
+      clip.startFrame,
+      clip.endFrame,
+    );
+    if (text) {
+      updateComboText.run(text, clip.id);
+      comboTextCount += 1;
+    }
+  }
+
   log.info(
-    `[replayClips] Imported ${imported} clips for ${eventName} (${unresolved} unresolved, ${duplicateSkipped} skipped)`,
+    `[replayClips] Imported ${imported} clips for ${eventName} (${unresolved} unresolved, ${duplicateSkipped} skipped, ${comboTextCount} with combo text)`,
   );
 
   return {

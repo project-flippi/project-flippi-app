@@ -110,6 +110,7 @@ export function rowToReplayClip(row: any): ReplayClip {
     description: row.description,
     outputPath: row.output_path ?? null,
     outputFormat: row.output_format ?? null,
+    comboText: row.combo_text ?? null,
     removed: Boolean(row.removed),
     createdAt: row.created_at,
   };

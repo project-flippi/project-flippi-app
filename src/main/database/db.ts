@@ -147,6 +147,8 @@ CREATE TABLE IF NOT EXISTS replay_clips (
   title           TEXT NOT NULL DEFAULT '',
   description     TEXT NOT NULL DEFAULT '',
   output_path     TEXT,
+  output_format   TEXT DEFAULT NULL,
+  combo_text      TEXT DEFAULT NULL,
   removed         INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT NOT NULL
 );
@@ -212,6 +214,11 @@ export function getEventDb(eventName: string): Database.Database {
   if (!clipCols.includes('output_format')) {
     edb.exec(
       'ALTER TABLE replay_clips ADD COLUMN output_format TEXT DEFAULT NULL',
+    );
+  }
+  if (!clipCols.includes('combo_text')) {
+    edb.exec(
+      'ALTER TABLE replay_clips ADD COLUMN combo_text TEXT DEFAULT NULL',
     );
   }
 
