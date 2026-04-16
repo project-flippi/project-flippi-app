@@ -1,13 +1,16 @@
 // src/main/services/comboTextService.ts
-// Generate a plain-language description of the longest combo/punish that
-// occurred within a clip's frame range. Used to seed AI title/description
+// Generate a plain-language description of every combo/punish (conversion)
+// that overlaps a clip's frame range. Used to seed AI title/description
 // generation for replay clips.
 //
-// The generated text follows the template originally implemented in
+// Each conversion follows the template originally implemented in
 // project-flippi-python/ProcessComboTextFile.py, e.g.
 //   "On Final Destination, Mang0's Falco punished Hungrybox's Jigglypuff.
 //    Damage dealt: ~58%. Sequence: Blaster, Down Air → Finisher: Up Smash.
 //    Did KO: true. Opening: neutral-win."
+//
+// When multiple conversions overlap, they are numbered and concatenated
+// in chronological order to give the AI layer a richer prompt.
 import log from 'electron-log';
 import characterMoveNames from '../../common/characterMoveNames';
 
@@ -117,6 +120,23 @@ export function formatComboText(input: FormatComboTextInput): string {
   return parts.join(' ');
 }
 
+/**
+ * Format multiple conversions into a single combined text string.
+ * When there is only one conversion, the output is identical to
+ * `formatComboText` (no prefix). When there are two or more, each
+ * is prefixed with "Conversion N: " and separated by newlines.
+ * Exported for unit tests.
+ */
+export function formatAllConversionsText(
+  inputs: FormatComboTextInput[],
+): string {
+  if (inputs.length === 0) return '';
+  if (inputs.length === 1) return formatComboText(inputs[0]);
+  return inputs
+    .map((input, i) => `Conversion ${i + 1}: ${formatComboText(input)}`)
+    .join('\n');
+}
+
 // ---------------------------------------------------------------------------
 // generateComboText — SLP → formatted text
 // ---------------------------------------------------------------------------
@@ -134,8 +154,8 @@ interface RawConversion {
 }
 
 /**
- * Parse an SLP file, locate the longest conversion that overlaps the given
- * frame range, and return a plain-language description of it.
+ * Parse an SLP file, find all conversions that overlap the given frame range,
+ * and return a plain-language description of each in chronological order.
  *
  * Returns `null` when:
  *   - the SLP file cannot be parsed
@@ -172,72 +192,56 @@ export async function generateComboText(
     const conversions: RawConversion[] = stats?.conversions ?? [];
     if (conversions.length === 0) return null;
 
-    // Pick the longest conversion whose frame range overlaps the clip window.
+    // Find all conversions whose frame range overlaps the clip window.
     // Treat an undefined endFrame as "runs to end of game".
-    const overlapping = conversions.filter((c) => {
-      const cEnd = c.endFrame ?? Number.POSITIVE_INFINITY;
-      return cEnd >= startFrame && c.startFrame <= endFrame;
-    });
+    const overlapping = conversions
+      .filter((c) => {
+        const cEnd = c.endFrame ?? Number.POSITIVE_INFINITY;
+        return cEnd >= startFrame && c.startFrame <= endFrame;
+      })
+      .sort((a, b) => a.startFrame - b.startFrame);
     if (overlapping.length === 0) return null;
 
-    let best: RawConversion | null = null;
-    let bestDuration = -1;
-    let bestDamage = -Infinity;
-    overlapping.forEach((c) => {
-      const cEnd = c.endFrame ?? c.startFrame;
-      const duration = cEnd - c.startFrame;
-      const damage =
-        (c.endPercent ?? c.currentPercent ?? 0) - (c.startPercent ?? 0);
-      if (
-        duration > bestDuration ||
-        (duration === bestDuration && damage > bestDamage)
-      ) {
-        best = c;
-        bestDuration = duration;
-        bestDamage = damage;
-      }
-    });
-    if (!best) return null;
-
-    // Reassign through a local `const` so TS narrows the type from the
-    // mutated `best` above. (TS widens to RawConversion | null after the
-    // forEach mutation, even though we just guarded against null.)
-    const conv: RawConversion = best;
-
-    const attacker = settings.players.find(
-      (p: any) => p.playerIndex === conv.playerIndex,
-    );
-    const defender = settings.players.find(
-      (p: any) =>
-        p.playerIndex !== conv.playerIndex &&
-        p.characterId != null &&
-        p.characterId >= 0,
-    );
-    if (!attacker || !defender) return null;
-
     const metadata = game.getMetadata();
-
     const stageName =
       settings.stageId != null
         ? stages.getStageName(settings.stageId)
         : 'Unknown Stage';
-    const attackerCharName = characters.getCharacterName(attacker.characterId);
-    const defenderCharName = characters.getCharacterName(defender.characterId);
-    const attackerName = resolvePlayerName(attacker, metadata);
-    const defenderName = resolvePlayerName(defender, metadata);
 
-    return formatComboText({
-      stageName,
-      attackerName,
-      attackerCharName,
-      defenderName,
-      defenderCharName,
-      moveIds: conv.moves.map((m) => m.moveId),
-      startPercent: conv.startPercent ?? 0,
-      endPercent: conv.endPercent ?? conv.currentPercent ?? 0,
-      didKill: Boolean(conv.didKill),
-      openingType: conv.openingType,
-    });
+    // Build a FormatComboTextInput for each overlapping conversion.
+    // In slippi-js, conversion.playerIndex is the player being combo'd
+    // (the victim/defender), NOT the attacker.
+    const inputs: FormatComboTextInput[] = overlapping.reduce<
+      FormatComboTextInput[]
+    >((acc, conv) => {
+      const defender = settings.players.find(
+        (p: any) => p.playerIndex === conv.playerIndex,
+      );
+      const attacker = settings.players.find(
+        (p: any) =>
+          p.playerIndex !== conv.playerIndex &&
+          p.characterId != null &&
+          p.characterId >= 0,
+      );
+      if (!attacker || !defender) return acc;
+
+      acc.push({
+        stageName,
+        attackerName: resolvePlayerName(attacker, metadata),
+        attackerCharName: characters.getCharacterName(attacker.characterId),
+        defenderName: resolvePlayerName(defender, metadata),
+        defenderCharName: characters.getCharacterName(defender.characterId),
+        moveIds: conv.moves.map((m) => m.moveId),
+        startPercent: conv.startPercent ?? 0,
+        endPercent: conv.endPercent ?? conv.currentPercent ?? 0,
+        didKill: Boolean(conv.didKill),
+        openingType: conv.openingType,
+      });
+      return acc;
+    }, []);
+    if (inputs.length === 0) return null;
+
+    return formatAllConversionsText(inputs);
   } catch (err: any) {
     log.warn(
       `[comboText] Failed to generate combo text for ${slpPath}: ${err.message}`,

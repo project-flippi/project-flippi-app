@@ -1,7 +1,10 @@
-// Unit tests for formatComboText — the pure string formatter used by
-// comboTextService. We only test the formatter directly; generateComboText's
-// SLP parsing path is exercised manually against real replays (see plan).
-import { formatComboText } from '../main/services/comboTextService';
+// Unit tests for formatComboText and formatAllConversionsText — the pure string
+// formatters used by comboTextService. We only test the formatters directly;
+// generateComboText's SLP parsing path is exercised manually against real replays.
+import {
+  formatComboText,
+  formatAllConversionsText,
+} from '../main/services/comboTextService';
 
 // Mock slippi-js so the fallback path in resolveMoveName doesn't pull in the
 // native node bundle during jest runs. We return predictable names for any
@@ -81,5 +84,54 @@ describe('formatComboText', () => {
       moveIds: [11],
     });
     expect(text).not.toContain('Opening:');
+  });
+});
+
+describe('formatAllConversionsText', () => {
+  const convA = {
+    stageName: 'Pokémon Stadium',
+    attackerName: 'Crixalis',
+    attackerCharName: 'Fox',
+    defenderName: 'ColdMonkeHands',
+    defenderCharName: 'Donkey Kong',
+    moveIds: [7, 13, 17], // Forward Tilt, Neutral Air, Down Air (Fox flair)
+    startPercent: 75,
+    endPercent: 109,
+    didKill: false,
+    openingType: 'counter-attack' as const,
+  };
+
+  const convB = {
+    stageName: 'Pokémon Stadium',
+    attackerName: 'ColdMonkeHands',
+    attackerCharName: 'Donkey Kong',
+    defenderName: 'Crixalis',
+    defenderCharName: 'Fox',
+    moveIds: [999, 16, 18], // unknown, Up Air, Neutral B (DK flair)
+    startPercent: 28,
+    endPercent: 110,
+    didKill: true,
+    openingType: 'neutral-win' as const,
+  };
+
+  it('returns unprefixed text for a single conversion', () => {
+    const text = formatAllConversionsText([convA]);
+    expect(text).not.toContain('Conversion');
+    expect(text).toContain("Crixalis's Fox punished");
+  });
+
+  it('numbers multiple conversions and separates with newlines', () => {
+    const text = formatAllConversionsText([convA, convB]);
+    const lines = text.split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(/^Conversion 1: On Pokémon Stadium/);
+    expect(lines[1]).toMatch(/^Conversion 2: On Pokémon Stadium/);
+    expect(lines[0]).toContain("Crixalis's Fox punished");
+    expect(lines[1]).toContain("ColdMonkeHands's Donkey Kong punished");
+    expect(lines[1]).toContain('Did KO: true.');
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(formatAllConversionsText([])).toBe('');
   });
 });
