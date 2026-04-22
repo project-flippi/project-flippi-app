@@ -19,9 +19,19 @@ export interface ObsSettings {
   startStreaming: boolean; // start streaming when stack starts
 }
 
+export interface TextAiPromptConfig {
+  systemPrompt: string;
+  userPrompt: string; // template; supports {eventName} {comboText} (+ {title} for description)
+  maxTokens: number;
+  temperature: number;
+}
+
 export interface TextAiSettings {
   provider: TextAiProvider; // default "openai"
   apiKey: string;
+  model: string; // free-text model ID; empty = provider default
+  titleConfig: TextAiPromptConfig;
+  descriptionConfig: TextAiPromptConfig;
 }
 
 export interface ImageAiSettings {
@@ -68,6 +78,23 @@ export const defaultSettings: AppSettings = {
   textAi: {
     provider: 'openai',
     apiKey: '',
+    model: '',
+    titleConfig: {
+      systemPrompt:
+        'You are a creative title writer for Super Smash Bros. Melee combo clips on YouTube. Generate a short, catchy, exciting title (max 60 characters). Do not use quotes. Make it hype and engaging for the Melee community.',
+      userPrompt:
+        'Write a title for a Super Smash Bros. Melee combo clip from {eventName}. Combo: {comboText}',
+      maxTokens: 200,
+      temperature: 0.8,
+    },
+    descriptionConfig: {
+      systemPrompt:
+        'You are a YouTube SEO expert for Super Smash Bros. Melee content. Write a short, engaging description (2-3 sentences) with relevant keywords. Include hashtags. Do not use quotes around the description.',
+      userPrompt:
+        'Write a description for a Super Smash Bros. Melee combo clip titled "{title}" from {eventName}. Combo: {comboText}',
+      maxTokens: 200,
+      temperature: 0.8,
+    },
   },
   imageAi: {
     provider: 'openai',

@@ -6,6 +6,12 @@ type Props = {
   onChange: (next: TextAiSettings) => void;
 };
 
+const DEFAULT_MODELS: Record<TextAiSettings['provider'], string> = {
+  openai: 'gpt-4o-mini',
+  claude: 'claude-haiku-4-5-20251001',
+  gemini: 'gemini-2.0-flash',
+};
+
 function TextAISettingsCard({ value, onChange }: Props) {
   return (
     <div className="pf-card">
@@ -39,6 +45,20 @@ function TextAISettingsCard({ value, onChange }: Props) {
         placeholder=""
         autoComplete=""
       />
+
+      <div className="pf-field">
+        <label htmlFor="ai-text-model">
+          Model
+          <input
+            id="ai-text-model"
+            type="text"
+            value={value.model}
+            placeholder={DEFAULT_MODELS[value.provider]}
+            onChange={(e) => onChange({ ...value, model: e.target.value })}
+          />
+          <span className="pf-note">Leave blank for default.</span>
+        </label>
+      </div>
     </div>
   );
 }

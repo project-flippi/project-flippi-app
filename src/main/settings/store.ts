@@ -37,6 +37,14 @@ function mergeSettings(
     textAi: {
       ...current.textAi,
       ...(partial.textAi ?? {}),
+      titleConfig: {
+        ...current.textAi.titleConfig,
+        ...(partial.textAi?.titleConfig ?? {}),
+      },
+      descriptionConfig: {
+        ...current.textAi.descriptionConfig,
+        ...(partial.textAi?.descriptionConfig ?? {}),
+      },
     },
     imageAi: {
       ...current.imageAi,

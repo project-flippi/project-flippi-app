@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type {
   VideoDataEntry,
   CompilationEntry,
@@ -19,6 +19,12 @@ function ClipCard({ clip, compilations, eventName, onUpdated }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const setStatusAuto = useAutoReset(setStatus, '', 3000);
+
+  useEffect(() => {
+    if (busy) return;
+    setTitle(clip.title);
+    setDescription(clip.description);
+  }, [clip.title, clip.description, busy]);
 
   const totalDamage = clip.combo
     ? (clip.combo.endPercent - clip.combo.startPercent).toFixed(1)

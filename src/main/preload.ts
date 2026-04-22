@@ -226,6 +226,22 @@ contextBridge.exposeInMainWorld('flippiReplayClips', {
     ipcRenderer.invoke('replayClips:bulkDelete', { eventName, clipIds }),
   bulkDeleteVideos: (eventName: string, clipIds: string[]) =>
     ipcRenderer.invoke('replayClips:bulkDeleteVideos', { eventName, clipIds }),
+  aiGenerate: (
+    eventName: string,
+    comboText: string,
+    kind: 'title' | 'description' | 'both',
+    title?: string,
+  ): Promise<{
+    ok: boolean;
+    title?: string;
+    description?: string;
+  }> =>
+    ipcRenderer.invoke('replayClips:aiGenerate', {
+      eventName,
+      comboText,
+      kind,
+      title,
+    }),
   createVideos: (eventName: string, clipIds?: string[]) =>
     ipcRenderer.invoke('replayClips:createVideos', { eventName, clipIds }),
   createPortraitVideos: (eventName: string, clipIds?: string[]) =>

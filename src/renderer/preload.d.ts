@@ -149,6 +149,16 @@ declare global {
         eventName: string,
         clipIds: string[],
       ) => Promise<{ deleted: number }>;
+      aiGenerate: (
+        eventName: string,
+        comboText: string,
+        kind: 'title' | 'description' | 'both',
+        title?: string,
+      ) => Promise<{
+        ok: boolean;
+        title?: string;
+        description?: string;
+      }>;
       createVideos: (
         eventName: string,
         clipIds?: string[],

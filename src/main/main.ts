@@ -62,6 +62,8 @@ import {
   generateClipTitle,
   generateDescription,
   generateThumbnail,
+  generateReplayClipTitle,
+  generateReplayClipDescription,
 } from './services/aiService';
 
 import { getGameEntries, pairGameVideos } from './services/gameVideoService';
@@ -538,6 +540,52 @@ ipcMain.handle(
   async (_evt, args: { title: string }) => {
     const settings = await getSettings();
     return generateThumbnail(args.title, settings);
+  },
+);
+
+ipcMain.handle(
+  'replayClips:aiGenerate',
+  async (
+    _evt,
+    args: {
+      eventName: string;
+      comboText: string;
+      kind: 'title' | 'description' | 'both';
+      title?: string;
+    },
+  ) => {
+    const settings = await getSettings();
+    const { eventName, comboText, kind } = args;
+    const combo = comboText || '';
+
+    if (kind === 'title') {
+      return generateReplayClipTitle(eventName, combo, settings);
+    }
+    if (kind === 'description') {
+      if (!args.title) return { ok: false };
+      return generateReplayClipDescription(
+        eventName,
+        combo,
+        args.title,
+        settings,
+      );
+    }
+    // both
+    const titleRes = await generateReplayClipTitle(eventName, combo, settings);
+    if (!titleRes.ok || !titleRes.title) {
+      return { ok: false };
+    }
+    const descRes = await generateReplayClipDescription(
+      eventName,
+      combo,
+      titleRes.title,
+      settings,
+    );
+    return {
+      ok: true,
+      title: titleRes.title,
+      description: descRes.ok ? descRes.description : undefined,
+    };
   },
 );
 

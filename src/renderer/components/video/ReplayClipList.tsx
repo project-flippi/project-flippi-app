@@ -81,6 +81,30 @@ export default function ReplayClipList({
   const { containerRef, height: containerHeight } = useContainerHeight();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [hasAiKey, setHasAiKey] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiProgress, setAiProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [aiDropdownOpen, setAiDropdownOpen] = useState(false);
+  const aiDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const settings = await window.flippiSettings.get();
+        if (!cancelled) setHasAiKey(!!settings.textAi.apiKey);
+      } catch {
+        if (!cancelled) setHasAiKey(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Clear stale selections when entries change
   useEffect(() => {
@@ -247,7 +271,79 @@ export default function ReplayClipList({
     }
   }, [eventName, selectedIds, entries, onReload, setStatusAuto]);
 
-  const anyBusy = importing || creating || bulkBusy;
+  const anyBusy = importing || creating || bulkBusy || aiBusy;
+
+  const handleAiAction = useCallback(
+    async (kind: 'title' | 'description' | 'both') => {
+      const targets = entries.filter((e) => selectedIds.has(e.clip.id));
+      if (targets.length === 0) return;
+      setAiDropdownOpen(false);
+      setAiBusy(true);
+      setAiProgress({ current: 0, total: targets.length });
+      let ok = 0;
+      let failed = 0;
+      for (let i = 0; i < targets.length; i += 1) {
+        const entry = targets[i];
+        const { clip } = entry;
+        setAiProgress({ current: i + 1, total: targets.length });
+        try {
+          if (kind === 'description') {
+            if (!clip.title) {
+              failed += 1;
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            const res = await window.flippiReplayClips.aiGenerate(
+              eventName,
+              clip.comboText ?? '',
+              'description',
+              clip.title,
+            );
+            if (res.ok && res.description) {
+              // eslint-disable-next-line no-await-in-loop
+              await window.flippiReplayClips.update(eventName, clip.id, {
+                description: res.description,
+              });
+              ok += 1;
+            } else {
+              failed += 1;
+            }
+          } else {
+            // eslint-disable-next-line no-await-in-loop
+            const res = await window.flippiReplayClips.aiGenerate(
+              eventName,
+              clip.comboText ?? '',
+              kind,
+            );
+            if (res.ok && (res.title || res.description)) {
+              const updates: { title?: string; description?: string } = {};
+              if (res.title) updates.title = res.title;
+              if (res.description) updates.description = res.description;
+              // eslint-disable-next-line no-await-in-loop
+              await window.flippiReplayClips.update(
+                eventName,
+                clip.id,
+                updates,
+              );
+              ok += 1;
+            } else {
+              failed += 1;
+            }
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+      setAiBusy(false);
+      setAiProgress(null);
+      setStatusAuto(
+        `AI ${kind === 'both' ? 'title & description' : kind}: ${ok}/${targets.length} generated${failed > 0 ? ` (${failed} failed)` : ''}`,
+      );
+      onReload();
+    },
+    [entries, selectedIds, eventName, onReload, setStatusAuto],
+  );
 
   // Dropdown state
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -358,6 +454,20 @@ export default function ReplayClipList({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [dropdownOpen]);
+
+  useEffect(() => {
+    if (!aiDropdownOpen) return undefined;
+    const handler = (e: MouseEvent) => {
+      if (
+        aiDropdownRef.current &&
+        !aiDropdownRef.current.contains(e.target as Node)
+      ) {
+        setAiDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [aiDropdownOpen]);
 
   const handleDropdownAction = useCallback(
     (action: string) => {
@@ -531,6 +641,45 @@ export default function ReplayClipList({
                     </button>
                   </>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+        {selectedIds.size > 0 && hasAiKey && (
+          <div className="pf-clip-action-dropdown" ref={aiDropdownRef}>
+            <button
+              type="button"
+              className="pf-button pf-button-primary"
+              onClick={() => setAiDropdownOpen((prev) => !prev)}
+              disabled={anyBusy}
+            >
+              {aiBusy
+                ? `Generating${aiProgress ? ` (${aiProgress.current}/${aiProgress.total})` : '...'}`
+                : `AI Actions (${selectedIds.size})`}
+            </button>
+            {aiDropdownOpen && !anyBusy && (
+              <div className="pf-clip-action-menu">
+                <button
+                  type="button"
+                  className="pf-clip-action-item"
+                  onClick={() => handleAiAction('title')}
+                >
+                  Generate Titles ({selectedIds.size})
+                </button>
+                <button
+                  type="button"
+                  className="pf-clip-action-item"
+                  onClick={() => handleAiAction('description')}
+                >
+                  Generate Descriptions ({selectedIds.size})
+                </button>
+                <button
+                  type="button"
+                  className="pf-clip-action-item"
+                  onClick={() => handleAiAction('both')}
+                >
+                  Generate Titles & Descriptions ({selectedIds.size})
+                </button>
               </div>
             )}
           </div>

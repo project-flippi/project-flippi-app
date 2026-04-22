@@ -143,6 +143,15 @@ function ReplayClipCard({
   const [description, setDescription] = useState(clip.description);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
+
+  // Sync local state when the clip's saved values change from the outside
+  // (e.g. after a bulk AI generate). Skip while busy to avoid clobbering
+  // an in-flight user edit.
+  useEffect(() => {
+    if (busy) return;
+    setTitle(clip.title);
+    setDescription(clip.description);
+  }, [clip.title, clip.description, busy]);
   const setStatusAuto = useAutoReset(setStatus, '', 3000);
   const [showPlayer, setShowPlayer] = useState(false);
   const [showExpand, setShowExpand] = useState(false);
@@ -204,14 +213,7 @@ function ReplayClipCard({
         setBusy(false);
       }
     },
-    [
-      eventName,
-      clip.id,
-      title,
-      description,
-      onUpdated,
-      setStatusAuto,
-    ],
+    [eventName, clip.id, title, description, onUpdated, setStatusAuto],
   );
 
   const cardClass = [

@@ -312,17 +312,25 @@ html, body, #root {
 }
 
 .pf-field input,
-.pf-field select {
+.pf-field select,
+.pf-field textarea {
   background: var(--pf-bg-base);
   border-radius: var(--pf-radius-md);
   border: 1px solid var(--pf-border-input);
   padding: 6px 8px;
   color: var(--pf-text-primary);
   font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.pf-field textarea {
+  resize: vertical;
+  min-height: 60px;
 }
 
 .pf-field input:focus,
-.pf-field select:focus {
+.pf-field select:focus,
+.pf-field textarea:focus {
   border-color: var(--pf-accent);
 }
 
@@ -1273,7 +1281,7 @@ html, body, #root {
 }
 
 .pf-clip-action-item:hover {
-  background: var(--pf-bg-hover);
+  background: var(--pf-bg-control);
 }
 
 .pf-clip-action-item--danger {

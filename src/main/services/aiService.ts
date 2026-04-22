@@ -102,10 +102,17 @@ function httpPost(
 // Provider-specific text generation
 // ---------------------------------------------------------------------------
 
+interface GenOpts {
+  systemPrompt: string;
+  maxTokens: number;
+  temperature: number;
+}
+
 async function generateTextOpenAI(
   prompt: string,
-  systemPrompt: string,
   apiKey: string,
+  model: string,
+  opts: GenOpts,
 ): Promise<string> {
   const res = await httpPost(
     'https://api.openai.com/v1/chat/completions',
@@ -114,13 +121,13 @@ async function generateTextOpenAI(
       Authorization: `Bearer ${apiKey}`,
     },
     {
-      model: 'gpt-4o-mini',
+      model: model || 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: opts.systemPrompt },
         { role: 'user', content: prompt },
       ],
-      max_tokens: 200,
-      temperature: 0.8,
+      max_tokens: opts.maxTokens,
+      temperature: opts.temperature,
     },
   );
   if (res.status !== 200) {
@@ -133,8 +140,9 @@ async function generateTextOpenAI(
 
 async function generateTextClaude(
   prompt: string,
-  systemPrompt: string,
   apiKey: string,
+  model: string,
+  opts: GenOpts,
 ): Promise<string> {
   const res = await httpPost(
     'https://api.anthropic.com/v1/messages',
@@ -144,9 +152,10 @@ async function generateTextClaude(
       'anthropic-version': '2023-06-01',
     },
     {
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
-      system: systemPrompt,
+      model: model || 'claude-haiku-4-5-20251001',
+      max_tokens: opts.maxTokens,
+      temperature: opts.temperature,
+      system: opts.systemPrompt,
       messages: [{ role: 'user', content: prompt }],
     },
   );
@@ -160,17 +169,22 @@ async function generateTextClaude(
 
 async function generateTextGemini(
   prompt: string,
-  systemPrompt: string,
   apiKey: string,
+  model: string,
+  opts: GenOpts,
 ): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resolvedModel = model || 'gemini-2.0-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(resolvedModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await httpPost(
     url,
     { 'Content-Type': 'application/json' },
     {
-      system_instruction: { parts: [{ text: systemPrompt }] },
+      system_instruction: { parts: [{ text: opts.systemPrompt }] },
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 200, temperature: 0.8 },
+      generationConfig: {
+        maxOutputTokens: opts.maxTokens,
+        temperature: opts.temperature,
+      },
     },
   );
   if (res.status !== 200) {
@@ -183,31 +197,49 @@ async function generateTextGemini(
 
 async function generateText(
   prompt: string,
-  systemPrompt: string,
+  opts: GenOpts,
   settings: AppSettings,
 ): Promise<string> {
-  const { provider, apiKey } = settings.textAi;
+  const { provider, apiKey, model } = settings.textAi;
   if (!apiKey) throw new Error('Text AI API key not configured.');
 
   switch (provider) {
     case 'openai':
-      return generateTextOpenAI(prompt, systemPrompt, apiKey);
+      return generateTextOpenAI(prompt, apiKey, model || '', opts);
     case 'claude':
-      return generateTextClaude(prompt, systemPrompt, apiKey);
+      return generateTextClaude(prompt, apiKey, model || '', opts);
     case 'gemini':
-      return generateTextGemini(prompt, systemPrompt, apiKey);
+      return generateTextGemini(prompt, apiKey, model || '', opts);
     default:
       throw new Error(`Unknown text AI provider: ${provider}`);
   }
+}
+
+function fillTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-const TITLE_SYSTEM_PROMPT = `You are a creative title writer for Super Smash Bros. Melee combo clips on YouTube. Generate a short, catchy, exciting title (max 60 characters). Do not use quotes. Make it hype and engaging for the Melee community.`;
+function titleOpts(settings: AppSettings): GenOpts {
+  const cfg = settings.textAi.titleConfig;
+  return {
+    systemPrompt: cfg.systemPrompt,
+    maxTokens: cfg.maxTokens,
+    temperature: cfg.temperature,
+  };
+}
 
-const DESC_SYSTEM_PROMPT = `You are a YouTube SEO expert for Super Smash Bros. Melee content. Write a short, engaging description (2-3 sentences) with relevant keywords. Include hashtags. Do not use quotes around the description.`;
+function descOpts(settings: AppSettings): GenOpts {
+  const cfg = settings.textAi.descriptionConfig;
+  return {
+    systemPrompt: cfg.systemPrompt,
+    maxTokens: cfg.maxTokens,
+    temperature: cfg.temperature,
+  };
+}
 
 export async function generateClipTitle(
   prompt: string,
@@ -215,11 +247,12 @@ export async function generateClipTitle(
   settings: AppSettings,
 ): Promise<{ ok: boolean; title?: string }> {
   try {
+    const opts = titleOpts(settings);
     const maxAttempts = 3;
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       // eslint-disable-next-line no-await-in-loop
-      const title = await generateText(prompt, TITLE_SYSTEM_PROMPT, settings);
+      const title = await generateText(prompt, opts, settings);
 
       if (title) {
         const tooSimilar = isTooSimilar(title, eventName);
@@ -232,7 +265,7 @@ export async function generateClipTitle(
     }
 
     // Final attempt — use whatever we get
-    const title = await generateText(prompt, TITLE_SYSTEM_PROMPT, settings);
+    const title = await generateText(prompt, opts, settings);
     if (title) {
       appendTitleHistory(eventName, title);
       return { ok: true, title };
@@ -253,12 +286,78 @@ export async function generateDescription(
     const prompt = `Write a YouTube description for a Super Smash Bros. Melee combo clip titled: "${title}"`;
     const description = await generateText(
       prompt,
-      DESC_SYSTEM_PROMPT,
+      descOpts(settings),
       settings,
     );
     return { ok: true, description };
   } catch (err: any) {
     log.error(`[ai] generateDescription failed: ${err.message}`);
+    return { ok: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Replay clip variants — use user-configurable prompt templates + params
+// ---------------------------------------------------------------------------
+
+export async function generateReplayClipTitle(
+  eventName: string,
+  comboText: string,
+  settings: AppSettings,
+): Promise<{ ok: boolean; title?: string }> {
+  try {
+    const cfg = settings.textAi.titleConfig;
+    const prompt = fillTemplate(cfg.userPrompt, { eventName, comboText });
+    const opts = titleOpts(settings);
+    const maxAttempts = 3;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const title = await generateText(prompt, opts, settings);
+      if (title) {
+        if (!isTooSimilar(title, eventName)) {
+          appendTitleHistory(eventName, title);
+          return { ok: true, title };
+        }
+        log.info(
+          `[ai] Replay title too similar, retrying (attempt ${attempt + 1})`,
+        );
+      }
+    }
+
+    const title = await generateText(prompt, opts, settings);
+    if (title) {
+      appendTitleHistory(eventName, title);
+      return { ok: true, title };
+    }
+    return { ok: false };
+  } catch (err: any) {
+    log.error(`[ai] generateReplayClipTitle failed: ${err.message}`);
+    return { ok: false };
+  }
+}
+
+export async function generateReplayClipDescription(
+  eventName: string,
+  comboText: string,
+  title: string,
+  settings: AppSettings,
+): Promise<{ ok: boolean; description?: string }> {
+  try {
+    const cfg = settings.textAi.descriptionConfig;
+    const prompt = fillTemplate(cfg.userPrompt, {
+      eventName,
+      comboText,
+      title,
+    });
+    const description = await generateText(
+      prompt,
+      descOpts(settings),
+      settings,
+    );
+    return { ok: true, description };
+  } catch (err: any) {
+    log.error(`[ai] generateReplayClipDescription failed: ${err.message}`);
     return { ok: false };
   }
 }

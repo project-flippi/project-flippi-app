@@ -3,6 +3,7 @@ import useSettings from '../../hooks/useSettings';
 import YouTubeSettingsCard from '../../components/settings/YouTubeSettingsCard';
 import OBSSettingsCard from '../../components/settings/OBSSettingsCard';
 import TextAISettingsCard from '../../components/settings/TextAISettingsCard';
+import PromptSettingsCard from '../../components/settings/PromptSettingsCard';
 import ImageAISettingsCard from '../../components/settings/ImageAISettingsCard';
 import SlpSettingsCard from '../../components/settings/SlpSettingsCard';
 
@@ -55,6 +56,27 @@ function SettingsPanel() {
         <TextAISettingsCard
           value={draft.textAi}
           onChange={(next) => updateSection('textAi', next)}
+        />
+
+        <PromptSettingsCard
+          title="Title Prompt"
+          value={draft.textAi.titleConfig}
+          variables={['eventName', 'comboText']}
+          onChange={(next) =>
+            updateSection('textAi', { ...draft.textAi, titleConfig: next })
+          }
+        />
+
+        <PromptSettingsCard
+          title="Description Prompt"
+          value={draft.textAi.descriptionConfig}
+          variables={['eventName', 'comboText', 'title']}
+          onChange={(next) =>
+            updateSection('textAi', {
+              ...draft.textAi,
+              descriptionConfig: next,
+            })
+          }
         />
 
         <ImageAISettingsCard
