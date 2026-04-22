@@ -16,12 +16,14 @@ import useFocusTrap from '../../hooks/useFocusTrap';
 interface ClipFieldsExpandModalProps {
   title: string;
   description: string;
+  comboText: string | null;
   onClose: (newTitle: string, newDescription: string) => void;
 }
 
 function ClipFieldsExpandModal({
   title,
   description,
+  comboText,
   onClose,
 }: ClipFieldsExpandModalProps) {
   const [editTitle, setEditTitle] = useState(title);
@@ -94,6 +96,17 @@ function ClipFieldsExpandModal({
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               rows={8}
+            />
+          </label>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label className="pf-clip-expand-label">
+            Combo Text
+            <textarea
+              className="pf-clip-expand-textarea"
+              value={comboText ?? ''}
+              readOnly
+              rows={4}
+              placeholder="No combo text"
             />
           </label>
         </div>
@@ -172,12 +185,33 @@ function ReplayClipCard({
   }, [eventName, clip.id, onUpdated, setStatusAuto]);
 
   const handleExpandClose = useCallback(
-    (newTitle: string, newDescription: string) => {
+    async (newTitle: string, newDescription: string) => {
       setTitle(newTitle);
       setDescription(newDescription);
       setShowExpand(false);
+      if (newTitle === title && newDescription === description) return;
+      setBusy(true);
+      try {
+        await window.flippiReplayClips.update(eventName, clip.id, {
+          title: newTitle,
+          description: newDescription,
+        });
+        setStatusAuto('Saved');
+        onUpdated();
+      } catch (err: any) {
+        setStatusAuto(err?.message ?? 'Failed');
+      } finally {
+        setBusy(false);
+      }
     },
-    [],
+    [
+      eventName,
+      clip.id,
+      title,
+      description,
+      onUpdated,
+      setStatusAuto,
+    ],
   );
 
   const cardClass = [
@@ -298,6 +332,7 @@ function ReplayClipCard({
         <ClipFieldsExpandModal
           title={title}
           description={description}
+          comboText={clip.comboText}
           onClose={handleExpandClose}
         />
       )}
