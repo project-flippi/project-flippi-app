@@ -253,6 +253,15 @@ declare global {
         updates: { title?: string; description?: string },
       ) => Promise<ClipCompilation>;
       delete: (eventName: string, compilationId: string) => Promise<void>;
+      aiGenerate: (
+        eventName: string,
+        compilationId: string,
+        kind: 'title' | 'description' | 'both',
+      ) => Promise<{
+        ok: boolean;
+        title?: string;
+        description?: string;
+      }>;
       deleteVideo: (
         eventName: string,
         compilationId: string,

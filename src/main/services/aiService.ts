@@ -362,6 +362,98 @@ export async function generateReplayClipDescription(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Compilation variants — separate prompt configs, take pre-joined clipTitles
+// and comboTexts (newline-separated)
+// ---------------------------------------------------------------------------
+
+function compTitleOpts(settings: AppSettings): GenOpts {
+  const cfg = settings.textAi.compilationTitleConfig;
+  return {
+    systemPrompt: cfg.systemPrompt,
+    maxTokens: cfg.maxTokens,
+    temperature: cfg.temperature,
+  };
+}
+
+function compDescOpts(settings: AppSettings): GenOpts {
+  const cfg = settings.textAi.compilationDescriptionConfig;
+  return {
+    systemPrompt: cfg.systemPrompt,
+    maxTokens: cfg.maxTokens,
+    temperature: cfg.temperature,
+  };
+}
+
+export async function generateCompilationTitle(
+  eventName: string,
+  clipTitles: string,
+  comboTexts: string,
+  settings: AppSettings,
+): Promise<{ ok: boolean; title?: string }> {
+  try {
+    const cfg = settings.textAi.compilationTitleConfig;
+    const prompt = fillTemplate(cfg.userPrompt, {
+      eventName,
+      clipTitles,
+      comboTexts,
+    });
+    const opts = compTitleOpts(settings);
+    const maxAttempts = 3;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const title = await generateText(prompt, opts, settings);
+      if (title) {
+        if (!isTooSimilar(title, eventName)) {
+          appendTitleHistory(eventName, title);
+          return { ok: true, title };
+        }
+        log.info(
+          `[ai] Compilation title too similar, retrying (attempt ${attempt + 1})`,
+        );
+      }
+    }
+
+    const title = await generateText(prompt, opts, settings);
+    if (title) {
+      appendTitleHistory(eventName, title);
+      return { ok: true, title };
+    }
+    return { ok: false };
+  } catch (err: any) {
+    log.error(`[ai] generateCompilationTitle failed: ${err.message}`);
+    return { ok: false };
+  }
+}
+
+export async function generateCompilationDescription(
+  eventName: string,
+  clipTitles: string,
+  comboTexts: string,
+  title: string,
+  settings: AppSettings,
+): Promise<{ ok: boolean; description?: string }> {
+  try {
+    const cfg = settings.textAi.compilationDescriptionConfig;
+    const prompt = fillTemplate(cfg.userPrompt, {
+      eventName,
+      clipTitles,
+      comboTexts,
+      title,
+    });
+    const description = await generateText(
+      prompt,
+      compDescOpts(settings),
+      settings,
+    );
+    return { ok: true, description };
+  } catch (err: any) {
+    log.error(`[ai] generateCompilationDescription failed: ${err.message}`);
+    return { ok: false };
+  }
+}
+
 export async function generateThumbnail(
   title: string,
   settings: AppSettings,

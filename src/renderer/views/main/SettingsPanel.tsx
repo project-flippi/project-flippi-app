@@ -79,6 +79,30 @@ function SettingsPanel() {
           }
         />
 
+        <PromptSettingsCard
+          title="Compilation Title Prompt"
+          value={draft.textAi.compilationTitleConfig}
+          variables={['eventName', 'clipTitles', 'comboTexts']}
+          onChange={(next) =>
+            updateSection('textAi', {
+              ...draft.textAi,
+              compilationTitleConfig: next,
+            })
+          }
+        />
+
+        <PromptSettingsCard
+          title="Compilation Description Prompt"
+          value={draft.textAi.compilationDescriptionConfig}
+          variables={['eventName', 'clipTitles', 'comboTexts', 'title']}
+          onChange={(next) =>
+            updateSection('textAi', {
+              ...draft.textAi,
+              compilationDescriptionConfig: next,
+            })
+          }
+        />
+
         <ImageAISettingsCard
           value={draft.imageAi}
           onChange={(next) => updateSection('imageAi', next)}

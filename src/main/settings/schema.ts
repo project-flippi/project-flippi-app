@@ -32,6 +32,8 @@ export interface TextAiSettings {
   model: string; // free-text model ID; empty = provider default
   titleConfig: TextAiPromptConfig;
   descriptionConfig: TextAiPromptConfig;
+  compilationTitleConfig: TextAiPromptConfig;
+  compilationDescriptionConfig: TextAiPromptConfig;
 }
 
 export interface ImageAiSettings {
@@ -93,6 +95,22 @@ export const defaultSettings: AppSettings = {
       userPrompt:
         'Write a description for a Super Smash Bros. Melee combo clip titled "{title}" from {eventName}. Combo: {comboText}',
       maxTokens: 200,
+      temperature: 0.8,
+    },
+    compilationTitleConfig: {
+      systemPrompt:
+        'You are a creative title writer for compilations of Super Smash Bros. Melee combo clips on YouTube. Generate a short, fun title (max 60 characters). Do not use quotes. Make it hype and engaging for the Melee community.',
+      userPrompt:
+        'Write a title for a compilation of clips from {eventName}.\nClip titles:\n{clipTitles}\n\nCombo details:\n{comboTexts}',
+      maxTokens: 200,
+      temperature: 0.9,
+    },
+    compilationDescriptionConfig: {
+      systemPrompt:
+        'You are a YouTube SEO expert for Super Smash Bros. Melee content. Write a short, engaging description (2-3 sentences) for a compilation video, with relevant keywords. Include hashtags. Do not use quotes around the description.',
+      userPrompt:
+        'Write a description for a Super Smash Bros. Melee combo compilation titled "{title}" from {eventName}.\nClip titles:\n{clipTitles}\n\nCombo details:\n{comboTexts}',
+      maxTokens: 300,
       temperature: 0.8,
     },
   },

@@ -306,6 +306,20 @@ contextBridge.exposeInMainWorld('flippiClipCompilations', {
       eventName,
       compilationId,
     }),
+  aiGenerate: (
+    eventName: string,
+    compilationId: string,
+    kind: 'title' | 'description' | 'both',
+  ): Promise<{
+    ok: boolean;
+    title?: string;
+    description?: string;
+  }> =>
+    ipcRenderer.invoke('clipCompilations:aiGenerate', {
+      eventName,
+      compilationId,
+      kind,
+    }),
   deleteVideo: (eventName: string, compilationId: string) =>
     ipcRenderer.invoke('clipCompilations:deleteVideo', {
       eventName,

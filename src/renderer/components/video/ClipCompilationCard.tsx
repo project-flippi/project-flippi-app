@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   ClipCompilation,
   ClipCompilationEntry,
@@ -8,6 +9,100 @@ import GameMatchInfo, { formatDuration } from './GameMatchInfo';
 import { VideoPlayerModal, localFileUrl } from './GameCard';
 import InlineConfirm from '../InlineConfirm';
 import useAutoReset from '../../hooks/useAutoReset';
+import useFocusTrap from '../../hooks/useFocusTrap';
+
+// ---------------------------------------------------------------------------
+// Expand modal for compilation title + description
+// ---------------------------------------------------------------------------
+
+interface CompilationFieldsExpandModalProps {
+  title: string;
+  description: string;
+  onClose: (newTitle: string, newDescription: string) => void;
+}
+
+function CompilationFieldsExpandModal({
+  title,
+  description,
+  onClose,
+}: CompilationFieldsExpandModalProps) {
+  const [editTitle, setEditTitle] = useState(title);
+  const [editDescription, setEditDescription] = useState(description);
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  const handleClose = useCallback(() => {
+    onClose(editTitle, editDescription);
+  }, [editTitle, editDescription, onClose]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [handleClose]);
+
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  return createPortal(
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div
+      className="pf-video-modal-overlay"
+      onClick={handleClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') handleClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit compilation details"
+      ref={focusTrapRef}
+    >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div
+        className="pf-video-modal-content pf-clip-expand-modal pf-clip-expand-modal--wide"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="pf-video-modal-header">
+          <span className="pf-video-modal-title">Edit Compilation Details</span>
+          <button
+            type="button"
+            className="pf-video-modal-close"
+            onClick={handleClose}
+            aria-label="Close editor"
+          >
+            &times;
+          </button>
+        </div>
+        <div className="pf-clip-expand-fields">
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label className="pf-clip-expand-label">
+            Title
+            <input
+              ref={titleRef}
+              className="pf-clip-expand-input"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+            />
+          </label>
+          {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+          <label className="pf-clip-expand-label">
+            Description
+            <textarea
+              className="pf-clip-expand-textarea"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={10}
+            />
+          </label>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Compiling indicator (dots animation)
@@ -36,6 +131,8 @@ interface ClipCompilationCardProps {
   onUpdated: (updated: ClipCompilation) => void;
   onClipRemoved: (compilationId: string, clipId: string) => void;
   onDeleted: (compilationId: string) => void;
+  selected?: boolean;
+  onToggleSelect?: (compilationId: string) => void;
 }
 
 function ClipCompilationCard({
@@ -44,11 +141,14 @@ function ClipCompilationCard({
   onUpdated,
   onClipRemoved,
   onDeleted,
+  selected = false,
+  onToggleSelect = undefined,
 }: ClipCompilationCardProps) {
   const { compilation, clips } = entry;
   const [title, setTitle] = useState(compilation.title);
   const [description, setDescription] = useState(compilation.description);
   const [showPlayer, setShowPlayer] = useState<string | null>(null);
+  const [showExpand, setShowExpand] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const setStatusAuto = useAutoReset(setStatus, '', 3000);
@@ -87,6 +187,26 @@ function ClipCompilationCard({
       setStatusAuto(err?.message ?? 'Failed');
     }
   }, [eventName, compilation.id, title, description, onUpdated, setStatusAuto]);
+
+  const handleExpandClose = useCallback(
+    async (newTitle: string, newDescription: string) => {
+      setTitle(newTitle);
+      setDescription(newDescription);
+      setShowExpand(false);
+      if (newTitle === title && newDescription === description) return;
+      try {
+        const updated = await window.flippiClipCompilations.update(
+          eventName,
+          compilation.id,
+          { title: newTitle, description: newDescription },
+        );
+        onUpdated(updated);
+      } catch (err: any) {
+        setStatusAuto(err?.message ?? 'Failed');
+      }
+    },
+    [eventName, compilation.id, title, description, onUpdated, setStatusAuto],
+  );
 
   const handleRemoveClip = useCallback(
     async (clipId: string) => {
@@ -184,6 +304,15 @@ function ClipCompilationCard({
     <div className="pf-set-card">
       {/* Title + Description */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            className="pf-replay-clip-checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(compilation.id)}
+            aria-label="Select compilation"
+          />
+        )}
         <input
           className="pf-replay-clip-input"
           value={title}
@@ -194,8 +323,32 @@ function ClipCompilationCard({
           aria-label="Compilation title"
           style={{ flex: 1, fontWeight: 600 }}
         />
+        <button
+          type="button"
+          className="pf-clip-expand-btn"
+          onClick={() => setShowExpand(true)}
+          disabled={busy}
+          title="Expand fields"
+          aria-label="Expand title and description"
+        >
+          &#x2922;
+        </button>
       </div>
-      <div style={{ padding: '2px 0' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          padding: '2px 0',
+        }}
+      >
+        {onToggleSelect && (
+          <span
+            className="pf-replay-clip-checkbox"
+            aria-hidden="true"
+            style={{ visibility: 'hidden' }}
+          />
+        )}
         <input
           className="pf-replay-clip-input"
           value={description}
@@ -204,8 +357,15 @@ function ClipCompilationCard({
           disabled={busy}
           placeholder="Description"
           aria-label="Compilation description"
-          style={{ width: '100%' }}
+          style={{ flex: 1 }}
         />
+        <span
+          className="pf-clip-expand-btn"
+          aria-hidden="true"
+          style={{ visibility: 'hidden' }}
+        >
+          &#x2922;
+        </span>
       </div>
 
       {/* Action bar: compile / play / delete */}
@@ -429,6 +589,15 @@ function ClipCompilationCard({
           src={localFileUrl(showPlayer)}
           title={title || 'Compilation'}
           onClose={() => setShowPlayer(null)}
+        />
+      )}
+
+      {/* Expand modal for title + description */}
+      {showExpand && (
+        <CompilationFieldsExpandModal
+          title={title}
+          description={description}
+          onClose={handleExpandClose}
         />
       )}
     </div>

@@ -45,6 +45,14 @@ function mergeSettings(
         ...current.textAi.descriptionConfig,
         ...(partial.textAi?.descriptionConfig ?? {}),
       },
+      compilationTitleConfig: {
+        ...current.textAi.compilationTitleConfig,
+        ...(partial.textAi?.compilationTitleConfig ?? {}),
+      },
+      compilationDescriptionConfig: {
+        ...current.textAi.compilationDescriptionConfig,
+        ...(partial.textAi?.compilationDescriptionConfig ?? {}),
+      },
     },
     imageAi: {
       ...current.imageAi,

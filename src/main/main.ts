@@ -64,6 +64,8 @@ import {
   generateThumbnail,
   generateReplayClipTitle,
   generateReplayClipDescription,
+  generateCompilationTitle,
+  generateCompilationDescription,
 } from './services/aiService';
 
 import { getGameEntries, pairGameVideos } from './services/gameVideoService';
@@ -830,6 +832,70 @@ ipcMain.handle(
       args.compilationId,
       args.updates,
     );
+  },
+);
+
+ipcMain.handle(
+  'clipCompilations:aiGenerate',
+  async (
+    _evt,
+    args: {
+      eventName: string;
+      compilationId: string;
+      kind: 'title' | 'description' | 'both';
+    },
+  ) => {
+    const settings = await getSettings();
+    const { eventName, compilationId, kind } = args;
+
+    const entries = await getClipCompilationEntries(eventName);
+    const entry = entries.find((e) => e.compilation.id === compilationId);
+    if (!entry) return { ok: false };
+
+    const clipTitles = entry.clips.map((c) => c.clip.title ?? '').join('\n');
+    const comboTexts = entry.clips
+      .map((c) => c.clip.comboText ?? '')
+      .join('\n');
+
+    if (kind === 'title') {
+      return generateCompilationTitle(
+        eventName,
+        clipTitles,
+        comboTexts,
+        settings,
+      );
+    }
+    if (kind === 'description') {
+      const existingTitle = entry.compilation.title;
+      if (!existingTitle) return { ok: false };
+      return generateCompilationDescription(
+        eventName,
+        clipTitles,
+        comboTexts,
+        existingTitle,
+        settings,
+      );
+    }
+    // both
+    const titleRes = await generateCompilationTitle(
+      eventName,
+      clipTitles,
+      comboTexts,
+      settings,
+    );
+    if (!titleRes.ok || !titleRes.title) return { ok: false };
+    const descRes = await generateCompilationDescription(
+      eventName,
+      clipTitles,
+      comboTexts,
+      titleRes.title,
+      settings,
+    );
+    return {
+      ok: true,
+      title: titleRes.title,
+      description: descRes.ok ? descRes.description : undefined,
+    };
   },
 );
 

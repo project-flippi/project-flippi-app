@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import useAutoReset from '../../hooks/useAutoReset';
 import useContainerHeight from '../../hooks/useContainerHeight';
 import type {
@@ -110,6 +116,8 @@ interface CompilationRowProps {
   onCompilationUpdated: (updated: ClipCompilation) => void;
   onClipRemoved: (compilationId: string, clipId: string) => void;
   onCompilationDeleted: (compilationId: string) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (compilationId: string) => void;
 }
 
 function CompilationRow({
@@ -120,6 +128,8 @@ function CompilationRow({
   onCompilationUpdated,
   onClipRemoved,
   onCompilationDeleted,
+  selectedIds,
+  onToggleSelect,
 }: {
   index: number;
   style: React.CSSProperties;
@@ -133,6 +143,8 @@ function CompilationRow({
         onUpdated={onCompilationUpdated}
         onClipRemoved={onClipRemoved}
         onDeleted={onCompilationDeleted}
+        selected={selectedIds.has(entry.compilation.id)}
+        onToggleSelect={onToggleSelect}
       />
     </div>
   );
@@ -157,6 +169,73 @@ function VideoManagementPanel() {
     useContainerHeight(500);
   const [actionStatus, setActionStatus] = useState('');
   const setActionStatusAuto = useAutoReset(setActionStatus, '', 5000);
+
+  // Compilation AI Actions state
+  const [selectedCompIds, setSelectedCompIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [hasAiKey, setHasAiKey] = useState(false);
+  const [aiCompBusy, setAiCompBusy] = useState(false);
+  const [aiCompProgress, setAiCompProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [aiCompDropdownOpen, setAiCompDropdownOpen] = useState(false);
+  const aiCompDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.flippiSettings
+      .get()
+      .then((s) => {
+        if (!cancelled) setHasAiKey(!!s.textAi.apiKey);
+        return undefined;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Clear stale compilation selections when list changes
+  useEffect(() => {
+    setSelectedCompIds((prev) => {
+      const ids = new Set(clipCompilations.map((e) => e.compilation.id));
+      const next = new Set([...prev].filter((id) => ids.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [clipCompilations]);
+
+  const onToggleCompSelect = useCallback((compilationId: string) => {
+    setSelectedCompIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(compilationId)) next.delete(compilationId);
+      else next.add(compilationId);
+      return next;
+    });
+  }, []);
+
+  const onSelectAllComps = useCallback(() => {
+    setSelectedCompIds((prev) => {
+      if (prev.size === clipCompilations.length) return new Set();
+      return new Set(clipCompilations.map((e) => e.compilation.id));
+    });
+  }, [clipCompilations]);
+
+  // Close compilation AI dropdown on click-outside
+  useEffect(() => {
+    if (!aiCompDropdownOpen) return undefined;
+    const handler = (e: MouseEvent) => {
+      if (
+        aiCompDropdownRef.current &&
+        !aiCompDropdownRef.current.contains(e.target as Node)
+      ) {
+        setAiCompDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [aiCompDropdownOpen]);
 
   // Derived video -> set lookup (recalculated when sets change)
   const videoSetMap = useMemo(() => buildVideoSetMap(sets), [sets]);
@@ -367,6 +446,66 @@ function VideoManagementPanel() {
     );
   }, []);
 
+  const handleCompAiAction = useCallback(
+    async (kind: 'title' | 'description' | 'both') => {
+      const targets = clipCompilations.filter((e) =>
+        selectedCompIds.has(e.compilation.id),
+      );
+      if (targets.length === 0) return;
+      setAiCompDropdownOpen(false);
+      setAiCompBusy(true);
+      setAiCompProgress({ current: 0, total: targets.length });
+      let ok = 0;
+      let failed = 0;
+      for (let i = 0; i < targets.length; i += 1) {
+        const { compilation } = targets[i];
+        setAiCompProgress({ current: i + 1, total: targets.length });
+        try {
+          if (kind === 'description' && !compilation.title) {
+            failed += 1;
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+          // eslint-disable-next-line no-await-in-loop
+          const res = await window.flippiClipCompilations.aiGenerate(
+            selectedEvent,
+            compilation.id,
+            kind,
+          );
+          if (res.ok && (res.title || res.description)) {
+            const updates: { title?: string; description?: string } = {};
+            if (res.title) updates.title = res.title;
+            if (res.description) updates.description = res.description;
+            // eslint-disable-next-line no-await-in-loop
+            const updated = await window.flippiClipCompilations.update(
+              selectedEvent,
+              compilation.id,
+              updates,
+            );
+            handleCompilationUpdated(updated);
+            ok += 1;
+          } else {
+            failed += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }
+      setAiCompBusy(false);
+      setAiCompProgress(null);
+      setActionStatusAuto(
+        `AI ${kind === 'both' ? 'title & description' : kind}: ${ok}/${targets.length} generated${failed > 0 ? ` (${failed} failed)` : ''}`,
+      );
+    },
+    [
+      clipCompilations,
+      selectedCompIds,
+      selectedEvent,
+      handleCompilationUpdated,
+      setActionStatusAuto,
+    ],
+  );
+
   async function handlePairGameVideos() {
     if (!selectedEvent) return;
     setActionBusy(true);
@@ -443,6 +582,8 @@ function VideoManagementPanel() {
       onCompilationUpdated: handleCompilationUpdated,
       onClipRemoved: handleCompilationClipRemoved,
       onCompilationDeleted: handleCompilationDeleted,
+      selectedIds: selectedCompIds,
+      onToggleSelect: onToggleCompSelect,
     }),
     [
       clipCompilations,
@@ -450,6 +591,8 @@ function VideoManagementPanel() {
       handleCompilationUpdated,
       handleCompilationClipRemoved,
       handleCompilationDeleted,
+      selectedCompIds,
+      onToggleCompSelect,
     ],
   );
 
@@ -603,6 +746,79 @@ function VideoManagementPanel() {
           {/* Compilations tab */}
           {activeTab === 'compilations' && !isLoading && (
             <>
+              {clipCompilations.length > 0 && (
+                <div className="pf-replay-clip-toolbar">
+                  {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
+                  <label
+                    className="pf-select-all-label"
+                    htmlFor="pf-select-all-comps"
+                  >
+                    <input
+                      id="pf-select-all-comps"
+                      type="checkbox"
+                      checked={
+                        selectedCompIds.size > 0 &&
+                        selectedCompIds.size === clipCompilations.length
+                      }
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate =
+                            selectedCompIds.size > 0 &&
+                            selectedCompIds.size < clipCompilations.length;
+                        }
+                      }}
+                      onChange={onSelectAllComps}
+                    />
+                    Select All
+                  </label>
+                  {selectedCompIds.size > 0 && hasAiKey && (
+                    <div
+                      className="pf-clip-action-dropdown"
+                      ref={aiCompDropdownRef}
+                    >
+                      <button
+                        type="button"
+                        className="pf-button pf-button-primary"
+                        onClick={() => setAiCompDropdownOpen((prev) => !prev)}
+                        disabled={aiCompBusy}
+                      >
+                        {aiCompBusy
+                          ? `Generating${aiCompProgress ? ` (${aiCompProgress.current}/${aiCompProgress.total})` : '...'}`
+                          : `AI Actions (${selectedCompIds.size})`}
+                      </button>
+                      {aiCompDropdownOpen && !aiCompBusy && (
+                        <div className="pf-clip-action-menu">
+                          <button
+                            type="button"
+                            className="pf-clip-action-item"
+                            onClick={() => handleCompAiAction('title')}
+                          >
+                            Generate Titles ({selectedCompIds.size})
+                          </button>
+                          <button
+                            type="button"
+                            className="pf-clip-action-item"
+                            onClick={() => handleCompAiAction('description')}
+                          >
+                            Generate Descriptions ({selectedCompIds.size})
+                          </button>
+                          <button
+                            type="button"
+                            className="pf-clip-action-item"
+                            onClick={() => handleCompAiAction('both')}
+                          >
+                            Generate Titles &amp; Descriptions (
+                            {selectedCompIds.size})
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {actionStatus && (
+                    <span className="pf-status-message">{actionStatus}</span>
+                  )}
+                </div>
+              )}
               {clipCompilations.length === 0 && (
                 <div
                   style={{ padding: '16px 0', color: 'var(--pf-text-muted)' }}
